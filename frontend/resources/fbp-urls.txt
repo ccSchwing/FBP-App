@@ -1,0 +1,27 @@
+# URL config format: key:https://endpoint
+# Keys are case-sensitive and used by js-lib/urlConfig.js getServiceUrl(key)
+#
+# This section begins the use of the python lambdas.
+# once tested, you can adjust the original entries above
+# to use the python lambda functions.
+# Note the new stackname
+getFBPUserPython:https://0bwkxz9ap1.execute-api.us-east-1.amazonaws.com/prod/getFBPUserPython
+updateFBPUserPython:https://0bwkxz9ap1.execute-api.us-east-1.amazonaws.com/prod/updateFBPUser
+addFBPUserPython:https://0bwkxz9ap1.execute-api.us-east-1.amazonaws.com/prod/addFBPUser
+getAllFBPPicksPython:https://0bwkxz9ap1.execute-api.us-east-1.amazonaws.com/prod/getAllFBPPicks
+getPoolStatus:https://0bwkxz9ap1.execute-api.us-east-1.amazonaws.com/prod/getPoolOpen
+setPoolStatusOpen:https://0bwkxz9ap1.execute-api.us-east-1.amazonaws.com/prod/setPoolStatusOpen
+setPoolStatusClosed:https://0bwkxz9ap1.execute-api.us-east-1.amazonaws.com/prod/setPoolStatusClosed
+getPickSheet:https://0bwkxz9ap1.execute-api.us-east-1.amazonaws.com/prod/getPickSheet
+getFBPPicksForUserPython:https://0bwkxz9ap1.execute-api.us-east-1.amazonaws.com/prod/getFBPPicksPython
+savePicks:https://0bwkxz9ap1.execute-api.us-east-1.amazonaws.com/prod/saveFBPPicks
+getWeeklyResults:https://0bwkxz9ap1.execute-api.us-east-1.amazonaws.com/prod/getWeeklyResults
+calcWeeklyResults:https://0bwkxz9ap1.execute-api.us-east-1.amazonaws.com/prod/calcWeeklyResults
+updateWeeklyResults:https://0bwkxz9ap1.execute-api.us-east-1.amazonaws.com/prod/updateWeeklyResults
+getFBPUserEmailAndDisplayName:https://0bwkxz9ap1.execute-api.us-east-1.amazonaws.com/prod/getFBPUserEmailAndDisplayName
+getStandings:https://0bwkxz9ap1.execute-api.us-east-1.amazonaws.com/prod/getStandings
+sendEmail:https://0bwkxz9ap1.execute-api.us-east-1.amazonaws.com/prod/sendEmail
+validateAndFixFBPPicks:https://0bwkxz9ap1.execute-api.us-east-1.amazonaws.com/prod/validateAndFixFBPPicks
+queryFBPLogs:https://0bwkxz9ap1.execute-api.us-east-1.amazonaws.com/prod/queryFBPLogs
+getSchedule:https://0bwkxz9ap1.execute-api.us-east-1.amazonaws.com/prod/getschedule
+getUserStatus:https://0bwkxz9ap1.execute-api.us-east-1.amazonaws.com/prod/getUserStatus

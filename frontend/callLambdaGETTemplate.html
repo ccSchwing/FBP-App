@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+        <head>
+                <title>Call Lambda Function with GET method</title>
+                <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+                <link rel="stylesheet" type="text/css" href="/css/styles.css" />
+                <script type="module">
+                    import { wireHamburger } from "/js-lib/uiUtils.js";
+                    wireHamburger({ buttonId: "menuBtn", navId: "main-nav" });
+                </script>
+                <script>
+                        async function callGETFetch() {
+                        try {
+                                const { getServiceUrl } = await import("/js-lib/urlConfig.js");
+                                const URL_KEY = 'getScheduleSheet';
+                                const lambdaURL = await getServiceUrl(URL_KEY);
+                                const response = await fetch(lambdaURL, {
+                                        method: 'GET',
+                                        headers: {'Content-Type': 'application/json'},
+                                });
+        
+                        console.log('Status:', response.status);
+                        const data = await response.text();
+                        console.log('Response:', data);
+            
+                        } catch (error) {
+                                console.error('Error:', error);
+                        }
+                }
+                </script>
+        </head>
+        <body class="fbp-home">
+            <div class="container">
+                <header>
+                    <h1>Menu</h1>
+                    <button id="menuBtn" class="menu-btn" type="button" aria-controls="main-nav" aria-expanded="false">☰ Menu</button>
+                    <nav id="main-nav" aria-label="Main navigation" data-open="false">
+                        <ul>
+                            <li><a href="/fbp-home.html">Home</a></li>
+                        </ul>
+                    </nav>
+                </header>
+                <main>
+                    <h1>Call Lambda Function</h1>
+                    <h2>This is a template for calling a Lambda function via GET.  Does not yet return a response.</h2>
+                    <p>Click the button to call the Lambda function.</p>
+                    <button onclick="callGETFetch()">Call Lambda GET method via Fetch</button>
+                </main>
+            </div>
+        </body>
+</html>

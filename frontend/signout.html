@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <style>
+        .menu-btn {
+            display: none;
+            font-size: 1.5rem;
+            background: none;
+            border: none;
+            cursor: pointer;
+            margin: 1rem;
+        }
+
+        #main-nav ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        @media (max-width: 768px) {
+            .menu-btn {
+                display: block;
+            }
+
+            #main-nav {
+                display: none;
+                position: absolute;
+                top: 5rem;
+                left: 1rem;
+                background: #fff;
+                border: 1px solid #ddd;
+                border-radius: 8px;
+                box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+                padding: 1rem;
+                width: 90vw;
+                max-width: 320px;
+            }
+
+            #main-nav.open {
+                display: block;
+            }
+
+            #main-nav ul {
+                display: flex !important;
+                flex-direction: column !important;
+                gap: 1rem !important;
+            }
+        }
+    </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="/js-lib/oidc-client-ts.min.js"></script>
+    <link rel="stylesheet" type="text/css" href="/css/styles.css" />
+    <title>Logout Page</title>
+</head>
+
+<body>
+    <header>
+        <button id="menuBtn" class="menu-btn" aria-controls="main-nav" aria-expanded="false">☰ Menu</button>
+        <nav id="main-nav" aria-label="Main navigation">
+            <ul>
+                <li><a href="/getpicksheet.html">Make My Picks For The Week</a></li>
+                <li><a href="/showweeklyresults.html">Show Results For The Week</a></li>
+                <li><a href="#">TBD -- View Current Standings</a></li>
+                <li><a href="/userprofile.html">Update My Profile</a></li>
+                <li><a href="#">TBD — See If You Can Win This Week</a></li>
+                <li><a href="/signout.html">Sign out</a></li>
+            </ul>
+        </nav>
+    </header>
+    <script>
+        const menuBtn = document.getElementById('menuBtn');
+        const nav = document.getElementById('main-nav');
+        menuBtn.addEventListener('click', () => {
+            nav.classList.toggle('open');
+            const expanded = nav.classList.contains('open');
+            menuBtn.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+        });
+    </script>
+    <h1>Logout Page</h1>
+    <p>Processing logout...</p>
+    <script type="module">
+        import { auth } from "/js/auth.js";
+        await auth.logout();
+    </script>
+    <footer>
+        <p>
+            Questions? Contact us at <a href="mailto:fbpadmin@my-fbp.com">fbpadmin@my-fbp.com</a>
+        </p>
+        <p>&copy; 2026 FBP. All rights reserved.</p>
+    </footer>
+</body>
+</html>

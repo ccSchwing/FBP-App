@@ -1,0 +1,238 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <script src="/js-lib/oidc-client-ts.min.js"></script>
+  <link rel="stylesheet" type="text/css" href="/css/styles.css" />
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Weekly Results</title>
+  <style>
+    #resultsTable tbody tr:nth-child(even) {
+      background-color: #ffffff;
+    }
+
+    #resultsTable tbody tr:hover {
+      background-color: #f5f5f5;
+    }
+  </style>
+
+  <script type="module">
+    import { auth } from "/js/auth.js";
+    await auth.ensureAuthenticated();
+    const isAdmin = await auth.isAdmin();
+    if (!isAdmin) {
+      location.href = await getServiceUrl("homePage");
+    } else {
+      console.log("User is Admin");
+    }
+      const user = await auth.getUser();
+      console.log("Authenticated user:", user);
+      window.user = user;
+      
+      // Now call getUserStatus after user is loaded
+      const { getUserStatus } = await import("/js-lib/userUtils.js");
+      await getUserStatus();
+  </script>
+  <script type="module">
+    import { export2txt } from "/js-lib/picksheetUtils.js";
+    async function setGridStatus(message, type = "success") {
+      const statusDiv = document.getElementById("gridStatus");
+      statusDiv.textContent = message;
+      statusDiv.className = type; // Use class to set color based on type
+    }
+    window.setGridStatus = setGridStatus; // Make it globally accessible for other scripts
+  </script>
+  <script>
+    window.addEventListener("DOMContentLoaded", async () => {
+      const poolOpen = await getPoolStatus();
+      if (poolOpen === null) {
+        setGridStatus("Unable to determine pool status. Contact support at fbpadmin@my-fbp.com.", "error");
+      } else if (poolOpen === true) {
+        setGridStatus("FBP Pool is still OPEN for picks. Weekly results cannot be shown until the pool is closed.", "error");
+      } else {
+        setGridStatus("Fetching weekly results...", "success");
+        const response = await getUpdatedResults();
+      }
+    });
+
+    async function getPoolStatus() {
+      try {
+        const { getServiceUrl } = await import("/js-lib/urlConfig.js");
+        const URL_KEY = "getPoolStatus";
+        const lambdaURL = await getServiceUrl(URL_KEY);
+        const response = await fetch(lambdaURL, {
+          method: "GET",
+          headers: { "Content-Type": "application/json" },
+        });
+        console.log("Status:", response.status);
+        if (response.ok) {
+          const data = await response.json();
+          console.log("Response:", data);
+          const poolOpenBody = parseNestedJson(data.body);
+          console.log("Pool Open Status:", poolOpenBody.pool_open);
+          return poolOpenBody.pool_open;
+        } else {
+          console.error(
+            "Error: Lambda function returned status",
+            response.status,
+          );
+          return null;
+        }
+      } catch (error) {
+        console.error("Error fetching pool status:", error);
+        return null;
+      }
+      function parseNestedJson(value) {
+        return typeof value === "string" ? JSON.parse(value) : value;
+      }
+    }
+    async function getUpdatedResults() {
+      try {
+        setGridStatus("Fetching weekly results...");
+        const { getServiceUrl } = await import("/js-lib/urlConfig.js");
+        const URL_KEY = "updateWeeklyResults";
+        const lambdaURL = await getServiceUrl(URL_KEY);
+        const response = await fetch(lambdaURL, {
+          method: "GET",
+          headers: { "Content-Type": "application/json" },
+        });
+        console.log("Status:", response.status);
+        if (response.ok) {
+          const data = await response.json();
+          console.log("Response:", data);
+          populateResultsTable(data);
+          setGridStatus("Weekly results fetched successfully.", "success");
+          window.results = data;
+        } else {
+          console.error(
+            "Error: Lambda function returned status",
+            response.status,
+          );
+          setGridStatus(
+            "Error fetching weekly results. Check console for details.",
+            "error",
+          );
+        }
+      } catch (error) {
+        console.error("Error fetching weekly results:", error);
+        setGridStatus(
+          "Error fetching weekly results. Check console for details.",
+          "error",
+        );
+      }
+    }
+  </script>
+</head>
+
+<body class="fbp-home">
+  <header>
+    <h1 style="text-align: center" class="page-title">Weekly Results Sheet</h1>
+  </header>
+  <div class="container" style="display:flex; gap:2rem; align-items:flex-start; margin:0; max-width:100%;">
+    <script type="module">
+      import { initNav } from "/js-lib/nav.js";
+      await initNav();
+    </script>
+    <aside class="nav-choices">
+      <!-- populated by nav.js -->
+    </aside>
+    <main class="results-main">
+      <table id="resultsTable">
+        <thead>
+          <tr>
+            <th>DisplayName</th>
+            <th>Wins</th>
+            <th>Losses</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+        <script>
+          function populateResultsTable(results) {
+            const tbody = document.querySelector("#resultsTable tbody");
+            tbody.innerHTML = ""; // Clear existing rows
+
+            var count = 1;
+            var overallWinstotal = 0;
+            var currentWinstotal = 0;
+            results.forEach((result) => {
+              var row = document.createElement("tr");
+              const displayNameCell = document.createElement("td");
+              displayNameCell.textContent = result.displayName;
+              const winsCell = document.createElement("td");
+              winsCell.textContent = result.correctPicks;
+              currentWinstotal = result.correctPicks;
+              const lossesCell = document.createElement("td");
+              lossesCell.textContent = result.incorrectPicks;
+
+              if (count == 1) {
+                overallWinstotal = result.correctPicks;
+                row.style.borderLeft = '6px solid #ffd700'; // Gold for 1st place
+                row.style.backgroundColor = 'lightblue';
+                row.appendChild(displayNameCell);
+                row.appendChild(winsCell);
+                row.appendChild(lossesCell);
+                tbody.appendChild(row);
+
+              }
+              if (count == 2) {
+                if (overallWinstotal == currentWinstotal) {
+                  row.style.borderLeft = '6px solid #ffd700'; // Gold for tie in 1st place
+                  row.style.backgroundColor = 'lightblue';
+                } else {
+                  row.style.borderLeft = '6px solid #c0c0c0'; // Silver for 2nd place
+                  row.style.backgroundColor = 'lightgray';
+                }
+                row.appendChild(displayNameCell);
+                row.appendChild(winsCell);
+                row.appendChild(lossesCell);
+                tbody.appendChild(row);
+
+              }
+              if (count == 3) {
+                row.style.borderLeft = '6px solid #CD7F32';
+                row.style.backgroundColor = 'lightyellow';
+                row.appendChild(displayNameCell);
+                row.appendChild(winsCell);
+                row.appendChild(lossesCell);
+                tbody.appendChild(row);
+              }
+              if (count > 3) {
+                row.style.borderLeft = '6px solid transparent';
+                row.appendChild(displayNameCell);
+                row.appendChild(winsCell);
+                row.appendChild(lossesCell);
+                tbody.appendChild(row);
+
+              }
+              count++;
+
+            //   const row = document.createElement("tr");
+            //   const displayNameCell = document.createElement("td");
+            //   displayNameCell.textContent = result.displayName;
+            //   const winsCell = document.createElement("td");
+            //   winsCell.textContent = result.correctPicks;
+            //   const lossesCell = document.createElement("td");
+            //   lossesCell.textContent = result.incorrectPicks;
+
+            //   row.appendChild(displayNameCell);
+            //   row.appendChild(winsCell);
+            //   row.appendChild(lossesCell);
+            //   tbody.appendChild(row);
+            });
+          }
+        </script>
+      </table>
+      <div id="gridStatus" style="margin-top: 20px"></div>
+      <div id="getUpdatedResults"></div>
+    </main>
+  </div>
+  <footer>
+    <p>
+      Questions? Contact us at <a href="mailto:fbpadmin@my-fbp.com">fbpadmin@my-fbp.com</a>
+    </p>
+    <p>&copy; 2026 FBP. All rights reserved.</p>
+  </footer>
+</body>
+
+</html>

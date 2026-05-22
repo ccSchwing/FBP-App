@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <style>
+        #main-nav {
+            display: none;
+            position: absolute;
+            top: 48px;
+            left: 0;
+            right: 0;
+            background: #fff;
+            border-bottom: 1px solid #ccc;
+            z-index: 1000;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+        }
+
+        #main-nav[aria-expanded="true"],
+        #main-nav[data-open="true"] {
+            display: block;
+        }
+
+        .menu-btn {
+            display: inline-block;
+            background: #eee;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            padding: 8px 16px;
+            font-size: 1.2em;
+            margin-bottom: 0;
+            z-index: 1100;
+            position: relative;
+            cursor: pointer;
+        }
+
+        @media (min-width: 700px) {
+            #main-nav {
+                display: block !important;
+                position: static;
+                background: none;
+                border: none;
+                box-shadow: none;
+            }
+
+            #main-nav ul {
+                display: flex;
+                gap: 1.5em;
+                justify-content: flex-start;
+                align-items: center;
+            }
+
+            .menu-btn {
+                display: none;
+            }
+        }
+
+        #main-nav ul {
+            list-style: none;
+            padding: 0.5em 1em;
+            margin: 0;
+        }
+
+        #main-nav li {
+            margin: 0.5em 0;
+        }
+
+        @media (min-width: 700px) {
+            #main-nav li {
+                margin: 0 0.5em;
+            }
+        }
+    </style>
+    <title>Login Success</title>
+</head>
+
+<body>
+    <header>
+        <h1>Login Successful</h1>
+        <button id="menuBtn" class="menu-btn" aria-controls="main-nav" aria-expanded="false">☰ Menu</button>
+        <nav id="main-nav" aria-label="Main navigation" data-open="false">
+            <ul>
+                <li><a href="/getpicksheet.html">Make My Picks For The Week</a></li>
+                <li><a href="/showweeklyresults.html">Show Results For The Week</a></li>
+                <li><a href="#">TBD -- View Current Standings</a></li>
+                <li><a href="/userprofile.html">Update My Profile</a></li>
+                <li><a href="#">TBD -- See If You Can Win This Week</a></li>
+                <li><a href="/signout.html">Sign out</a></li>
+            </ul>
+        </nav>
+    </header>
+    <script type="module">
+        import { wireHamburger } from "/js-lib/uiUtils.js";
+        wireHamburger({ buttonId: "menuBtn", navId: "main-nav" });
+    </script>
+    <h1>Login Successful</h1>
+    <p>You have successfully logged in. You can now access protected resources.</p>
+    <footer>
+        <p>
+            Questions? Contact us at <a href="mailto:fbpadmin@my-fbp.com">fbpadmin@my-fbp.com</a>
+        </p>
+        <p>&copy; 2026 FBP. All rights reserved.</p>
+    </footer>
+</body>
+
+</html>
