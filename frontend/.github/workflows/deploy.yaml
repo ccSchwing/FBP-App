@@ -1,0 +1,36 @@
+name: Deploy FBP-main App
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+          
+      - name: Build FBP App
+        run: |
+          echo "Building FBP app from frontend directory..."
+          cd frontend
+          
+      - name: Deploy FBP App to S3
+        run: |
+          aws s3 sync ./frontend s3://my-fbp.com/fbp-app/ --delete
+          echo "✅ FBP App deployed to S3"
+          
+      - name: Invalidate CloudFront Cache
+        run: |
+          aws cloudfront create-invalidation --distribution-id ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }} --paths "/fbp-app/*"
+          echo "✅ CloudFront cache invalidated"
