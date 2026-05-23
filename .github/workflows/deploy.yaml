@@ -23,7 +23,7 @@ jobs:
           aws-region: us-east-1
           
       - name: Setup SAM CLI
-        uses: aws-actions/setup-sam@v2
+        uses: aws-actions/setup-sam@v3
         with:
           use-installer: true
       - name: Build and Deploy Lambda Functions
