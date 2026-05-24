@@ -10,6 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+      STACK_NAME: fbp-lambda-v1-python
     
     steps:
       - name: Checkout code
@@ -27,8 +28,6 @@ jobs:
         with:
           use-installer: true
       - name: Build and Deploy Lambda Functions
-        env:
-          STACK_NAME: fbp-lambda-v1-python
         run: |
           sam build          # Finds ./template.yaml
           sam deploy --stack-name $STACK_NAME --no-confirm-changeset --no-fail-on-empty-changeset    
