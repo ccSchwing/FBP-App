@@ -39,7 +39,6 @@ jobs:
         run: |
           aws s3 cp . s3://$S3_BUCKET \
             --recursive \
-            --delete \
             --exclude "*"
             --include "*.html" \
             --include "*.css" \
