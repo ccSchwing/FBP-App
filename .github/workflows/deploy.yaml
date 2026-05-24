@@ -37,20 +37,17 @@ jobs:
           echo "Building FBP app from root directory..."
       - name: Deploy FBP App to S3
         run: |
-          aws s3 sync . s3://$S3_BUCKET \
+          aws s3 cp . s3://$S3_BUCKET \
+            --recursive \
             --delete \
-            --exclude "*/node_modules/*" \
-            --exclude "*/.git/*" \
-            --exclude "*/.github/*" \
-            --exclude "*/.vscode/*" \
-            --exclude "*/.env/*" \
-            --exclude "*/.aws/*" \
-            --exclude "*/.DS_Store/*" \
-            --exclude "*/__pycache__/*" \
-            --exclude "*/*.pyc/*" \
-            --exclude "*/template.yaml/*" \
-            --exclude "*/deploy.yaml/*" \
-            --exclude "*/README.md/*"
+            --exclude "*"
+            --include "*.html" \
+            --include "*.css" \
+            --include "*.js" \
+            --include "*.txt" \
+            --include "*.gif" \
+            --include "*.png" 
+
           echo "✅ FBP App deployed to S3"
           
       - name: Invalidate CloudFront Cache
