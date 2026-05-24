@@ -1,8 +1,8 @@
 name: Deploy FBP-main App
 
 on:
-  push:
-    branches: [main]
+  # push:
+  #   branches: [main]
   workflow_dispatch:
 
 jobs:
@@ -34,12 +34,10 @@ jobs:
           sam deploy --stack-name $STACK_NAME --s3-bucket $S3_BUCKET --capabilities CAPABILITY_IAM --no-confirm-changeset --no-fail-on-empty-changeset    
       - name: Build FBP App
         run: |
-          echo "Building FBP app from frontend directory..."
-          cd frontend
-          
+          echo "Building FBP app from root directory..."
       - name: Deploy FBP App to S3
         run: |
-          aws s3 sync ./frontend s3://$S3_BUCKET/fbp-app/ --delete
+          aws s3 sync . s3://$S3_BUCKET --delete
           echo "✅ FBP App deployed to S3"
           
       - name: Invalidate CloudFront Cache
