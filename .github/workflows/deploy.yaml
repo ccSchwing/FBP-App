@@ -37,7 +37,7 @@ jobs:
           echo "Building FBP app from root directory..."
       - name: Deploy FBP App to S3
         run: |
-          aws s3 sync . s3://$S3_BUCKET --delete --recursive --exclude "node_modules/*"
+          aws s3 sync . s3://$S3_BUCKET --delete --exclude "node_modules/*"
           echo "✅ FBP App deployed to S3"
           
       - name: Invalidate CloudFront Cache
