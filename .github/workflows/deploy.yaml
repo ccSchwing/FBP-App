@@ -50,7 +50,7 @@ jobs:
             --exclude "*/*.pyc/*" \
             --exclude "*/template.yaml/*" \
             --exclude "*/deploy.yaml/*" \
-            --exclude "*/README.md/*" \
+            --exclude "*/README.md/*"
           echo "✅ FBP App deployed to S3"
           
       - name: Invalidate CloudFront Cache
