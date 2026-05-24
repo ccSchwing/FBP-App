@@ -11,6 +11,7 @@ jobs:
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
       STACK_NAME: fbp-lambda-v1-python
+      S3_BUCKET: my-fbp.com
     
     steps:
       - name: Checkout code
@@ -30,7 +31,7 @@ jobs:
       - name: Build and Deploy Lambda Functions
         run: |
           sam build          # Finds ./template.yaml
-          sam deploy --stack-name $STACK_NAME --no-confirm-changeset --no-fail-on-empty-changeset    
+          sam deploy --stack-name $STACK_NAME --s3-bucket $S3_BUCKET --no-confirm-changeset --no-fail-on-empty-changeset    
       - name: Build FBP App
         run: |
           echo "Building FBP app from frontend directory..."
@@ -38,7 +39,7 @@ jobs:
           
       - name: Deploy FBP App to S3
         run: |
-          aws s3 sync ./frontend s3://my-fbp.com/fbp-app/ --delete
+          aws s3 sync ./frontend s3://$S3_BUCKET/fbp-app/ --delete
           echo "✅ FBP App deployed to S3"
           
       - name: Invalidate CloudFront Cache
