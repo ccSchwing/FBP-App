@@ -1,0 +1,83 @@
+<!doctype html>
+<html>
+  <!-- This page is responsible for calculating weekly user results and displaying the weekly results sheet -->
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script src="/js-lib/oidc-client-ts.min.js"></script>
+    <link rel="stylesheet" type="text/css" href="/css/styles.css" />
+    <script type="module">
+      import { auth } from "/js/auth.js";
+      await auth.ensureAuthenticated();
+    </script>
+    <script type="module">
+      import { export2txt } from "/js-lib/picksheetUtils.js";
+      async function setGridStatus(message, type = "success") {
+        const statusDiv = document.getElementById("gridStatus");
+        statusDiv.textContent = message;
+        statusDiv.className = type; // Use class to set color based on type
+      }
+
+      async function getWeeklyResults() {
+        try {
+          setGridStatus("Retrieving weekly results...");
+          const { getServiceUrl } = await import("/js-lib/urlConfig.js");
+          const URL_KEY = "getWeeklyResults";
+          const lambdaURL = await getServiceUrl(URL_KEY);
+          const response = await fetch(lambdaURL, {
+            method: "GET",
+            headers: { "Content-Type": "application/json" },
+          });
+          console.log("Lambda response status:", response.status);
+
+          if (response.ok) {
+            // Now you can process the responsData in another function.
+            const data = await response.text();
+            console.log("Calling export2txt with data:", data);
+            export2txt(data);
+            setGridStatus(
+              "Weekly game results retrieved successfully.",
+              "success",
+            );
+            console.log("Response from lambda:", data);
+          } else {
+            const errorText = await response.text();
+            console.error("Error response from lambda:", errorText);
+            setGridStatus(
+              `Error calculating weekly results: ${errorText}`,
+              "error",
+            );
+          }
+        } catch (error) {
+          console.error("Fetch error:", error);
+          setGridStatus(
+            `Error retieving weekly results: ${error.message}`,
+            "error",
+          );
+        }
+      }
+      window.getWeeklyResults = getWeeklyResults; // Make globally accessible for inline onclick
+    </script>
+    <title>Prep Grid Sheet</title>
+  </head>
+  <body class="fbp-home">
+    <div class="container">
+      <header>
+        <h1>Prep Grid Sheet</h1>
+      </header>
+      <script type="module">
+        import { initAdminNav } from "/js-lib/adminNav.js";
+        await initAdminNav();
+      </script>
+      <aside class="nav-choices nav-right">
+        <!-- populated by adminNav.js -->
+      </aside>
+      <div id="gridStatus" style="margin-top: 20px"></div>
+      <script type="module">
+        // set an event on page load to call the lambda function to prep the grid sheet
+        window.addEventListener("load", () => {
+          getWeeklyResults();
+        });
+      </script>
+    </div>
+  </body>
+</html>

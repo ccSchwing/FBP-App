@@ -1,0 +1,225 @@
+<!doctype html>
+
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <script src="/js-lib/oidc-client-ts.min.js"></script>
+  <link rel="stylesheet" type="text/css" href="/css/styles.css" />
+  <style>
+    #setGridStatus {
+      margin: 8px 0;
+      font-weight: 600;
+      min-height: 1.2em;
+    }
+
+    #setGridStatus.error {
+      color: #b00020;
+    }
+
+    #setGridStatus.success {
+      color: #0b6b2e;
+    }
+  </style>
+  <title>Set Pool Status</title>
+  <script type="module">
+    import { auth } from "/js/auth.js";
+    await auth.ensureAuthenticated();
+  </script>
+
+  <script type="module">
+    function setGridStatus(message, kind = "") {
+      const statusEl = document.getElementById("gridStatus");
+      if (!statusEl) {
+        return;
+      }
+
+      statusEl.textContent = message;
+      statusEl.classList.remove("error", "success");
+      if (kind === "error" || kind === "success") {
+        statusEl.classList.add(kind);
+      }
+    }
+    window.setGridStatus = setGridStatus; // Make globally accessible for inline onclick
+  </script>
+
+
+
+
+  <script type="module">
+    import { getServiceUrl } from "/js-lib/urlConfig.js";
+    async function getPoolStatus() {
+      try {
+        const API_ENDPOINT = await getServiceUrl("getPoolStatus");
+        console.log("Calling Lambda at:", API_ENDPOINT);
+        const response = await fetch(API_ENDPOINT);
+        const data = await response.json();
+        const parsedData = JSON.parse(data.body);
+        console.log("Parsed Data:", parsedData);
+        const poolStatusH2 = document.getElementById("showPoolStatus");
+        if (parsedData.pool_open === true) {
+          poolStatusH2.innerHTML = `Current FBP Pool Status (Week ${parsedData.week}): OPEN`;
+        } else {
+          poolStatusH2.innerHTML = `Current FBP Pool Status (Week ${parsedData.week}): CLOSED`;
+        }
+      } catch (error) {
+        console.error("Error:", error);
+      }
+    }
+    window.getPoolStatus = getPoolStatus;
+
+    window.addEventListener("poolStatusChanged", () => {
+      getPoolStatus();
+    });
+  </script>
+  <script type="module">
+    import { getServiceUrl } from "/js-lib/urlConfig.js";
+    async function setPoolStatusOpen() {
+      try {
+        const API_ENDPOINT = await getServiceUrl("setPoolStatusOpen");
+        console.log("Calling Lambda at:", API_ENDPOINT);
+        const response = await fetch(API_ENDPOINT, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ poolOpen: true }),
+        });
+        if (response.ok) {
+          window.dispatchEvent(new CustomEvent("poolStatusChanged", {
+            detail: { poolOpen: true }
+          }));
+        }
+      } catch (error) {
+        console.error("Error:", error);
+      }
+      alert("FBP Pool is now OPEN.");
+    }
+    window.setPoolStatusOpen = setPoolStatusOpen; // Expose the function to the global scope for the button onclick
+  </script>
+  <script type="module">
+    import { getServiceUrl } from "/js-lib/urlConfig.js";
+    async function validateAndFixPicksForAllUsers(){
+      let successful = false;
+      try {
+        const API_ENDPOINT = await getServiceUrl("validateAndFixFBPPicks");
+        console.log("Calling Lambda at:", API_ENDPOINT);
+        const response = await fetch(`${API_ENDPOINT}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+        });
+        if (!response.ok) {
+          console.error(`Error validating picks for all users:`, response.status);
+          successful = false;
+        } else {
+          console.log(`Successfully validated picks for all users`);
+          successful = true;
+        }
+      }
+      catch (error) {
+        console.error("Error:", error);
+        successful = false;
+      }
+      return successful;
+    }
+    async function validateAndFixPicksForAllUsersOrig() {
+      let successful = false;
+      try {
+        // Get the list of all user email addresses first
+        const getUsersEndpoint = await getServiceUrl("getFBPUserEmailAndDisplayName");
+        console.log("Calling Lambda to get user emails at:", getUsersEndpoint);
+        const usersResponse = await fetch(getUsersEndpoint);
+        if (!usersResponse.ok) {
+          console.error("Error fetching user emails:", usersResponse.status);
+          throw new Error("Failed to fetch user emails");
+        }
+        const usersData = await usersResponse.json();
+        const users = JSON.parse(usersData.body);
+        console.log("Fetched users:", users);
+        const API_ENDPOINT = await getServiceUrl("validateAndFixFBPPicks");
+        console.log("Calling Lambda at:", API_ENDPOINT);
+        const userObject = JSON.parse(usersData.body);
+        console.log("User object to validate picks for:", userObject);
+        const userArr = userObject.items;
+        const emailAddrs = userArr.map(user => user.email);
+        for (let i = 0; i < emailAddrs.length; i++) {
+          const email = emailAddrs[i];
+          console.log("Validating picks for user:", email);
+          const response = await fetch(`${API_ENDPOINT}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email: email })
+          });
+          if (!response.ok) {
+            console.error(`Error validating picks for ${email}:`, response.status);
+            successful = false;
+            break;
+          } else {
+            console.log(`Successfully validated picks for ${email}`);
+          }
+        }
+        successful = true;
+      }
+      catch (error) {
+        console.error("Error:", error);
+        successful = false;
+      }
+      return successful;
+    }
+    async function setPoolStatusClosed() {
+      try {
+        const API_ENDPOINT = await getServiceUrl("setPoolStatusClosed");
+        console.log("Calling Lambda at:", API_ENDPOINT);
+        const response = await fetch(API_ENDPOINT, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ poolOpen: false }),
+        });
+        if (response.ok) {
+          window.dispatchEvent(new CustomEvent("poolStatusChanged", {
+            detail: { poolOpen: false }
+          }));
+        }
+        const successful = await validateAndFixPicksForAllUsers();
+        if (successful) {
+          alert("FBP Pool is now CLOSED. Successfully validated and fixed picks for all users.");
+          console.log("Successfully validated and fixed picks for all users.");
+        } else {
+          alert("FBP Pool is now CLOSED. An error occurred while validating and fixing picks for all users. Check console for details.");
+          console.error("Error validating and fixing picks for all users:", response.status);
+        }
+      } catch (error) {
+        console.error("Error:", error);
+      }
+    }
+    window.setPoolStatusClosed = setPoolStatusClosed; // Expose the function to the global scope for the button onclick
+  </script>
+</head>
+
+<body class="fbp-home">
+  <div class="container">
+    <header>
+      <h1>Set Pool Status</h1>
+    </header>
+    <script type="module">
+      import { initAdminNav } from "/js-lib/adminNav.js";
+      await initAdminNav();
+    </script>
+    <div style="display:flex; gap:2rem; align-items:flex-start;">
+      <aside class="nav-choices">
+        <!-- populated by adminNav.js -->
+      </aside>
+      <div>
+        <script>
+          window.addEventListener("DOMContentLoaded", async () => {
+            const response = await getPoolStatus();
+          });
+        </script>
+      </div>
+      <div>
+        <h2 id="showPoolStatus">Current FBP Pool Status: Loading...</h2>
+      </div>
+      <main>
+        <button type="button" onclick="setPoolStatusOpen()">Open FBP Pool</button>
+        <br><br>
+        <button type="button" onclick="setPoolStatusClosed()">Close FBP Pool</button>
+      </main>
+    </div>
+  </div>
+</body>
