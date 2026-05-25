@@ -31,21 +31,6 @@ export function export2txt(picksData) {
   document.body.removeChild(a);
 }
 
-export function savePicksToFile(picksString) {
-  console.log("Saving picks to file:", picksString);
-  const blob = new Blob([picksString], { type: "application/json" });
-  saveAs
-  const url = URL.createObjectURL(blob);
-  console.log("Generated blob URL:", url);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = "/fbp-admin/picks.json";
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-}
-
 export function renderPickSheet(items) {
   return items
     .filter(
@@ -82,17 +67,17 @@ export function renderPickSheet(items) {
       <tr class="${gameClass}">
         <td> 
           <label class="container">
-            <input type="radio" name="${item.GameId}" value="A">
+            <input type="radio" id="${item.GameId}A" name="${item.GameId}" value="A">
             <span class="checkmark"></span>
           </label>
         </td>
-        <td> <img src="/images/${item.Away}.gif" alt="" width="30" height="30">
+        <td> <img src="/images/${item.Away}.gif" onclick="checkAwayTeam('${item.GameId}' +'A')" width="30" height="30">
         </td>
-        <td> <img src="/images/${item.Home}.gif" alt="" width="30" height="30">
+        <td> <img src="/images/${item.Home}.gif" onclick="checkHomeTeam('${item.GameId}' +'H')" width="30" height="30">
         </td>
         <td style="text-align:center" class="fa fa-align-center" aria-hidden="true">
           <label class="container">
-            <input type="radio" name="${item.GameId}" value="H">
+            <input type="radio" id="${item.GameId}H" name="${item.GameId}" value="H">
             <span class="checkmark"></span>
           </label>
         </td>
@@ -109,6 +94,23 @@ export function renderPickSheet(items) {
     })
     .join("");
 }
+function checkAwayTeam(radioId) {
+  console.log("checkAwayTeam called with radioId:", radioId);
+  const radio = document.getElementById(radioId);
+  if (radio) {
+    radio.checked = true;
+  }
+}
+window.checkAwayTeam = checkAwayTeam;
+
+function checkHomeTeam(radioId) {
+  console.log("checkHomeTeam called with radioId:", radioId);
+  const radio = document.getElementById(radioId);
+  if (radio) {
+    radio.checked = true;
+  }
+}
+window.checkHomeTeam = checkHomeTeam;
 
 export function getHomeandAwayPicks(checkBoxName) {
   const checkboxes = document.getElementsByName(checkBoxName);
