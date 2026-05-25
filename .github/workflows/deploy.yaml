@@ -44,6 +44,7 @@ jobs:
             --include "*.html" \
             --include "*.css" \
             --include "*.js" \
+            --include "*.map" \
             --include "*.txt" \
             --include "*.gif" \
             --include "*.png" \
