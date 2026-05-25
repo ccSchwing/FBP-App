@@ -41,6 +41,14 @@ jobs:
           aws s3 cp . s3://$S3_BUCKET \
             --recursive \
             --exclude "*" \
+            --exclude "src/*" \
+            --exclude ".aws-sam/*" \
+            --exclude ".debugger/*" \
+            --exclude "node_modules/*" \
+            --exclude ".git/*" \
+            --exclude ".github/*" \
+            --exclude ".vscode/*" \
+            --exclude "*.yaml" \
             --include "*.html" \
             --include "*.css" \
             --include "*.js" \
