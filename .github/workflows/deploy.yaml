@@ -41,6 +41,12 @@ jobs:
           aws s3 cp . s3://$S3_BUCKET \
             --recursive \
             --exclude "*" \
+            --include "*.html" \
+            --include "*.css" \
+            --include "*.js" \
+            --include "*.txt" \
+            --include "*.gif" \
+            --include "*.png" \
             --exclude "src/*" \
             --exclude ".aws-sam/*" \
             --exclude ".debugger/*" \
@@ -49,12 +55,6 @@ jobs:
             --exclude ".github/*" \
             --exclude ".vscode/*" \
             --exclude "*.yaml" \
-            --include "*.html" \
-            --include "*.css" \
-            --include "*.js" \
-            --include "*.txt" \
-            --include "*.gif" \
-            --include "*.png" 
 
           echo "✅ FBP App deployed to S3"
           
