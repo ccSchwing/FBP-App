@@ -13,6 +13,7 @@ from fbplib.getCurrentWeek import getCurrentWeek
 
 
 
+
 '''
 This function will return the user picks for the given email address in the event.
 '''

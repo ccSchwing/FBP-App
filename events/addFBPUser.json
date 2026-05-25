@@ -1,0 +1,9 @@
+{
+  "httpMethod": "POST",
+  "path": "/addFBPUser",
+  "headers": {
+    "Content-Type": "application/json"
+  },
+  "body": "{\"email\": \"chuckschwing@proton.me\", \"firstName\": \"Chuck\", \"lastName\": \"Schwing\", \"displayName\": \"The All Seeing Eye\", \"defaultAlgorithm\": \"favorites\", \"emailPickSheet\": true, \"emailReminders\": true, \"emailGridSheet\": false}",
+  "isBase64Encoded": false
+}

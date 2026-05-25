@@ -1,0 +1,26 @@
+{
+  "version": "2.0",
+  "routeKey": "POST /setPoolStatusClosed",
+  "rawPath": "/setPoolStatusClosed",
+  "rawQueryString": "",
+  "headers": {
+    "content-type": "application/json"
+  },
+  "body":
+    "{\"week\": 2, \"poolOpen\": false}",
+  
+  "requestContext": {
+    "routeKey": "POST /setPoolStatusClosed",
+    "stage": "$default",
+    "requestId": "local-request-id",
+    "apiId": "local",
+    "http": {
+      "method": "POST",
+      "path": "/setPoolStatusClosed",
+      "protocol": "HTTP/1.1",
+      "sourceIp": "127.0.0.1",
+      "userAgent": "sam-local"
+    }
+  },
+  "isBase64Encoded": false
+}
