@@ -13,8 +13,9 @@ export async function setBannerStatusMessage() {
           if (!statusBanner) {
             return;
           }
-          
-          if (data.pool_open) {
+          const poolData = JSON.parse(data.body);
+          console.log("Pool status: " + poolData.pool_open);
+          if (poolData.pool_open === true) {
             const message = "FBP Pool is OPEN for picks. Grid Sheet Weekly results cannot be shown until the pool is closed. Hover over the links below for additional info.";
             statusBanner.textContent = message;
             statusBanner.style.display = "block";
