@@ -87,6 +87,9 @@ export const auth = {
 
   
   logout: async () => {
+    // Hide page content immediately to prevent flash before redirect
+    document.body.style.visibility = 'hidden';
+
     // Clear local session first
     userManager.removeUser()
 
@@ -94,6 +97,7 @@ export const auth = {
     window.location.href = getLogoutUrl()
   },
   logoutTo: async (logoutRedirectUri) => {
+    document.body.style.visibility = 'hidden';
     userManager.removeUser()
     window.location.href = getLogoutUrl(logoutRedirectUri)
   },

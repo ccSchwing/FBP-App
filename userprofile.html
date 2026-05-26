@@ -78,7 +78,7 @@
         let response = null;
         const resolvedEmail = await resolveUserEmail();
         if (!resolvedEmail) {
-          alert("No authenticated user email found.");
+          alert("No authenticated user email found. Please contact fbpadmin@my-fbp.com.");
           return null;
         }
         const URL_KEY = "getFBPUserPython";
@@ -102,7 +102,7 @@
         );
         return window.userProfileData;
       } catch (error) {
-        alert("Failed to load user profile: " + (error.message || error));
+        alert("Failed to load user profile. Contact fbpadmin@my-fbp.com" + (error.message || error));
         return null;
       }
     }
@@ -213,9 +213,6 @@
               ?.value || "",
           defaultTieBreaker: formData.get("defaultTieBreaker") || "",
         };
-        alert(
-          "Updating profile with data: " + JSON.stringify(requestPayload),
-        );
 
         const response = await fetch(lambdaURL, {
           method: "POST",
@@ -245,7 +242,7 @@
         alert("User updated successfully!");
       } catch (error) {
         console.error("Error:", error);
-        alert(error.message || "Update failed");
+        alert(error.message || "Update failed. Please contact fbpadmin@my-fbp.com " + (error.message || error));
       }
     }
 
@@ -298,15 +295,15 @@
           <input type="text" name="displayName" id="displayName" />
         </div>
         <div>
-          <label for="EmailPickSheet">Email PickSheet:</label>
+          <label for="emailPickSheet">Email PickSheet:</label>
           <input type="checkbox" name="emailPickSheet" id="emailPickSheet" />
         </div>
         <div>
-          <label for="EmailReminder">Email Reminder:</label>
+          <label for="emailReminders">Email Reminder:</label>
           <input type="checkbox" name="emailReminders" id="emailReminders" />
         </div>
         <div>
-          <label for="EmailGridSheet">Email Gridsheet:</label>
+          <label for="emailGridSheet">Email Gridsheet:</label>
           <input type="checkbox" name="emailGridSheet" id="emailGridSheet" />
         </div>
         <div id="defaultAlgorithm" style="display: flex; flex-direction: column; gap: 0.5em; margin-bottom: 1.25rem;">

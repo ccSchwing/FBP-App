@@ -160,13 +160,18 @@ export function getPicks(formId) {
     );
     out += checked ? checked.value : "?"; // putting the ? in to flag missing picks.
   }
+  // I think you just want to return here.  Missing picks are handled
+  // when the pool closes, unless the user comes back to edit the picks.
+  return out; // e.g. "HAHA?"
 
+
+
+  // You should never get here.
+  // So says I.
   if (out.includes("?")) {
     console.log("Missing picks detected.");
     const proceedWithDefaultPicks = window.confirm(
-      "You did not make all picks. Missing picks are marked with '?'. Continue and use your default algorithm picks for the missing games?",
-    );
-
+      "You did not make all of your picks. Press Continue to use your default algorithm to fill in your picks or press Cancel to go back and complete your picks");
     if (!proceedWithDefaultPicks) {
       console.log("User cancelled. Please complete all picks before submitting.");
       return null;
