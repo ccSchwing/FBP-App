@@ -481,6 +481,32 @@
 
       refreshAllSelectionHighlights();
     }
+    function checkAllRandom() {
+      const form = document.getElementById("picksheet");
+      if (!form) {
+        return;
+      }
+
+      const gameNames = getUniqueGameIds(form);
+
+      for (let i = 0; i < gameNames.length; i += 1) {
+        const gameId = gameNames[i];
+        const randomSide = Math.random() < 0.5 ? "A" : "H";
+
+        const target = form.querySelector(
+          `input[type="radio"][name="${CSS.escape(gameId)}"][value="${randomSide}"]`,
+        );
+        if (target) {
+          target.checked = true;
+        }
+      }
+      const tieBreaker = document.getElementById(
+        "mondayNightTieBreaker",
+      );
+      tieBreaker.value = Math.floor(Math.random() * 50) + 21; // Between 21 and 70
+      refreshAllSelectionHighlights();
+    }
+
     function checkAllHomeTeams() {
       const form = document.getElementById("picksheet");
       if (!form) {
@@ -635,14 +661,22 @@
         if (allFavoritesButton) {
           allFavoritesButton.addEventListener("click", checkAllFavorites);
         }
+
         const allUnderdogsButton = document.getElementById("allUnderdogs");
         if (allUnderdogsButton) {
           allUnderdogsButton.addEventListener("click", checkAllUnderdogs);
         }
+
+       const allRandomButton = document.getElementById("allRandom");
+        if (allRandomButton) {
+          allRandomButton.addEventListener("click", checkAllRandom);
+        }
+
         const clearMyPicksButton = document.getElementById("clearMyPicks");
         if (clearMyPicksButton) {
           clearMyPicksButton.addEventListener("click", clearMyPicks);
         }
+
         wireSelectionHighlighting();
         setDiagnostics("");
         console.log("Dispatching picksheet:rendered event");
@@ -779,6 +813,7 @@
           <button type="button" id="allHomeTeams">All Home Teams</button>
           <button type="button" id="allFavorites">All Favorites</button>
           <button type="button" id="allUnderdogs">All Underdogs</button>
+          <button type="button" id="allRandom">Random</button>
           <button type="button" id="clearMyPicks">Clear My Picks</button>
           <button type="button" id="savePicks">Save Your Picks</button>
         </div>
