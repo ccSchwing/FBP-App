@@ -163,31 +163,57 @@ def validateAndFixFBPPicks():
         picks=""
         tieBreaker=""
         algorithm=""
+        displayName=""
         users=usersTable.scan()
         for user in users.get('Items', []):
+            displayName = user.get('displayName')
             email = user['email']
             logger.info(f"Validating and fixing picks for email: {email}")
             pickResponse = picksTable.get_item(
                 Key={'email': email}
             )
             if 'Item' not in pickResponse:
+                # User is valid, but has not mady any picks.  This could only happen in week 1.
+
                 logger.warning(f"No picks found for email: {email}, skipping validation and fixing for this user")
                 fbpLog(email=email, action="method: validateAndFixFBPPicks", details=f"No picks found for email: {email}, skipping validation and fixing for this user", level="WARNING")
                 continue
             picksItem = pickResponse['Item']
             picks = picksItem.get('picks')
-            tieBreaker = picksItem.get('tieBreaker')
+            decimalTieBreaker = picksItem.get('tieBreaker')
+            tieBreaker = int(decimalTieBreaker)
+            if tieBreaker == 0: # DynamoDB sends back Decimal 0 if the field is null or missing.
+                logger.warning(f"No tieBreaker found for email: {email}, will attempt to set it using default algorithm or random number")
+                fbpLog(email=email, action="method: validateAndFixFBPPicks", details=f"No tieBreaker found for email: {email}, will attempt to set it using default algorithm or random number", level="WARNING")
+                usersDate = usersTable.query(
+                    KeyConditionExpression=Key('email').eq(email)
+                )
+                defaultTieBreaker = usersDate['Items'][0].get('defaultTieBreaker')
+                if defaultTieBreaker is not None:
+                    tieBreaker = defaultTieBreaker
+                    logger.info(f"Setting tieBreaker found for email: {email}, to {tieBreaker}")
+                    fbpLog(email=email, action="method: validateAndFixFBPPicks", details=f"Setting tieBreaker found for email: {email}, to {tieBreaker}", level="INFO")
+                    noTieBreaker = False
+            # Handle the case where there are no picks.
             if picks is None:
                 noPicks = True
                 logger.warning(f"No picks found for email: {email}, setting noPicks flag to True")
                 fbpLog(email=email, action="method: validateAndFixFBPPicks", details=f"No picks found for email: {email}, setting noPicks flag to True", level="WARNING")
             if tieBreaker is None:
-                # tieBreaker will never be None -- it's enforced at the UI.
-                # Only when the user does not make picks will we
-                # use the default tieBreaker value, which is a random number between 21 and 49.
+            # Get the defaultTieBreaker from the user table.
                 noTieBreaker = True
-                logger.warning(f"No tieBreaker found for email: {email}, setting noTieBreaker flag to True")
-                fbpLog(email=email, action="method: validateAndFixFBPPicks", details=f"No tieBreaker found for email: {email}, setting noTieBreaker flag to True", level="WARNING")
+                usersData=usersTable.query(
+                    KeyConditionExpression=Key('email').eq(email)
+                )
+                defaultTieBreaker = usersData['Items'][0].get('defaultTieBreaker')
+                if defaultTieBreaker is not None:
+                    tieBreaker = defaultTieBreaker
+                    noTieBreaker = False
+                    logger.info(f"Setting tieBreaker found for email: {email}, to {tieBreaker}")
+                    fbpLog(email=email, action="method: validateAndFixFBPPicks", details=f"Setting tieBreaker found for email: {email}, to {tieBreaker}", level="INFO")
+            # End if to handle no picks and no tieBreaker cases.
+            # By the time we get here, we should have a picks string
+            # and a tieBreaker value.
             algorithm = user.get('defaultAlgorithm')
             match algorithm:
                 case "home":
@@ -311,7 +337,7 @@ def validateAndFixFBPPicks():
                             picks = defaultPicks
                             logger.info(f"Replaced ? with underdog picks: {picks}")
                         fbpLog("fbpadmin@my-fbp.com", "method: validateAndFixFBPPicks", f"Replaced ? with underdog picks: {picks}", "INFO")                
-
+            # End of match statement to apply algorithm to replace ? with the correct pick.
 
             defaultTieBreaker = None
             if noPicks:
@@ -331,9 +357,9 @@ def validateAndFixFBPPicks():
                 tieBreaker = defaultTieBreaker
             picksTable.update_item(
             Key={'email': email}, 
-            UpdateExpression="SET #picks = :p, #tieBreaker = :t, #week = :w",
-            ExpressionAttributeNames={'#picks': 'picks', '#tieBreaker': 'tieBreaker', '#week': 'week'},
-            ExpressionAttributeValues={':p': picks, ':t': tieBreaker, ':w': week}
+            UpdateExpression="SET #picks = :p, #tieBreaker = :t, #week = :w, #displayName = :d",
+            ExpressionAttributeNames={'#picks': 'picks', '#tieBreaker': 'tieBreaker', '#week': 'week', '#displayName': 'displayName'},
+            ExpressionAttributeValues={':p': picks, ':t': tieBreaker, ':w': week, ':d': displayName}
             )
             ##
             # You need to reset your noPicks and noTieBreaker flags here for the next user in the loop.
