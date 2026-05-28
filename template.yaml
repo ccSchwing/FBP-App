@@ -448,7 +448,7 @@ Resources:
             Method: OPTIONS
             PayloadFormatVersion: '2.0'
 
-  UpdateWeeklyResultsPython:
+  UpdateWeeklyResults:
     Type: AWS::Serverless::Function
     Properties:
       CodeUri: src/UpdateWeeklyResults/src/

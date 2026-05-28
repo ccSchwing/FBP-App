@@ -67,6 +67,7 @@ def updateWeeklyResults():
     picksTable = dynamodb.Table(FBP_PICKS_TABLE_NAME)
     logger.info(f"Using FBP Picks DynamoDB table: {FBP_PICKS_TABLE_NAME}")
 
+
     week=getCurrentWeek()
     if week is None:
         fbpLog("fbpadmin@my-fbp.com", "UpdateWeeklyResults", "Could not determine current week", "ERROR")
@@ -141,9 +142,13 @@ def updateWeeklyResults():
         )
 
 def updateWeeklyUserResults(allUserPicks: List[Dict[str, Any]], resultsTable, usersTable, week: int) -> List[Dict[str, Any]]:
+    dynamodb = boto3.resource('dynamodb')
+    FBP_CONFIG_TABLE_NAME = os.environ.get('FBPConfigTableName', 'FBP-Config')
+    logger.info(f"Using FBP Config DynamoDB table: {FBP_CONFIG_TABLE_NAME}")
+    configTable = dynamodb.Table(FBP_CONFIG_TABLE_NAME)
+
     FBP_SCHEDULE_TABLE_NAME = os.environ.get('FBPScheduleTableName', '2025-Schedule')
     logger.info(f"Using FBP Schedule DynamoDB table: {FBP_SCHEDULE_TABLE_NAME}")
-    dynamodb = boto3.resource('dynamodb')
     scheduleTable = dynamodb.Table(FBP_SCHEDULE_TABLE_NAME)
     scheduleResults = scheduleTable.scan(
         FilterExpression=boto3.dynamodb.conditions.Attr('Week').eq(week)
@@ -210,9 +215,9 @@ def updateWeeklyUserResults(allUserPicks: List[Dict[str, Any]], resultsTable, us
         try:
             resultsTable.update_item(
             Key={'email': email},
-            UpdateExpression="SET #correctPicks = :c, #incorrectPicks = :i",
-            ExpressionAttributeNames={'#correctPicks': 'correctPicks', '#incorrectPicks': 'incorrectPicks'},
-            ExpressionAttributeValues={':c': correctPicks, ':i': incorrectPicks}
+            UpdateExpression="SET #correctPicks = :c, #incorrectPicks = :i, #Week = :w",
+            ExpressionAttributeNames={'#correctPicks': 'correctPicks', '#incorrectPicks': 'incorrectPicks', '#Week': 'Week'},
+            ExpressionAttributeValues={':c': correctPicks, ':i': incorrectPicks, ':w': Decimal(week)}
         )
         except ClientError as e:
             logger.error(f"DynamoDB Error: {e}")
@@ -258,7 +263,23 @@ def updateWeeklyUserResults(allUserPicks: List[Dict[str, Any]], resultsTable, us
         ExpressionAttributeNames={'#Winner': 'Winner'},
         ExpressionAttributeValues={':w': True}
     )
-    fbpLog("fbpadmin@my-fbp.com", "UpdateWeeklyResults", f"Set winner for week {week} to {email} with {max_value} correct picks", "INFO")
+    # After we have updated all the user results for the week, we need to update the FBP-Config table 
+    # to set resultsCalculated to true for the current week.
+    # This will prevent this method from being run again for the current week.
+    try:
+        configTable.update_item(
+             Key={'Week': week},
+             UpdateExpression="SET #resultsCalculated = :rc",
+             ExpressionAttributeNames={'#resultsCalculated': 'resultsCalculated'},
+             ExpressionAttributeValues={':rc': True}
+        )
+    except ClientError as e:
+         logger.error(f"Error updating FBP-Config table: {e}")
+         fbpLog("fbpadmin@my-fbp.com", "UpdateWeeklyResults", f"Error updating FBP-Config table: {e}", "ERROR")
+         return []
+    logger.info(f"Updated User results for week {week}")
+     
+    fbpLog("fbpadmin@my-fbp.com", "UpdateWeeklyResults", "Set winner for week {week} to {email} with {max_value} correct picks", "INFO")
     gameResultsJSON.sort(key=lambda x: x['correctPicks'], reverse=True)  # Sort the results by correct picks in descending order
     return gameResultsJSON
 

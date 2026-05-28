@@ -1,6 +1,7 @@
 from calendar import c
 import email
 import json
+from decimal import Decimal
 from math import pi
 from operator import index
 import os
@@ -48,76 +49,55 @@ def getWeeklyResults():
     resultsTable = dynamodb.Table(FBP_WEEKLY_RESULTS_TABLE) 
     usersTable = dynamodb.Table(FBP_USERS_TABLE_NAME)
 
+    def decimal_default(value):
+        if isinstance(value, Decimal):
+            return int(value) if value % 1 == 0 else float(value)
+        raise TypeError(f"Object of type {type(value).__name__} is not JSON serializable")
+
     week=getCurrentWeek.getCurrentWeek()
     if week is None:
         fbpLog("fbpadmin@my-fbp.com", "GetWeeklyResults", "Could not determine current week", "ERROR")
         return {
             'statusCode': 500,
-            'body': json.dumps({'error': 'Could not determine current week'}),
+            'body': json.dumps({'message': 'Could not determine current week'}),
         }
+    # If week == 1, there are no results to show, so we can return early with 
+    # a message indicating that results will be available after week 1.
+    if int(week) == 1:
+        fbpLog("fbpadmin@my-fbp.com", "GetWeeklyResults", "Week 1: No results to show", "INFO")
+        return {
+            'statusCode': 200,
+            'body': json.dumps({'message': 'Results will be available after week 1'}),
+        }
+    # Subtract 1 from week to get results for the previous week.
+    week=week-1
     logger.info(f"Retrieving results for week: {week}")
     fbpLog("fbpadmin@my-fbp.com", "GetWeeklyResults", f"Retrieving results for week: {week}", "INFO")
     try:
         response = resultsTable.scan(
-            FilterExpression=boto3.dynamodb.conditions.Attr('Week').eq(week)
         )
         allUserPicks  = response.get('Items', [])
-
         if not allUserPicks:
             logger.warning(f"No picks found for week {week}")
             fbpLog("fbpadmin@my-fbp.com", "GetWeeklyResults", f"No picks found for week {week}", "WARNING")
             return {
                 'statusCode': 404,
-                'body': json.dumps({'error': f'No picks found for week {week}'}),
+                'body': json.dumps({'message': f'No picks found for week {week}'}),
             }
-        else:
-            logger.info(f"Retrieved {len(allUserPicks)} picks for week {week}")
-            fbpLog("fbpadmin@my-fbp.com", "GetWeeklyResults", f"Retrieved {len(allUserPicks)} picks for week {week}", "INFO")
-            sortedPicks=sortWeeklyResults(picks=allUserPicks)
-            winner=sortedPicks[0]['CorrectPicks']
-            email=sortedPicks[0]['email']
-            resultsTable.update_item(
-                Key={'email': email},
-                UpdateExpression="SET #Winner = :w",
-                ExpressionAttributeNames={'#Winner': 'Winner'},
-                ExpressionAttributeValues={':w': bool(winner)}
-                )
-            fbpLog("fbpadmin@my-fbp.com", "GetWeeklyResults", f"Updated winner for week {week}: {email}", "INFO")
-            # If this were a big table, I'd batch this.
-            for picks in sortedPicks:
-                if sortedPicks.index(picks) == 0:
-                    picks['Winner'] = True
-                    resultsTable.update_item(
-                        Key={'email': picks['email']},
-                        UpdateExpression="SET #Winner = :w",
-                        ExpressionAttributeNames={'#Winner': 'Winner'},
-                        ExpressionAttributeValues={':w': True}
-                    )
-                else:
-                    picks['Winner'] = False
-                    resultsTable.update_item(
-                        Key={'email': picks['email']},
-                        UpdateExpression="SET #Winner = :w",
-                        ExpressionAttributeNames={'#Winner': 'Winner'},
-                        ExpressionAttributeValues={':w': False}
-                    )
-            # Why are we updating this table??
-            # That's the job of the UpdateWeeklyResults function.
-            # This is just to return the results to the front end.
-            #       
-            # for picks in allUserPicks:
-            #     userEmail=picks['email']
-            #     correctPicks=picks['CorrectPicks']
-            #     incorrectPicks=picks['IncorrectPicks']
-            #     usersTable.update_item(
-            #         Key={'email': userEmail},
-            #         UpdateExpression="SET #totalCorrectPicks = if_not_exists(#totalCorrectPicks, :zero) + :c, #totalIncorrectPicks = if_not_exists(#totalIncorrectPicks, :zero) + :i",
-            #         ExpressionAttributeNames={'#totalCorrectPicks': 'totalCorrectPicks', '#totalIncorrectPicks': 'totalIncorrectPicks'},
-            #         ExpressionAttributeValues={':zero': 0, ':c': correctPicks, ':i': incorrectPicks}
-            #     )
-            # fbpLog("fbpadmin@my-fbp.com", "GetWeeklyResults", f"Updated user picks for week {week}", "INFO")
-            # logger.info(f"Calculated results for week {week}: {len(allUserPicks)} allUserPicks updated")
-            # fbpLog("fbpadmin@my-fbp.com", "GetWeeklyResults", f"Calculated results for week {week}", "INFO")
+        # get the displaName from usersTable for each user and add it to the results.
+        for pick in allUserPicks:
+            email = pick['email']
+            userResponse = usersTable.get_item(Key={'email': email})
+            userItem = userResponse.get('Item')
+            if userItem:
+                pick['displayName'] = userItem.get('displayName', 'Unknown User')
+            else:
+                pick['displayName'] = 'Unknown User'
+        sortedPicks=sortWeeklyResults(picks=allUserPicks)
+        return {
+            'statusCode': 200,
+            'body': json.dumps(sortedPicks, default=decimal_default),
+        }
     except ClientError as e:
         logger.error(f"DynamoDB Error: {e}")
         fbpLog("fbpadmin@my-fbp.com", "GetWeeklyResults", f"DynamoDB Error: {e}", "ERROR")
@@ -132,14 +112,10 @@ def getWeeklyResults():
             'statusCode': 500,
             'body': json.dumps({'error': 'Unexpected error'}),
         }
-    return {
-        'statusCode': 200,
-        'body': json.dumps({'message': f'Weekly results calculated for week {week}'}),
-    }
 
 
 def sortWeeklyResults(picks: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    return sorted(picks, key=lambda x: x['CorrectPicks'], reverse=True)
+    return sorted(picks, key=lambda x: x['correctPicks'], reverse=True)
 
 def lambda_handler(event, context):
     return app.resolve(event, context)  

@@ -97,7 +97,7 @@ architecture = "x86_64"
 handler = "UpdateWeeklyResults.lambda_handler"
 manifest_hash = ""
 packagetype = "Zip"
-functions = ["UpdateWeeklyResultsPython"]
+functions = ["UpdateWeeklyResults"]
 
 [function_build_definitions.33ad118e-21d5-458b-afcf-7a38e1fe349a]
 codeuri = "/Users/ccs/projects/FBP/src/CalcWeeklyResults/src"

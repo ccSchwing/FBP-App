@@ -104,25 +104,25 @@ def calcWeeklyResults():
                     ExpressionAttributeNames={'#winner': 'Winner'},
                     ExpressionAttributeValues={':w': row['Winner']}
                 )
-            # After we have updated all the games for the week, we need to update the FBP-Config table 
-            # to set resultsCalculated to true for the current week.
-            # This will prevent this method from being run again for the current week.
-            try:
-                config_table.update_item(
-                    Key={'Week': week},
-                    UpdateExpression="SET #resultsCalculated = :rc",
-                    ExpressionAttributeNames={'#resultsCalculated': 'resultsCalculated'},
-                    ExpressionAttributeValues={':rc': True}
-                )
-            except ClientError as e:
-                logger.error(f"Error updating FBP-Config table: {e}")
-                fbpLog("fbpadmin@my-fbp.com", "CalcWeeklyResults", f"Error updating FBP-Config table: {e}", "ERROR")
-                return {
-                    'statusCode': 500,
-                    'body': json.dumps({'error': 'Error updating FBP-Config table'}),
-                }
-            logger.info(f"Calculated results for week {week}: {len(games)} games updated")
-            fbpLog("fbpadmin@my-fbp.com", "CalcWeeklyResults", f"Calculated results for week {week}", "INFO")
+            # # After we have updated all the games for the week, we need to update the FBP-Config table 
+            # # to set resultsCalculated to true for the current week.
+            # # This will prevent this method from being run again for the current week.
+            # try:
+            #     config_table.update_item(
+            #         Key={'Week': week},
+            #         UpdateExpression="SET #resultsCalculated = :rc",
+            #         ExpressionAttributeNames={'#resultsCalculated': 'resultsCalculated'},
+            #         ExpressionAttributeValues={':rc': True}
+            #     )
+            # except ClientError as e:
+            #     logger.error(f"Error updating FBP-Config table: {e}")
+            #     fbpLog("fbpadmin@my-fbp.com", "CalcWeeklyResults", f"Error updating FBP-Config table: {e}", "ERROR")
+            #     return {
+            #         'statusCode': 500,
+            #         'body': json.dumps({'error': 'Error updating FBP-Config table'}),
+            #     }
+            # logger.info(f"Calculated results for week {week}: {len(games)} games updated")
+            # fbpLog("fbpadmin@my-fbp.com", "CalcWeeklyResults", f"Calculated results for week {week}", "INFO")
     except ClientError as e:
         logger.error(f"DynamoDB Error: {e}")
         fbpLog("fbpadmin@my-fbp.com", "CalcWeeklyResults", f"DynamoDB Error: {e}", "ERROR")

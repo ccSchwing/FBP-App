@@ -26,13 +26,13 @@
     } else {
       console.log("User is Admin");
     }
-      const user = await auth.getUser();
-      console.log("Authenticated user:", user);
-      window.user = user;
-      
-      // Now call getUserStatus after user is loaded
-      const { getUserStatus } = await import("/js-lib/userUtils.js");
-      await getUserStatus();
+    const user = await auth.getUser();
+    console.log("Authenticated user:", user);
+    window.user = user;
+
+    // Now call getUserStatus after user is loaded
+    const { getUserStatus } = await import("/js-lib/userUtils.js");
+    await getUserStatus();
   </script>
   <script type="module">
     import { export2txt } from "/js-lib/picksheetUtils.js";
@@ -48,11 +48,9 @@
       const poolOpen = await getPoolStatus();
       if (poolOpen === null) {
         setGridStatus("Unable to determine pool status. Contact support at fbpadmin@my-fbp.com.", "error");
-      } else if (poolOpen === true) {
-        setGridStatus("FBP Pool is still OPEN for picks. Weekly results cannot be shown until the pool is closed.", "error");
       } else {
         setGridStatus("Fetching weekly results...", "success");
-        const response = await getUpdatedResults();
+        const response = await showWeeklyResults();
       }
     });
 
@@ -87,11 +85,15 @@
         return typeof value === "string" ? JSON.parse(value) : value;
       }
     }
-    async function getUpdatedResults() {
+    async function showWeeklyResults() {
       try {
         setGridStatus("Fetching weekly results...");
         const { getServiceUrl } = await import("/js-lib/urlConfig.js");
-        const URL_KEY = "updateWeeklyResults";
+
+        // If week is 1, there are no results to show.
+        // only after week 1 when picks have been made and the pool is closed, will we have results to show.
+
+        const URL_KEY = "getWeeklyResults";
         const lambdaURL = await getServiceUrl(URL_KEY);
         const response = await fetch(lambdaURL, {
           method: "GET",
@@ -100,20 +102,36 @@
         console.log("Status:", response.status);
         if (response.ok) {
           const data = await response.json();
-          console.log("Response:", data);
+          // If week 1 and no results, show message indicating that results will be available after week 1.
+          const body = JSON.parse(data.body);
+          if (body.message) {
+            var message = body.message;
+            if (message.includes("Results will be available after week 1")) {
+              message = "Results will be available after week 1. Check back soon!";
+              setGridStatus(message, "error");
+              window.results = [];
+              return;
+            }
+          } if (body.error) {
+            var message = body.error;
+            setGridStatus(message, "error");
+            window.results = "{}";
+            return;
+          }
+          console.log("Weekly Results Response:", data);
           populateResultsTable(data);
           setGridStatus("Weekly results fetched successfully.", "success");
           window.results = data;
         } else {
-          console.error(
-            "Error: Lambda function returned status",
-            response.status,
-          );
-          setGridStatus(
-            "Error fetching weekly results. Check console for details.",
-            "error",
-          );
+          setGridStatus("Error fetching weekly results. Contact fbpadmin@my-fbp.com for support.");
+          console.error("Error: Lambda function returned status", response.status);
+          window.results = "{}";
+          return;
         }
+        // setGridStatus(
+        //   "Error fetching weekly results. Check console for details.",
+        //   "error",
+        // );
       } catch (error) {
         console.error("Error fetching weekly results:", error);
         setGridStatus(
@@ -155,6 +173,8 @@
             var count = 1;
             var overallWinstotal = 0;
             var currentWinstotal = 0;
+            results = JSON.parse(results.body);
+            console.log("Populating results table with data:", results);
             results.forEach((result) => {
               var row = document.createElement("tr");
               const displayNameCell = document.createElement("td");
@@ -206,25 +226,12 @@
 
               }
               count++;
-
-            //   const row = document.createElement("tr");
-            //   const displayNameCell = document.createElement("td");
-            //   displayNameCell.textContent = result.displayName;
-            //   const winsCell = document.createElement("td");
-            //   winsCell.textContent = result.correctPicks;
-            //   const lossesCell = document.createElement("td");
-            //   lossesCell.textContent = result.incorrectPicks;
-
-            //   row.appendChild(displayNameCell);
-            //   row.appendChild(winsCell);
-            //   row.appendChild(lossesCell);
-            //   tbody.appendChild(row);
             });
           }
         </script>
       </table>
       <div id="gridStatus" style="margin-top: 20px"></div>
-      <div id="getUpdatedResults"></div>
+      <div id="showWeeklyResults"></div>
     </main>
   </div>
   <footer>
