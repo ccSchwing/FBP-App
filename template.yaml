@@ -927,7 +927,7 @@ Resources:
         - DynamoDBReadPolicy:
             TableName: !Ref FBPConfigTableName
         - DynamoDBReadPolicy:
-            TableName: !Ref FBPPicks
+            TableName: !Ref FBPPicksTableName
         - DynamoDBCrudPolicy:
             TableName: !Ref FBPLogsTableName
       Environment:

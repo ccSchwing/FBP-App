@@ -180,13 +180,13 @@
               const displayNameCell = document.createElement("td");
               displayNameCell.textContent = result.displayName;
               const winsCell = document.createElement("td");
-              winsCell.textContent = result.correctPicks;
-              currentWinstotal = result.correctPicks;
+              winsCell.textContent = result.correctpicks;
+              currentWinstotal = result.correctpicks;
               const lossesCell = document.createElement("td");
-              lossesCell.textContent = result.incorrectPicks;
+              lossesCell.textContent = result.incorrectpicks;
 
               if (count == 1) {
-                overallWinstotal = result.correctPicks;
+                overallWinstotal = result.correctpicks;
                 row.style.borderLeft = '6px solid #ffd700'; // Gold for 1st place
                 row.style.backgroundColor = 'lightblue';
                 row.appendChild(displayNameCell);
