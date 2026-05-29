@@ -23,10 +23,23 @@ Parameters:
   FBPLogsTableName:
     Type: String
     Default: 2025-Log
+  # This is the original weekly results table.
+  # After coding for a new table, this can be removed.
   FBPWeeklyResultsTableName:
     Type: String
     Default: FBP-Weekly-Results
+  # This is the new weekly results table that will be used going forward.
+  # It uses a Global Secondary Index on WeekIndex to make it easier to query by week.
+  # It will replace the original FBPWeeklyResultsTableName after
+  # we verify the new one is working correctly and update all code to use it.
+  FBPWeeklyResults2025TableName:
+    Type: String
+    Default: FBP-Weekly-Results-2025
   FBPWeeklyResultsWeekIndexName:
+    Type: String
+    Default: WeekIndex
+  # This is the GSI on the new weekly results table to make it easier to query by week.
+  FBPWeeklyResults2025WeekIndexName:
     Type: String
     Default: WeekIndex
   S3BucketName:
@@ -554,6 +567,8 @@ Resources:
         - DynamoDBReadPolicy:
             TableName: !Ref FBPPicksTableName
         - DynamoDBReadPolicy:
+            TableName: !Ref FBPWeeklyResults2025TableName
+        - DynamoDBReadPolicy:
             TableName: !Ref FBPConfigTableName
       Environment:
         Variables:
@@ -562,6 +577,7 @@ Resources:
           FBPPicksTableName: !Ref FBPPicksTableName
           FBPLogsTableName: !Ref FBPLogsTableName
           FBPWeeklyResultsTableName: !Ref FBPWeeklyResultsTableName
+          FBPWeeklyResults2025TableName: !Ref FBPWeeklyResults2025TableName
       Layers:
         - !Ref FBPLibLayer
       Events:

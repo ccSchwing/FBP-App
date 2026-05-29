@@ -38,7 +38,7 @@ app=APIGatewayHttpResolver(cors=cors_config)
 
 @app.get("/getWeeklyResults")
 def getWeeklyResults():
-    FBP_WEEKLY_RESULTS_TABLE = os.environ.get('FBPWeeklyResultsTable', 'FBP-Weekly-Results')
+    FBP_WEEKLY_RESULTS_TABLE = os.environ.get('FBPWeeklyResults2025TableName', 'FBP-Weekly-Results-2025')
     logger.info(f"Using DynamoDB table: {FBP_WEEKLY_RESULTS_TABLE}")  # Log the table name being used
     fbpLog("fbpadmin@my-fbp.com", "GetWeeklyResults", "Lambda function initialized", "INFO")
     fbpLog("fbpadmin@my-fbp.com", "GetWeeklyResults", "Retrieving weekly results", "INFO")
@@ -115,7 +115,7 @@ def getWeeklyResults():
 
 
 def sortWeeklyResults(picks: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    return sorted(picks, key=lambda x: x['correctPicks'], reverse=True)
+    return sorted(picks, key=lambda x: x['correctpicks'], reverse=True)
 
 def lambda_handler(event, context):
     return app.resolve(event, context)  

@@ -70,6 +70,27 @@
       font-size: 0.92rem;
       width: fit-content;
     }
+
+    #loadingSpinner {
+      display: none;
+      text-align: center;
+      margin: 2rem 0;
+    }
+
+    #loadingSpinner::after {
+      content: "";
+      display: inline-block;
+      width: 48px;
+      height: 48px;
+      border: 5px solid #ccc;
+      border-top-color: #4caf50;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
   </style>
   <script type="module">
     import { getPicks, renderPickSheet } from "/js-lib/picksheetUtils.js";
@@ -583,11 +604,11 @@
 
             if (
               tieBreakerValue === "" ||
-              Number(tieBreakerValue) >=2 ||
+              Number(tieBreakerValue) >= 2 ||
               Number(tieBreakerValue) <= 150
             ) {
               // It's valid, do nothing, but with style.
-            }else{
+            } else {
               alert("Enter either a valid tiebreaker value between 2 and 150, or leave it blank to use the default algorithm for tiebreakers.");
               return;
             }
@@ -671,9 +692,13 @@ Press Cancel to go back and work on your picks before submitting.",
         }
       });
     }
+    function sleep(time) {
+      return new Promise((resolve) => setTimeout(resolve, time));
+    }
 
     async function loadPickSheetPage() {
       setLoadingSpinnerVisible(true);
+      await sleep(3000); // Add a slight delay to ensure the spinner is visible before loading data
       try {
         setDiagnostics("");
         const picksBody = document.getElementById("picksBody");
@@ -835,6 +860,7 @@ Press Cancel to go back and work on your picks before submitting.",
     </aside>
     <main class="results-main">
       <div id="infoBanner" aria-live="polite"></div>
+      <div id="loadingSpinner" aria-hidden="true" aria-label="Loading pick sheet..."></div>
       <form id="picksheet" autocomplete="off">
         <h2 id="poolStatus" style="text-align:center; margin-bottom:1rem;"></h2>
         <table>
