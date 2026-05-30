@@ -104,7 +104,7 @@
         const payload = await response.json();
         const parsedBody = JSON.parse(payload.body)
         if (parsedBody.pool_open == true) {
-          alert("The pool is currently open. The gridsheet will be available after the pool closes.  Redirecting to home page.");
+          alert("The pool is currently open. The gridsheet will be available after the pool closes on Thursday.  Redirecting to home page.");
           window.location.href = "/fbp-home.html"; // Redirect to home or another appropriate page
         }
       } catch (error) {
