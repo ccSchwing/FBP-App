@@ -50,6 +50,7 @@ jobs:
             --include "*.txt" \
             --include "*.gif" \
             --include "*.png" \
+            --exclude "schedule/*" \
             --exclude "src/*" \
             --exclude ".aws-sam/*" \
             --exclude ".debugger/*" \
