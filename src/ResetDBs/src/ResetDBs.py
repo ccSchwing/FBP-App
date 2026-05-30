@@ -69,7 +69,7 @@ def resetDBs():
         email = item['email']
         try:
             resultsTable.update_item(
-                Key={'email': email},
+                Key={'email': email, 'week': item['week']},
                 UpdateExpression="SET #correctpicks = :zero, #incorrectpicks = :zero, #winner = :false",
                 ExpressionAttributeNames={
                     '#correctpicks': 'correctpicks', 

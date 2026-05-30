@@ -515,8 +515,8 @@ Resources:
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref FBPUsersTableName
-        - DynamoDBCrudPolicy:
-            TableName: !Ref FBPWeeklyResultsTableName
+        # - DynamoDBCrudPolicy:
+        #     TableName: !Ref FBPWeeklyResultsTableName
         - DynamoDBCrudPolicy:
             TableName: !Ref FBPLogsTableName
         - DynamoDBReadPolicy:
@@ -531,7 +531,7 @@ Resources:
           FBPConfigTableName: !Ref FBPConfigTableName
           FBPPicksTableName: !Ref FBPPicksTableName
           FBPLogsTableName: !Ref FBPLogsTableName
-          FBPWeeklyResultsTableName: !Ref FBPWeeklyResultsTableName
+          # FBPWeeklyResultsTableName: !Ref FBPWeeklyResultsTableName
           FBPScheduleTableName: !Ref FBPScheduleTableName
       Layers:
         - !Ref FBPLibLayer
