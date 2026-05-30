@@ -39,7 +39,7 @@ app = APIGatewayHttpResolver(cors=cors_config)
 FBP_USERS_TABLE_NAME = os.environ.get('FBPUsersTableName', 'FBP-Users')
 logger.info(f"Using FBP Picks DynamoDB table: {FBP_USERS_TABLE_NAME}")
 
-FBP_WEEKLY_RESULTS_TABLE = os.environ.get('FBPWeeklyResultsTable', 'FBP-Weekly-Results')
+FBP_WEEKLY_RESULTS_TABLE = os.environ.get('FBPWeeklyResults2025TableName', 'FBP-Weekly-Results-2025')
 logger.info(f"Using FBP Weekly Results DynamoDB table: {FBP_WEEKLY_RESULTS_TABLE}")
 
 @app.get("/resetDBs")
@@ -59,9 +59,9 @@ def resetDBs():
                 ExpressionAttributeValues={':zero': 0}
             )
         except ClientError as e:
-            logger.error(f"DynamoDB Error: {e}")
+            logger.exception(f"DynamoDB Error: {e}")
             fbpLog("fbpadmin@my-fbp.com", "ResetDBs", f"DynamoDB Error: {e}", "ERROR")
-    # Set correctPicks and incorrectPicks to 0 for all users in the FBP-Weekly-Results table
+    # Set correctPicks and incorrectPicks to 0 for all users in the FBP-Weekly-YYYYResults table
     # unset Boolean Winner Field.
     resultsTable = boto3.resource('dynamodb').Table(FBP_WEEKLY_RESULTS_TABLE)
     response = resultsTable.scan()
@@ -69,20 +69,20 @@ def resetDBs():
         email = item['email']
         try:
             resultsTable.update_item(
-                Key={'email': email},
-                UpdateExpression="SET #correctPicks = :zero, #incorrectPicks = :zero, #winner = :false",
+                Key={'email': email, 'week': item['week']},
+                UpdateExpression="SET #correctpicks = :zero, #incorrectpicks = :zero, #winner = :false",
                 ExpressionAttributeNames={
-                    '#correctPicks': 'correctPicks', 
-                    '#incorrectPicks': 'incorrectPicks',
+                    '#correctpicks': 'correctpicks', 
+                    '#incorrectpicks': 'incorrectpicks',
                     '#winner': 'Winner'
                 },
                 ExpressionAttributeValues={':zero': 0, ':false': False}
 
             )
         except ClientError as e:
-            logger.error(f"DynamoDB Error: {e}")
+            logger.exception(f"DynamoDB Error: {e}")
             fbpLog("fbpadmin@my-fbp.com", "ResetDBs", f"DynamoDB Error: {e}", "ERROR")
-    return {"message": "DynamoDB tables FBP-Users and FBP-Weekly-Results reset successfully"}
+    return {"error": "Failed to reset DBs. Check logs for details."}
 
 def lambda_handler(event, context):
     return app.resolve(event, context)

@@ -15,6 +15,10 @@ from fbplib.getCurrentWeek import getCurrentWeek
 '''
 This function calcualates the weekly results for each user based on
 their picks and the actual game results for the week.
+Updates the FBP_WEEKLY_RESULTS_TABLE with the number of correct and incorrect picks for each user for the week and
+whether they were the winner for the week. Also updates the FBP_USERS_TABLE with the
+total correct and incorrect picks for each user for the week.
+Inrements the totalwins for the winner.
 '''
 
 logging.basicConfig(format='%(levelname)s %(message)s')
@@ -40,9 +44,8 @@ app = APIGatewayHttpResolver(cors=cors_config)
 
 @app.get("/updateWeeklyResults")
 def updateWeeklyResults():
-    FBP_WEEKLY_RESULTS_TABLE = os.environ.get('FBPWeeklyResultsTable', 'FBP-Weekly-Results')
+    FBP_WEEKLY_RESULTS_TABLE = os.environ.get('FBPWeeklyResults2025Table', 'FBP-Weekly-Results-2025')
     logger.info(f"Using DynamoDB table: {FBP_WEEKLY_RESULTS_TABLE}")  # Log the table name being used
-    fbpLog("fbpadmin@my-fbp.com", "UpdateWeeklyResults", "Lambda function initialized", "INFO")
     fbpLog("fbpadmin@my-fbp.com", "UpdateWeeklyResults", "Retrieving weekly results", "INFO")
     '''
     FBP_USERS_TABLE contains the entries for each user, including their email, totalCorrectPicks, and totalIncorrectPicks,
@@ -50,11 +53,10 @@ def updateWeeklyResults():
     the week for each user after each week.
     FBP_PICKS_TABLE contains the entries for each user's picks for each week, including
     email address week and tieBreaker.
-    This table is the raw data for calculating the weekly results. It is updated with the number of correct picks,
-    correct picks, and incorrect picks
+    This table is the raw data for calculating the weekly results.
     FBP_WEEKLY_RESULTS_TABLE contains the entries for each user's results for each week, including email,
-    week, correctPicks, incorrectPicks, and whether they were the winner for the week.
-    This table is updated with the number of correct picks, incorrect picks, and whether they were the winner for the week after each week.
+    week, correctpicks, incorrectpicks, and whether they were the winner for the week. It also
+    contains the totatwins for the user for the season.
     '''
     FBP_USERS_TABLE_NAME = os.environ.get('FBPUsersTableName', 'FBP-Users')
     logger.info(f"Using FBP Users DynamoDB table: {FBP_USERS_TABLE_NAME}")
@@ -91,8 +93,8 @@ def updateWeeklyResults():
         allUserPicks  = response.get('Items', [])
 
         if not allUserPicks:
-            logger.warning(f"No picks found for week {week}")
-            fbpLog("fbpadmin@my-fbp.com", "UpdateWeeklyResults", f"No picks found for week {week}", "WARNING")
+            logger.error(f"No picks found for week {week}")
+            fbpLog("fbpadmin@my-fbp.com", "UpdateWeeklyResults", f"No picks found for week {week}", "ERROR")
             return Response (
                 status_code=404,
                 content_type="application/json",
@@ -102,7 +104,12 @@ def updateWeeklyResults():
             logger.info(f"Retrieved {len(allUserPicks)} picks for week {week}")
             fbpLog("fbpadmin@my-fbp.com", "UpdateWeeklyResults", f"Retrieved {len(allUserPicks)} picks for week {week}", "INFO")
             '''
-            Just update FBP_WEEKLY_RESULTS_TABLE with the correct and incorrect picks for each user for the week.
+            Update the FBP_WEEKLY_RESULTS_TABLE with the number of correct and incorrect picks for each user,
+            whether they were the winner for the week, incement the total wins for the winner,
+            and update the FBP_USERS_TABLE with the total correct and incorrect picks for each user for the season.
+            We should only update the FBP_WEEKLY_RESULTS_TABLE here.
+            NO NO NO!  The below is incorrect.  THIS METHOD MUST DO ALL OF THE UPDATES!!!
+
             Leave it to GetWeklyResults to determine the winner and update the FBP_USERS_TABLE with the total correct
             and incorrect picks for each user.
             '''
@@ -125,7 +132,7 @@ def updateWeeklyResults():
                     body=json.dumps(weeklyResults)
                 )
     except ClientError as e:
-        logger.error(f"DynamoDB Error: {e}")
+        logger.exception(f"DynamoDB Error: {e}")
         fbpLog("fbpadmin@my-fbp.com", "UpdateWeeklyResults", f"DynamoDB Error: {e}", "ERROR")
         return Response (
             status_code=500,
@@ -133,7 +140,7 @@ def updateWeeklyResults():
             body=json.dumps({'error': 'DynamoDB Error'}),
         )
     except Exception as e:
-        logger.error(f"Unexpected error: {e}")
+        logger.exception(f"Unexpected error: {e}")
         fbpLog("fbpadmin@my-fbp.com", "UpdateWeeklyResults", f"Unexpected error: {e}", "ERROR")
         return Response (
             status_code=500,
@@ -186,17 +193,18 @@ def updateWeeklyUserResults(allUserPicks: List[Dict[str, Any]], resultsTable, us
         userPicks= picks['picks']  # This is a list of picks for the user for the week
         userPicks=list(userPicks)  # Convert the picks to a list of picks in the correct order
         gameResultsList = [gameResults[i] for i in range(len(gameResults))]  # Convert gameResults to a list of results in the correct order
-        correctPicks = 0
-        incorrectPicks = 0
+        correctpicks = 0
+        incorrectpicks = 0
         for index in range(len(userPicks)):
             if index >= len(gameResultsList):
-                logger.warning(f"Index {index} out of range for gameResults")
+                logger.error(f"Index {index} out of range for gameResults")
+                fbpLog("fbpadmin@my-fbp.com", "UpdateWeeklyResults", f"Index {index} out of range for gameResults", "ERROR")
                 return fbpError
             else:
                 if userPicks[index] == gameResultsList[index]:
-                    correctPicks += 1
+                    correctpicks += 1
                 else:
-                    incorrectPicks += 1
+                    incorrectpicks += 1
                 index += 1
         email=picks['email']
 
@@ -209,18 +217,23 @@ def updateWeeklyUserResults(allUserPicks: List[Dict[str, Any]], resultsTable, us
             )
             displayName = userResponse.get('Item', {}).get('displayName', 'Unknown User')
         except ClientError as e:
-            logger.error(f"DynamoDB Error: {e}")
+            logger.exception(f"DynamoDB Error: {e}")
             fbpLog("fbpadmin@my-fbp.com", "UpdateWeeklyResults", 
                    f"Failed to get displayName for {email} from DynamoDB: {e}", "ERROR")
         try:
-            resultsTable.update_item(
-            Key={'email': email},
-            UpdateExpression="SET #correctPicks = :c, #incorrectPicks = :i, #Week = :w",
-            ExpressionAttributeNames={'#correctPicks': 'correctPicks', '#incorrectPicks': 'incorrectPicks', '#Week': 'Week'},
-            ExpressionAttributeValues={':c': correctPicks, ':i': incorrectPicks, ':w': Decimal(week)}
+            resultsTable.put_item(
+                Item={
+                    'email': email,
+                    'week': Decimal(week),
+                    'correctpicks': correctpicks,
+                    'incorrectpicks': incorrectpicks,
+                }
         )
+
+        # Still need to calc winner and set totalwins.
+
         except ClientError as e:
-            logger.error(f"DynamoDB Error: {e}")
+            logger.exception(f"DynamoDB Error: {e}")
             fbpLog("fbpadmin@my-fbp.com", "UpdateWeeklyResults", f"DynamoDB Error: {e}", "ERROR")
             return fbpError
         '''
@@ -231,22 +244,22 @@ def updateWeeklyUserResults(allUserPicks: List[Dict[str, Any]], resultsTable, us
                 Key={'email': email},
                 UpdateExpression="SET #totalCorrectPicks = if_not_exists(#totalCorrectPicks, :zero) + :c, #totalIncorrectPicks = if_not_exists(#totalIncorrectPicks, :zero) + :i",
                 ExpressionAttributeNames={'#totalCorrectPicks': 'totalCorrectPicks', '#totalIncorrectPicks': 'totalIncorrectPicks'},
-                ExpressionAttributeValues={':zero': 0, ':c': correctPicks, ':i': incorrectPicks}
+                ExpressionAttributeValues={':zero': 0, ':c': correctpicks, ':i': incorrectpicks}
         )
  
         except ClientError as e:
-            logger.error(f"DynamoDB Error: {e}")
+            logger.exception(f"DynamoDB Error: {e}")
             fbpLog("fbpadmin@my-fbp.com", "UpdateWeeklyResults", f"DynamoDB Error: {e}", "ERROR")
             return fbpError
-        logger.info(f"Updated weekly results for user: {email} with correct picks: {correctPicks} and incorrect picks: {incorrectPicks}")
-        fbpLog("fbpadmin@my-fbp.com", "UpdateWeeklyResults", f"Updated weekly results for user: {email} with correct picks: {correctPicks} and incorrect picks: {incorrectPicks}", "INFO")
+        logger.info(f"Updated weekly results for user: {email} with correct picks: {correctpicks} and incorrect picks: {incorrectpicks}")
+        fbpLog("fbpadmin@my-fbp.com", "UpdateWeeklyResults", f"Updated weekly results for user: {email} with correct picks: {correctpicks} and incorrect picks: {incorrectpicks}", "INFO")
         '''
         Create a JSON String with the user's email, correct picks, and incorrect picks for the week.
         '''
         weeklyResult = {
             'displayName': displayName,
-            'correctPicks': correctPicks,
-            'incorrectPicks': incorrectPicks
+            'correctPicks': correctpicks,
+            'incorrectPicks': incorrectpicks
         }
         gameResultsJSON.append(weeklyResult)
         # End of for loop for each user's picks for the week.
@@ -254,15 +267,28 @@ def updateWeeklyUserResults(allUserPicks: List[Dict[str, Any]], resultsTable, us
     # FBP_WEEKLY_RESULTS_TABLE based on the number of correct picks for the week.
     response = resultsTable.scan()
     items = response['Items']
-    max_item = max(items, key=lambda x: x.get('correctPicks', 0))
-    max_value = max_item['correctPicks']
+    max_item = max(items, key=lambda x: x.get('correctpicks', 0))
     email = max_item['email']
     resultsTable.update_item(
-        Key={'email': email},
+        Key={'email': email, 'week': Decimal(week)},
         UpdateExpression="SET #Winner = :w",
-        ExpressionAttributeNames={'#Winner': 'Winner'},
+        ExpressionAttributeNames={'#Winner': 'winner'},
         ExpressionAttributeValues={':w': True}
     )
+    # Increment the total wins for the winner in the FBP_USERS_TABLE
+    try:
+        usersTable.update_item(
+            Key={'email': email},
+            UpdateExpression="SET #totalWins = if_not_exists(#totalWins, :zero) + :inc",
+            ExpressionAttributeNames={'#totalWins': 'totalWins'},
+            ExpressionAttributeValues={':zero': 0, ':inc': 1}
+        )
+    except ClientError as e:
+        logger.exception(f"DynamoDB Error: {e}")
+        fbpLog("fbpadmin@my-fbp.com", "UpdateWeeklyResults", f"DynamoDB Error: {e}", "ERROR")
+    
+    logger.info(f"Set winner for week {week} to {email}")
+    fbpLog("fbpadmin@my-fbp.com", "UpdateWeeklyResults", f"Set winner for week {week} to {email}", "INFO")
     # After we have updated all the user results for the week, we need to update the FBP-Config table 
     # to set resultsCalculated to true for the current week.
     # This will prevent this method from being run again for the current week.
@@ -278,8 +304,7 @@ def updateWeeklyUserResults(allUserPicks: List[Dict[str, Any]], resultsTable, us
          fbpLog("fbpadmin@my-fbp.com", "UpdateWeeklyResults", f"Error updating FBP-Config table: {e}", "ERROR")
          return []
     logger.info(f"Updated User results for week {week}")
-     
-    fbpLog("fbpadmin@my-fbp.com", "UpdateWeeklyResults", "Set winner for week {week} to {email} with {max_value} correct picks", "INFO")
+    fbpLog("fbpadmin@my-fbp.com", "UpdateWeeklyResults", f"Updated User results for week {week}", "INFO")
     gameResultsJSON.sort(key=lambda x: x['correctPicks'], reverse=True)  # Sort the results by correct picks in descending order
     return gameResultsJSON
 

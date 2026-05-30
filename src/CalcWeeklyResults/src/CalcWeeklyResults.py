@@ -14,13 +14,15 @@ from fbplib import getCurrentWeek
 '''
 This function calculates the weekly results for each game based on the actual game results for the week.
 It queries the FBP-Schedule table for the current week and updates the Winner field for each
-game based on the HomeScore, AwayScore, Spread, and Underdog fields. This is used by the UpdateWeeklyResults function
-to determine the number of correct and incorrect picks for each user for the week.
+game based on the HomeScore, AwayScore, Spread, and Underdog fields.
+
+The only work this function does it to calculate the NFL game results based on spread.
+
 '''
 logging.basicConfig(format='%(levelname)s %(message)s')
 logger = logging.getLogger()
 logger.info("Initializing CalcWeeklyResultsPython Lambda function")  # Log initialization message
-logger.setLevel(level=logging.INFO)
+logger.setLevel(logging.INFO)
 
 USERS_TABLE_NAME = os.environ.get('FBPUsersTableName', 'FBP-Users')
 logger.info(f"Using DynamoDB table: {USERS_TABLE_NAME}")  # Log the table name being used
@@ -50,6 +52,7 @@ def calcWeeklyResults():
 
     week=getCurrentWeek.getCurrentWeek()
     if week is None:
+        logger.error("Could not determine current week")
         fbpLog("fbpadmin@my-fbp.com", "CalcWeeklyResultsPython", "Could not determine current week", "ERROR")
         return {
             'statusCode': 500,
@@ -72,14 +75,15 @@ def calcWeeklyResults():
                     'statusCode': 202,
                     'body': json.dumps({'message': 'Pool is still open for the current week.  Cannot calculate results until pool is closed'}),
                 }
-            if current_week_config.get('resultsCalculated', False):
-                fbpLog("fbpadmin@my-fbp.com", "CalcWeeklyResultsPython", "Results have already been calculated for the current week", "WARNING")
-                return {
-                    'statusCode': 202,
-                    'body': json.dumps({'message': 'Results have already been calculated for the current week'}),
-                }
+            # resultsCalcuated is for the User results, not game results.
+            # if current_week_config.get('resultsCalculated', False):
+            #     fbpLog("fbpadmin@my-fbp.com", "CalcWeeklyResultsPython", "Results have already been calculated for the current week", "WARNING")
+            #     return {
+            #         'statusCode': 202,
+            #         'body': json.dumps({'message': 'Results have already been calculated for the current week'}),
+            #     }
     # If we get here, we can proceed with calculating the results for the week.
-    logger.info(f"Calculating results for week: {week}")
+    logger.info(f"Calculating game results for week: {week}")
     try:
         response = table.scan(
             FilterExpression=boto3.dynamodb.conditions.Attr('Week').eq(week)
@@ -87,8 +91,8 @@ def calcWeeklyResults():
         games = response.get('Items', [])
 
         if not games:
-            logger.warning(f"No games found for week {week}")
-            fbpLog("fbpadmin@my-fbp.com", "CalcWeeklyResults", f"No games found for week {week}", "WARNING")
+            logger.error(f"No games found for week {week}")
+            fbpLog("fbpadmin@my-fbp.com", "CalcWeeklyResults", f"No games found for week {week}", "ERROR")
             return {
                 'statusCode': 404,
                 'body': json.dumps({'error': f'No games found for week {week}'}),
@@ -104,34 +108,15 @@ def calcWeeklyResults():
                     ExpressionAttributeNames={'#winner': 'Winner'},
                     ExpressionAttributeValues={':w': row['Winner']}
                 )
-            # # After we have updated all the games for the week, we need to update the FBP-Config table 
-            # # to set resultsCalculated to true for the current week.
-            # # This will prevent this method from being run again for the current week.
-            # try:
-            #     config_table.update_item(
-            #         Key={'Week': week},
-            #         UpdateExpression="SET #resultsCalculated = :rc",
-            #         ExpressionAttributeNames={'#resultsCalculated': 'resultsCalculated'},
-            #         ExpressionAttributeValues={':rc': True}
-            #     )
-            # except ClientError as e:
-            #     logger.error(f"Error updating FBP-Config table: {e}")
-            #     fbpLog("fbpadmin@my-fbp.com", "CalcWeeklyResults", f"Error updating FBP-Config table: {e}", "ERROR")
-            #     return {
-            #         'statusCode': 500,
-            #         'body': json.dumps({'error': 'Error updating FBP-Config table'}),
-            #     }
-            # logger.info(f"Calculated results for week {week}: {len(games)} games updated")
-            # fbpLog("fbpadmin@my-fbp.com", "CalcWeeklyResults", f"Calculated results for week {week}", "INFO")
     except ClientError as e:
-        logger.error(f"DynamoDB Error: {e}")
+        logger.exception(f"DynamoDB Error: {e}")
         fbpLog("fbpadmin@my-fbp.com", "CalcWeeklyResults", f"DynamoDB Error: {e}", "ERROR")
         return {
             'statusCode': 500,
             'body': json.dumps({'error': 'DynamoDB Error'}),
         }
     except Exception as e:
-        logger.error(f"Unexpected error: {e}")
+        logger.exception(f"Unexpected error: {e}")
         fbpLog("fbpadmin@my-fbp.com", "CalcWeeklyResults", f"Unexpected error: {e}", "ERROR")
         return {
             'statusCode': 500,
@@ -139,7 +124,7 @@ def calcWeeklyResults():
         }
     return {
         'statusCode': 200,
-        'body': json.dumps({'message': f'Weekly results calculated for week {week}'}),
+        'body': json.dumps({'message': f'Weekly game results calculated for week {week}'}),
     }
 
 
