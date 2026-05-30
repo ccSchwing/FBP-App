@@ -8,6 +8,7 @@ const userLinks = `
   <li><a href="/showweeklyresults.html" title="Results are available Tuesday Noon EST">Show Results For The Previous Week</a></li>
   <li><a href="/viewstandings.html" title="Current Standings Might Not Include the Current Week">View Current Standings</a></li>
   <li><a href="/getgridsheet.html" title="Available after the Pool closes at 8:00PM EST on Thursday">Get Grid Sheet For The Week</a></li>
+  <li><a href="/faq.html">FBP FAQ</a></li>
   <li><a href="/signout.html">Sign out</a></li>
 `;
 
