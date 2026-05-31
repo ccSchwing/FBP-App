@@ -69,7 +69,7 @@ def updateFBPUser():
             )
 
     except Exception as e:
-        logger.error(f"Unexpected error: {e}")
+        logger.exception(f"Unexpected error: {e}")
         fbpLog("fbpadmin@my-fbp.com", "AddOrUpdateFBPUser", f"Unexpected error: {e}", "ERROR")
         return Response(
             status_code=400,
@@ -87,6 +87,7 @@ def updateFBPUser():
             'email': item.get('email'),
             'defaultAlgorithm': item.get('defaultAlgorithm'),
             'displayName': item.get('displayName'),
+            'paymentMethod': item.get('paymentMethod'),
             'emailGridSheet': item.get('emailGridSheet'),
             'emailPickSheet': item.get('emailPickSheet'),
             'emailReminders': item.get('emailReminders'),
@@ -141,7 +142,7 @@ def addFBPUser():
             )
 
     except Exception as e:
-        logger.error(f"Unexpected error: {e}")
+        logger.exception(f"Unexpected error: {e}")
         fbpLog("fbpadmin@my-fbp.com", "AddFBPUser", f"Unexpected error: {e}", "ERROR")
         return Response(
             status_code=400,
@@ -172,6 +173,7 @@ def updateFBPUserData(request_body):
             UpdateExpression=
                 "SET defaultAlgorithm = :defaultAlgorithm, "
                 "displayName = :displayName, "
+                "paymentMethod = :paymentMethod, "
                 "emailGridSheet = :emailGridSheet, "
                 "emailPickSheet = :emailPickSheet, "
                 "emailReminders = :emailReminders, "
@@ -180,8 +182,9 @@ def updateFBPUserData(request_body):
                 "defaultTieBreaker = :defaultTieBreaker",
             ExpressionAttributeValues={
                 ':defaultAlgorithm': request_body.get('defaultAlgorithm'),
-                ':defaultTieBreaker': request_body.get('defaultTieBreaker', 49),
+                ':defaultTieBreaker': request_body.get('defaultTieBreaker'),
                 ':displayName': request_body.get('displayName'),
+                ':paymentMethod': request_body.get('paymentMethod'),
                 ':emailGridSheet': bool(request_body.get('emailGridSheet')),
                 ':emailPickSheet': bool(request_body.get('emailPickSheet')),
                 ':emailReminders': bool(request_body.get('emailReminders')),
@@ -227,6 +230,8 @@ def addFBPUserData(request_body):
                 'email': request_body.get('email'),
                 'defaultAlgorithm': request_body.get('defaultAlgorithm'),
                 'displayName': request_body.get('displayName'),
+                # paymentMethod is only available when the user is updated.
+                # That's why it's not included here.  Admin creates the account.
                 'emailGridSheet': bool(request_body.get('emailGridSheet')),
                 'emailPickSheet': bool(request_body.get('emailPickSheet')),
                 'emailReminders': bool(request_body.get('emailReminders')),
@@ -238,7 +243,7 @@ def addFBPUserData(request_body):
             }
         )
     except ClientError as e:
-        logger.error(f"DynamoDB Error: {e}")
+        logger.exception(f"DynamoDB Error: {e}")
         fbpLog("fbpadmin@my-fbp.com", "AddFBPUser", f"DynamoDB Error: {e}", "ERROR")
         return Response(
             status_code=500,
@@ -246,7 +251,7 @@ def addFBPUserData(request_body):
         )
     except Exception as e:
         fbpLog("fbpadmin@my-fbp.com", "AddFBPUser", f"Unexpected error: {e}", "ERROR")
-        logger.error(f"Unexpected error: {e}")
+        logger.exception(f"Unexpected error: {e}")
         return Response(
             status_code=500,
             body=json.dumps({'error': f'Unexpected error occurred for email {request_body.get("email")}'})
@@ -282,7 +287,7 @@ def addFBPUserData(request_body):
             })
         )
     except ClientError as e:
-        logger.error(f"DynamoDB Error: {e}")
+        logger.exception(f"DynamoDB Error: {e}")
         fbpLog("fbpadmin@my-fbp.com", "AddFBPUser", f"DynamoDB Error: {e}", "ERROR")
         return Response(
             status_code=500,
@@ -290,7 +295,7 @@ def addFBPUserData(request_body):
         )
     except Exception as e:
         fbpLog("fbpadmin@my-fbp.com", "AddFBPUser", f"Unexpected error: {e}", "ERROR")
-        logger.error(f"Unexpected error: {e}")
+        logger.exception(f"Unexpected error: {e}")
         return Response(
             status_code=500,
             body=json.dumps({'error': f'Unexpected error occurred for email {request_body.get("email")}'})

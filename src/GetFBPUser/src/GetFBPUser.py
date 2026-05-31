@@ -60,7 +60,7 @@ def getFBPUser():
         logger.info(f"Extracted email from API Gateway event: {email}")
 
     except Exception as e:
-        logger.error(f"Unexpected error: {e}")
+        logger.exception(f"Unexpected error: {e}")
         fbpLog(email="fbpadmin@my-fbp.com", action="GetFBPUser", details=f"Unexpected error: {e}", level="ERROR")
         return {
             'statusCode': 400,
@@ -89,6 +89,7 @@ def getFBPUser():
                 'defaultAlgorithm': item.get('defaultAlgorithm'),
                 'defaultTieBreaker': item.get('defaultTieBreaker'),
                 'displayName': item.get('displayName'),
+                'paymentMethod': item.get('paymentMethod'),
                 'emailGridSheet': item.get('emailGridSheet'),
                 'emailPickSheet': item.get('emailPickSheet'),
                 'emailReminders': item.get('emailReminders'),
@@ -123,12 +124,12 @@ def getFBPUserData(emailAddress):
         logger.info(f"Fetched user from DynamoDB: {json.dumps(item, default=str) if item else 'None'}")
         return item
     except ClientError as e:
-        logger.error(f"DynamoDB Error: {e}")
+        logger.exception(f"DynamoDB Error: {e}")
         fbpLog("fbpadmin@my-fbp.com", "GetFBPUser", f"DynamoDB Error: {e}", "ERROR")
         return None
     except Exception as e:
         fbpLog("fbpadmin@my-fbp.com", "GetFBPUser", f"Unexpected error: {e}", "ERROR")
-        logger.error(f"Unexpected error: {e}")
+        logger.exception(f"Unexpected error: {e}")
         return None
 
 def lambda_handler(event, context):
