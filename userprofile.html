@@ -32,7 +32,7 @@
     .tooltip-wrap:hover .tooltip {
       visibility: visible;
     }
-    
+
     /* Override page-title positioning to not cover menu button */
     .page-title {
       position: static;
@@ -50,7 +50,7 @@
       const user = await auth.getUser();
       console.log("Authenticated user:", user);
       window.user = user;
-      
+
       // Now call getUserStatus after user is loaded
       const { getUserStatus } = await import("/js-lib/userUtils.js");
       await getUserStatus();
@@ -123,6 +123,13 @@
       document.getElementById("lastName").value = responseBody.lastName || "";
       document.getElementById("displayName").value =
         responseBody.displayName || "";
+      const paymentMethod = responseBody.paymentMethod || "";
+      const paymentRadioButtons = document.querySelectorAll(
+        'input[name="paymentMethod"]',
+      );
+      paymentRadioButtons.forEach((radio) => {
+        radio.checked = radio.value === paymentMethod;
+      });
       document.getElementById("emailPickSheet").checked =
         responseBody.emailPickSheet || false;
       document.getElementById("emailReminders").checked =
@@ -155,6 +162,12 @@
       }
       if (displayName === "") {
         errorMessages.push("Display Name cannot be empty.");
+      }
+      const paymentMethod = document.querySelector(
+        'input[name="paymentMethod"]:checked',
+      );
+      if (!paymentMethod) {
+        errorMessages.push("Please select a payment method for when you win.");
       }
       if (tieBreakerValue === "") {
         errorMessages.push("Default Monday Night Tiebreaker cannot be empty.");
@@ -196,6 +209,9 @@
           lastName: formData.get("lastName"),
           email: resolvedEmail,
           displayName: formData.get("displayName"),
+          paymentMethod:
+            document.querySelector('input[name="paymentMethod"]:checked')
+              ?.value || "",
           isAdmin: formData.has("isAdmin")
             ? formData.get("isAdmin") === "on"
             : !!existingProfile.isAdmin,
@@ -205,6 +221,9 @@
           isPaidUser: formData.has("isPaidUser")
             ? formData.get("isPaidUser") === "on"
             : !!existingProfile.isPaidUser,
+          paymentMethod:
+            document.querySelector('input[name="paymentMethod"]:checked')
+              ?.value || "",
           emailPickSheet: formData.get("emailPickSheet") === "on",
           emailReminders: formData.get("emailReminders") === "on",
           emailGridSheet: formData.get("emailGridSheet") === "on",
@@ -261,120 +280,156 @@
       console.warn("User email not available during initial load:", error);
     });
   </script>
-</head>
-
-<body class="fbp-home">
-  <header>
-    <h1 class="page-title">User Profile</h1>
-  </header>
-  <script type="module">
-    import { initNav } from "/js-lib/nav.js";
-    await initNav();
+  <script>
+    function checkPayPal(id) {
+      document.getElementById(id).checked = true;
+    }
+    window.checkPayPal = checkPayPal;
   </script>
-  <div class="container" style="display:flex; gap:2rem; align-items:flex-start; margin:0; max-width:100%;">
-    <aside class="nav-choices">
-      <!-- populated by nav.js -->
-    </aside>
-    <main class="results-main">
-      <h1>View or Modify My Profile</h1>
-      <form name="addFBPUser" autocomplete="off" data-lpignore="true">
-        <input type="text" name="fake-username" autocomplete="username" tabindex="-1" aria-hidden="true"
-          style="position: absolute; left: -9999px" />
-        <div>
-          <label for="firstName">First Name:</label>
-          <input type="text" name="firstName" id="firstName" autocomplete="off" autocorrect="off" autocapitalize="off"
-            spellcheck="false" data-lpignore="true" />
-        </div>
-        <div>
-          <label for="lastName">Last Name:</label>
-          <input type="text" name="lastName" id="lastName" autocomplete="off" autocorrect="off" autocapitalize="off"
-            spellcheck="false" data-lpignore="true" />
-        </div>
-        <div>
-          <label for="displayName">Display Name:</label>
-          <input type="text" name="displayName" id="displayName" />
-        </div>
-        <div>
-          <label for="emailPickSheet">Email PickSheet:</label>
-          <input type="checkbox" name="emailPickSheet" id="emailPickSheet" />
-        </div>
-        <div>
-          <label for="emailReminders">Email Reminder:</label>
-          <input type="checkbox" name="emailReminders" id="emailReminders" />
-        </div>
-        <div>
-          <label for="emailGridSheet">Email Gridsheet:</label>
-          <input type="checkbox" name="emailGridSheet" id="emailGridSheet" />
-        </div>
-        <div id="defaultAlgorithm" style="display: flex; flex-direction: column; gap: 0.5em; margin-bottom: 1.25rem;">
-          <label for="DefaultAlgorithm" style="margin-bottom:0.25em; font-weight:500;">Default for Picks when you don't
-            make picks:</label>
-          <div style="display: flex; flex-direction: column; gap: 0.25em;">
-            <span><input type="radio" value="away" name="defaultAlgorithm" id="alg-away"><label for="alg-away"
-                style="font-weight:400; margin-left:0.5em;">Away Teams</label></span>
-            <span><input type="radio" value="home" name="defaultAlgorithm" id="alg-home"><label for="alg-home"
-                style="font-weight:400; margin-left:0.5em;">Home Teams</label></span>
-            <span><input type="radio" value="favorites" name="defaultAlgorithm" id="alg-favorites"><label
-                for="alg-favorites" style="font-weight:400; margin-left:0.5em;">All Favorites</label></span>
-            <span><input type="radio" value="underdogs" name="defaultAlgorithm" id="alg-underdogs"><label
-                for="alg-underdogs" style="font-weight:400; margin-left:0.5em;">All UnderDogs</label></span>
-            <span><input type="radio" value="random" name="defaultAlgorithm" id="alg-random"><label for="alg-random"
-                style="font-weight:400; margin-left:0.5em;">All Random</label></span>
-            <span>
-              <span class="tooltip-wrap">
-                <input type="text" name="defaultTieBreaker" id="defaultTieBreaker" maxlength="2" size="2">
-                <span class="tooltip">Enter the total points for the Monday Night Game (e.g., 42)</span>
-              </span>
-              <label for="defaultTieBreaker" style="font-weight:400; margin-left:0.5em;">Default Monday Night Tiebreaker</label>
-            </span>
+  <script>
+    function checkVenMo(id) {
+      document.getElementById(id).checked = true;
+    }
+    window.checkVenMo = checkVenMo;
+  </script>
+  </head>
+
+  <body class="fbp-home">
+    <header>
+      <h1 class="page-title">User Profile</h1>
+    </header>
+    <script type="module">
+      import { initNav } from "/js-lib/nav.js";
+      await initNav();
+    </script>
+    <div class="container" style="display:flex; gap:2rem; align-items:flex-start; margin:0; max-width:100%;">
+      <aside class="nav-choices">
+        <!-- populated by nav.js -->
+      </aside>
+      <main class="results-main">
+        <h1>View or Modify My Profile</h1>
+        <form name="addFBPUser" autocomplete="off" data-lpignore="true">
+          <input type="text" name="fake-username" autocomplete="username" tabindex="-1" aria-hidden="true"
+            style="position: absolute; left: -9999px" />
+          <div>
+            <label for="firstName">First Name:</label>
+            <input type="text" name="firstName" id="firstName" autocomplete="off" autocorrect="off" autocapitalize="off"
+              spellcheck="false" data-lpignore="true" />
           </div>
-        </div>
-      </form>
-      <script type="module">
-        // Prefill form when userProfileData is available
-        if (window.userProfileData) {
-          console.log(
-            "Pre-filling form with userProfileData:",
-            window.userProfileData,
-          );
-          window.addEventListener("userProfileDataLoaded", (event) => {
-            const userProfileData = event.detail;
+          <div>
+            <label for="lastName">Last Name:</label>
+            <input type="text" name="lastName" id="lastName" autocomplete="off" autocorrect="off" autocapitalize="off"
+              spellcheck="false" data-lpignore="true" />
+          </div>
+          <div>
+            <label for="displayName">Display Name:</label>
+            <input type="text" name="displayName" id="displayName" />
+          </div>
+          <div id="paymentMethod" style="display: flex; flex-direction: column; gap: 0.5em; margin-bottom: 1.25rem;">
+            <label for="paymentMethod" style="margin-bottom:0.25em; font-weight:500;">Payment Method When You Win</label>
+            <div style="display: flex; flex-direction: column; gap: 0.25em;">
+              <span><input type="radio" value="PayPal" name="paymentMethod" id="PayPal"><label for="PayPal"
+                  style="font-weight:400; margin-left:0.5em;">PayPal</label>
+                <img src="/images/paypal.png" onClick="checkPayPal('PayPal')" alt="PayPal"
+                  style="height: 2em; vertical-align:middle; margin-left:0.5em;">
+              </span>
+              <span><input type="radio" value="VenMo" name="paymentMethod" id="VenMo"><label for="VenMo"
+                  style="font-weight:400; margin-left:0.5em;">VenMo</label>
+                <img src="/images/venmo.png" onClick="checkPayPal('VenMo')" alt="VenMo"
+                  style="height:2em; vertical-align:middle; margin-left:0.5em;">
+              </span>
+            </div>
+          </div>
+          <div>
+            <label for="emailPickSheet">Email PickSheet:</label>
+            <input type="checkbox" name="emailPickSheet" id="emailPickSheet" />
+          </div>
+          <div>
+            <label for="emailReminders">Email Reminder:</label>
+            <input type="checkbox" name="emailReminders" id="emailReminders" />
+          </div>
+          <div>
+            <label for="emailGridSheet">Email Gridsheet:</label>
+            <input type="checkbox" name="emailGridSheet" id="emailGridSheet" />
+          </div>
+          <div id="defaultAlgorithm" style="display: flex; flex-direction: column; gap: 0.5em; margin-bottom: 1.25rem;">
+            <label for="DefaultAlgorithm" style="margin-bottom:0.25em; font-weight:500;">Default for Picks when you
+              don't
+              make picks:</label>
+            <div style="display: flex; flex-direction: column; gap: 0.25em;">
+              <span><input type="radio" value="away" name="defaultAlgorithm" id="alg-away"><label for="alg-away"
+                  style="font-weight:400; margin-left:0.5em;">Away Teams</label></span>
+              <span><input type="radio" value="home" name="defaultAlgorithm" id="alg-home"><label for="alg-home"
+                  style="font-weight:400; margin-left:0.5em;">Home Teams</label></span>
+              <span><input type="radio" value="favorites" name="defaultAlgorithm" id="alg-favorites"><label
+                  for="alg-favorites" style="font-weight:400; margin-left:0.5em;">All Favorites</label></span>
+              <span><input type="radio" value="underdogs" name="defaultAlgorithm" id="alg-underdogs"><label
+                  for="alg-underdogs" style="font-weight:400; margin-left:0.5em;">All UnderDogs</label></span>
+              <span><input type="radio" value="random" name="defaultAlgorithm" id="alg-random"><label for="alg-random"
+                  style="font-weight:400; margin-left:0.5em;">All Random</label></span>
+              <span>
+                <span class="tooltip-wrap">
+                  <input type="text" name="defaultTieBreaker" id="defaultTieBreaker" maxlength="2" size="2">
+                  <span class="tooltip">Enter the total points for the Monday Night Game (e.g., 42)</span>
+                </span>
+                <label for="defaultTieBreaker" style="font-weight:400; margin-left:0.5em;">Default Monday Night
+                  Tiebreaker</label>
+              </span>
+            </div>
+          </div>
+        </form>
+        <script type="module">
+          // Prefill form when userProfileData is available
+          if (window.userProfileData) {
             console.log(
-              "Pre-filling form with loaded userProfileData:",
-              userProfileData,
+              "Pre-filling form with userProfileData:",
+              window.userProfileData,
             );
-            let responseBody = JSON.parse(userProfileData.body);
-            document.getElementById("firstName").value =
-              responseBody.firstName || "";
-            document.getElementById("lastName").value =
-              responseBody.lastName || "";
-            document.getElementById("displayName").value =
-              responseBody.displayName || "";
-            document.getElementById("emailPickSheet").checked =
-              responseBody.emailPickSheet || false;
-            document.getElementById("emailReminders").checked =
-              responseBody.emailReminders || false;
-            document.getElementById("emailGridSheet").checked =
-              responseBody.emailGridSheet || false;
-            const defaultAlgorithm = responseBody.defaultAlgorithm || "";
-            const radioButtons = document.querySelectorAll(
-              'input[name="defaultAlgorithm"]',
-            );
-            radioButtons.forEach((radio) => {
-              radio.checked = radio.value === defaultAlgorithm;
+            window.addEventListener("userProfileDataLoaded", (event) => {
+              const userProfileData = event.detail;
+              console.log(
+                "Pre-filling form with loaded userProfileData:",
+                userProfileData,
+              );
+              let responseBody = JSON.parse(userProfileData.body);
+              document.getElementById("firstName").value =
+                responseBody.firstName || "";
+              document.getElementById("lastName").value =
+                responseBody.lastName || "";
+              document.getElementById("displayName").value =
+                responseBody.displayName || "";
+              const paymentMethod = responseBody.paymentMethod || "";
+              const paymentRadioButtons = document.querySelectorAll(
+                'input[name="paymentMethod"]',
+              );
+              paymentRadioButtons.forEach((radio) => {
+                radio.checked = radio.value === paymentMethod;
+              });
+              document.getElementById("emailPickSheet").checked =
+                responseBody.emailPickSheet || false;
+              document.getElementById("emailReminders").checked =
+                responseBody.emailReminders || false;
+              document.getElementById("emailGridSheet").checked =
+                responseBody.emailGridSheet || false;
+              const defaultAlgorithm = responseBody.defaultAlgorithm || "";
+              const radioButtons = document.querySelectorAll(
+                'input[name="defaultAlgorithm"]',
+              );
+              radioButtons.forEach((radio) => {
+                radio.checked = radio.value === defaultAlgorithm;
+              });
             });
-          });
-        }
-      </script>
-      <button id="updateProfileBtn" type="button">Update Profile</button>
-    </main>
-  </div>
-  <footer>
-    <p>
-      Questions? Contact us at <a href="mailto:fbpadmin@my-fbp.com">fbpadmin@my-fbp.com</a>
-    </p>
-    <p>&copy; 2026 FBP. All rights reserved.</p>
-  </footer>
-</body>
+          }
+        </script>
+        <button id="updateProfileBtn" type="button">Update Profile</button>
+      </main>
+    </div>
+    <footer>
+      <p>
+        Questions? Contact us at <a href="mailto:fbpadmin@my-fbp.com">fbpadmin@my-fbp.com</a>
+      </p>
+      <p>&copy; 2026 FBP. All rights reserved.</p>
+    </footer>
+  </body>
 
 </html>
