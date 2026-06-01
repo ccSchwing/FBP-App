@@ -89,7 +89,9 @@
     }
 
     @keyframes spin {
-      to { transform: rotate(360deg); }
+      to {
+        transform: rotate(360deg);
+      }
     }
   </style>
   <script type="module">
@@ -905,6 +907,34 @@ Press Cancel to go back and work on your picks before submitting.",
     </p>
     <p>&copy; 2026 FBP. All rights reserved.</p>
   </footer>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      // delegate change on checkboxes
+      document.body.addEventListener('change', (e) => {
+        const cb = e.target;
+        if (!cb.classList.contains('pick-checkbox')) return;
+        const id = cb.id;
+        const otherId = id.endsWith('A') ? id.slice(0, -1) + 'H' : id.slice(0, -1) + 'A';
+        if (cb.checked) document.getElementById(otherId).checked = false;
+      });
+
+      // clicks on images toggle corresponding checkbox
+      document.body.addEventListener('click', (e) => {
+        const img = e.target.closest('.pick-img');
+        if (!img) return;
+        const pickId = img.dataset.pick;
+        const cb = document.getElementById(pickId);
+        if (!cb) return;
+        cb.checked = !cb.checked;
+        // uncheck opposing
+        const otherId = pickId.endsWith('A') ? pickId.slice(0, -1) + 'H' : pickId.slice(0, -1) + 'A';
+        if (cb.checked) document.getElementById(otherId).checked = false;
+        // optionally trigger change event
+        cb.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+    });
+
+  </script>
 </body>
 <style>
   /* Override page-title positioning to not cover menu button */
