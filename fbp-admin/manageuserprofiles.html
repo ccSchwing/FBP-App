@@ -250,6 +250,7 @@
           lastName: formData.get("lastName"),
           email: window.emailParam,
           displayName: formData.get("displayName"),
+          paymentMethod: formData.get("paymentMethod"),
           isAdmin: formData.has("isAdmin")
             ? formData.get("isAdmin") === "on"
             : !!existingProfile.isAdmin,
@@ -494,6 +495,10 @@
           <div>
             <label for="displayName">Display Name:</label>
             <input type="text" name="displayName" id="displayName" />
+          </div>
+          <div>
+            <label for="paymentMethod">Payment Method:</label>
+            <input type="text" name="paymentMethod" id="paymentMethod" disabled />
           </div>
           <div>
             <label for="EmailPickSheet">Email PickSheet:</label>
