@@ -89,7 +89,9 @@
     }
 
     @keyframes spin {
-      to { transform: rotate(360deg); }
+      to {
+        transform: rotate(360deg);
+      }
     }
   </style>
   <script type="module">
@@ -234,6 +236,7 @@
         );
       } else {
         const data = await response.json();
+        console.log(`Fetched picks for user ${window.userEmail}:`, data);
         if (!data) {
           return { picks: "", tieBreaker: "" };
         }
@@ -249,14 +252,14 @@
     }
 
     function getUniqueGameIds(form) {
-      const radios = form.querySelectorAll('input[type="radio"]');
+      const checkboxes = form.querySelectorAll('input[type="checkbox"]');
       const gameIds = [];
       const seen = new Set();
 
-      for (const radio of radios) {
-        if (!seen.has(radio.name)) {
-          seen.add(radio.name);
-          gameIds.push(radio.name);
+      for (const checkbox of checkboxes) {
+        if (!seen.has(checkbox.name)) {
+          seen.add(checkbox.name);
+          gameIds.push(checkbox.name);
         }
       }
 
@@ -279,7 +282,7 @@
         }
 
         const target = form.querySelector(
-          `input[type="radio"][name="${CSS.escape(gameNames[i])}"][value="${pickValue}"]`,
+          `input[type="checkbox"][name="${CSS.escape(gameNames[i])}"][value="${pickValue}"]`,
         );
         if (target) {
           target.checked = true;
@@ -309,21 +312,21 @@
       }
 
       const awayRadio = form.querySelector(
-        `input[type="radio"][name="${CSS.escape(gameId)}"][value="A"]`,
+        `input[type="checkbox"][name="${CSS.escape(gameId)}"][value="A"]`,
       );
       const homeRadio = form.querySelector(
-        `input[type="radio"][name="${CSS.escape(gameId)}"][value="H"]`,
+        `input[type="checkbox"][name="${CSS.escape(gameId)}"][value="H"]`,
       );
       if (!awayRadio || !homeRadio) {
         return;
       }
 
-      const radioRow = awayRadio.closest("tr");
-      if (!radioRow) {
+      const checkboxRow = awayRadio.closest("tr");
+      if (!checkboxRow) {
         return;
       }
 
-      const nameRow = radioRow.nextElementSibling;
+      const nameRow = checkboxRow.nextElementSibling;
 
       const awayCells = [awayRadio.closest("td")];
       const homeCells = [homeRadio.closest("td")];
@@ -391,7 +394,7 @@
         if (!target || target.tagName !== "INPUT") {
           return;
         }
-        if (target.type !== "radio") {
+        if (target.type !== "checkbox") {
           return;
         }
 
@@ -404,12 +407,12 @@
       if (!form) {
         return;
       }
-
+      clearMyPicks();
       const gameNames = getUniqueGameIds(form);
 
       for (let i = 0; i < gameNames.length; i += 1) {
         const target = form.querySelector(
-          `input[type="radio"][name="${CSS.escape(gameNames[i])}"][value="A"]`,
+          `input[type="checkbox"][name="${CSS.escape(gameNames[i])}"][value="A"]`,
         );
         if (target) {
           target.checked = true;
@@ -426,38 +429,26 @@
 
       for (let i = 0; i < gameNames.length; i += 1) {
         const gameId = gameNames[i];
-        const homeUnderdogCell = document.getElementById(`${gameId}-H`);
-        const awayUnderdogCell = document.getElementById(`${gameId}-A`);
-
-        // If home has the +spread, away is favorite; if away has +spread, home is favorite.
-        let favoriteSide = null;
-        if (homeUnderdogCell) {
-          favoriteSide = "A";
-        } else if (awayUnderdogCell) {
-          favoriteSide = "H";
+        if(document.getElementById(`${gameId}-H-spread`)) {
+          console.log(`Found favorite cell for home team of game ${gameId}`);
+          document.getElementById(`${gameId}A`).checked = true;
+          document.getElementById(`${gameId}H`).checked = false;
         }
-
-        if (!favoriteSide) {
-          continue;
+        if(document.getElementById(`${gameId}-A-spread`)) {
+          console.log(`Found favorite cell for away team of game ${gameId}`);
+          document.getElementById(`${gameId}H`).checked = true;
+          document.getElementById(`${gameId}A`).checked = false;
         }
-
-        const target = form.querySelector(
-          `input[type="radio"][name="${CSS.escape(gameId)}"][value="${favoriteSide}"]`,
-        );
-        if (target) {
-          target.checked = true;
-        }
-      }
-
       refreshAllSelectionHighlights();
     }
+  }
     function clearMyPicks() {
       const form = document.getElementById("picksheet");
       if (!form) {
         return;
       }
-      const radios = form.querySelectorAll('input[type="radio"]');
-      radios.forEach((radio) => (radio.checked = false));
+      const checkboxes = form.querySelectorAll('input[type="checkbox"]');
+      checkboxes.forEach((checkbox) => (checkbox.checked = false));
       const tieBreakerInput = document.getElementById(
         "mondayNightTieBreaker",
       );
@@ -468,6 +459,7 @@
       refreshAllSelectionHighlights();
     }
     function checkAllUnderdogs() {
+      console.log("Checking all underdogs");
       const form = document.getElementById("picksheet");
       if (!form) {
         return;
@@ -477,26 +469,15 @@
 
       for (let i = 0; i < gameNames.length; i += 1) {
         const gameId = gameNames[i];
-        const homeUnderdogCell = document.getElementById(`${gameId}-H`);
-        const awayUnderdogCell = document.getElementById(`${gameId}-A`);
-
-        // If home has the +spread, away is favorite; if away has +spread, home is favorite.
-        let underdogSide = null;
-        if (homeUnderdogCell) {
-          underdogSide = "H";
-        } else if (awayUnderdogCell) {
-          underdogSide = "A";
+        if(document.getElementById(`${gameId}-H-spread`)) {
+          console.log(`Found underdog cell for home team of game ${gameId}`);
+          document.getElementById(`${gameId}A`).checked = false;
+          document.getElementById(`${gameId}H`).checked = true;
         }
-
-        if (!underdogSide) {
-          continue;
-        }
-
-        const target = form.querySelector(
-          `input[type="radio"][name="${CSS.escape(gameId)}"][value="${underdogSide}"]`,
-        );
-        if (target) {
-          target.checked = true;
+        if(document.getElementById(`${gameId}-A-spread`)) {
+          console.log(`Found underdog cell for away team of game ${gameId}`);
+          document.getElementById(`${gameId}H`).checked = false;
+          document.getElementById(`${gameId}A`).checked = true;
         }
       }
 
@@ -507,7 +488,7 @@
       if (!form) {
         return;
       }
-
+      clearMyPicks();
       const gameNames = getUniqueGameIds(form);
 
       for (let i = 0; i < gameNames.length; i += 1) {
@@ -515,7 +496,7 @@
         const randomSide = Math.random() < 0.5 ? "A" : "H";
 
         const target = form.querySelector(
-          `input[type="radio"][name="${CSS.escape(gameId)}"][value="${randomSide}"]`,
+          `input[type="checkbox"][name="${CSS.escape(gameId)}"][value="${randomSide}"]`,
         );
         if (target) {
           target.checked = true;
@@ -533,12 +514,12 @@
       if (!form) {
         return;
       }
-
+      clearMyPicks();
       const gameNames = getUniqueGameIds(form);
 
       for (let i = 0; i < gameNames.length; i += 1) {
         const target = form.querySelector(
-          `input[type="radio"][name="${CSS.escape(gameNames[i])}"][value="H"]`,
+          `input[type="checkbox"][name="${CSS.escape(gameNames[i])}"][value="H"]`,
         );
         if (target) {
           target.checked = true;
@@ -661,6 +642,7 @@ Press Cancel to go back and work on your picks before submitting.",
         savePicksButton.textContent = "Saving...";
 
         try {
+          console.log("Saving picks with payload:", payload);
           const response = await fetch(savePicksUrl, {
             method: "POST",
             headers: {
@@ -905,6 +887,34 @@ Press Cancel to go back and work on your picks before submitting.",
     </p>
     <p>&copy; 2026 FBP. All rights reserved.</p>
   </footer>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      // delegate change on checkboxes
+      document.body.addEventListener('change', (e) => {
+        const cb = e.target;
+        if (!cb.classList.contains('pick-checkbox')) return;
+        const id = cb.id;
+        const otherId = id.endsWith('A') ? id.slice(0, -1) + 'H' : id.slice(0, -1) + 'A';
+        if (cb.checked) document.getElementById(otherId).checked = false;
+      });
+
+      // clicks on images toggle corresponding checkbox
+      document.body.addEventListener('click', (e) => {
+        const img = e.target.closest('.pick-img');
+        if (!img) return;
+        const pickId = img.dataset.pick;
+        const cb = document.getElementById(pickId);
+        if (!cb) return;
+        cb.checked = !cb.checked;
+        // uncheck opposing
+        const otherId = pickId.endsWith('A') ? pickId.slice(0, -1) + 'H' : pickId.slice(0, -1) + 'A';
+        if (cb.checked) document.getElementById(otherId).checked = false;
+        // optionally trigger change event
+        cb.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+    });
+
+  </script>
 </body>
 <style>
   /* Override page-title positioning to not cover menu button */

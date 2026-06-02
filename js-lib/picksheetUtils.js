@@ -31,7 +31,53 @@ export function export2txt(picksData) {
   document.body.removeChild(a);
 }
 
+
 export function renderPickSheet(items) {
+  return items
+    .filter(item => item && item.GameId && item.Away && item.Home && item.Underdog && item.Spread)
+    .map((item, index) => {
+      const gameClass = index % 2 === 0 ? "game-even" : "game-odd";
+      const spreadRow = item.Underdog === "H"
+        ? `<tr class="${gameClass}"><td></td><td></td><td id="${item.GameId}-H-spread">+${item.Spread}</td><td></td></tr>`
+        : item.Underdog === "A"
+        ? `<tr class="${gameClass}"><td></td><td id="${item.GameId}-A-spread">+${item.Spread}</td><td></td><td></td></tr>`
+        : "";
+
+      return `
+      <tr class="${gameClass}" data-gameid="${item.GameId}">
+        <td>
+          <label class="container">
+            <input type="checkbox" id="${item.GameId}A" name="${item.GameId}" value="A" class="pick-checkbox pick-A">
+            <span class="checkmark"></span>
+          </label>
+        </td>
+        <td>
+          <img src="/images/${item.Away}.gif" data-pick="${item.GameId}A" class="pick-img pick-A" width="30" height="30" alt="${item.Away}">
+        </td>
+        <td>
+          <img src="/images/${item.Home}.gif" data-pick="${item.GameId}H" class="pick-img pick-H" width="30" height="30" alt="${item.Home}">
+        </td>
+        <td style="text-align:center" class="fa fa-align-center" aria-hidden="true">
+          <label class="container">
+            <input type="checkbox" id="${item.GameId}H" name="${item.GameId}" value="H" class="pick-checkbox pick-H">
+            <span class="checkmark"></span>
+          </label>
+        </td>
+      </tr>
+      <tr class="${gameClass}">
+        <td></td>
+        <td>${item.Away}</td>
+        <td>${item.Home}</td>
+        <td></td>
+      </tr>
+      ${spreadRow}
+      `;
+    })
+    .join("");
+}
+
+
+export function renderPickSheetOrig(items) {
   return items
     .filter(
       (item) =>
@@ -67,17 +113,50 @@ export function renderPickSheet(items) {
       <tr class="${gameClass}">
         <td> 
           <label class="container">
-            <input type="radio" id="${item.GameId}A" name="${item.GameId}" value="A">
+            <input type="checkbox" id="${item.GameId}A" name="${item.GameId}" value="A">
+            <script>
+              document.getElementById("${item.GameId}A").addEventListener("change", function() {
+                if (this.checked) {
+                  document.getElementById("${item.GameId}H").checked = false;
+                }
+              });
+            </script>
             <span class="checkmark"></span>
           </label>
         </td>
-        <td> <img src="/images/${item.Away}.gif" onclick="checkAwayTeam('${item.GameId}' +'A')" width="30" height="30">
+        <!-- <td> <img src="/images/${item.Away}.gif" onclick="checkAwayTeam('${item.GameId}' +'A')" width="30" height="30"> -->
+        <td> <img src="/images/${item.Away}.gif")" id="${item.GameId}A" width="30" height="30">
+        <script>
+          document.getElementById("${item.GameId}A").addEventListener("click", function() {
+            if (document.getElementById("${item.GameId}A").checked) {
+              document.getElementById("${item.GameId}H").checked = false;
+            }else{
+              document.getElementById("${item.GameId}A").checked = false;
+            }
+          });
+        </script>
         </td>
-        <td> <img src="/images/${item.Home}.gif" onclick="checkHomeTeam('${item.GameId}' +'H')" width="30" height="30">
+        <td> <img src="/images/${item.Home}.gif" id="${item.GameId}H" width="30" height="30">
+        <script>
+          document.getElementById("${item.GameId}H").addEventListener("click", function() {
+            if (document.getElementById("${item.GameId}H").checked) {
+              document.getElementById("${item.GameId}A").checked = false;
+            }else{
+              document.getElementById("${item.GameId}H").checked = false;
+            }
+          });
+        </script>
         </td>
         <td style="text-align:center" class="fa fa-align-center" aria-hidden="true">
           <label class="container">
-            <input type="radio" id="${item.GameId}H" name="${item.GameId}" value="H">
+            <input type="checkbox" id="${item.GameId}H" name="${item.GameId}" value="H">
+            <script>
+              document.getElementById("${item.GameId}H").addEventListener("change", function() {
+                if (this.checked) {
+                  document.getElementById("${item.GameId}A").checked = false;
+                }
+              });
+            </script>
             <span class="checkmark"></span>
           </label>
         </td>
@@ -94,20 +173,20 @@ export function renderPickSheet(items) {
     })
     .join("");
 }
-function checkAwayTeam(radioId) {
-  console.log("checkAwayTeam called with radioId:", radioId);
-  const radio = document.getElementById(radioId);
-  if (radio) {
-    radio.checked = true;
+function checkAwayTeam(checkboxId) {
+  console.log("checkAwayTeam called with checkboxId:", checkboxId);
+  const checkbox = document.getElementById(checkboxId);
+  if (checkbox) {
+    checkbox.checked = true;
   }
 }
 window.checkAwayTeam = checkAwayTeam;
 
-function checkHomeTeam(radioId) {
-  console.log("checkHomeTeam called with radioId:", radioId);
-  const radio = document.getElementById(radioId);
-  if (radio) {
-    radio.checked = true;
+function checkHomeTeam(checkboxId) {
+  console.log("checkHomeTeam called with checkboxId:", checkboxId);
+  const checkbox = document.getElementById(checkboxId);
+  if (checkbox) {
+    checkbox.checked = true;
   }
 }
 window.checkHomeTeam = checkHomeTeam;
@@ -126,9 +205,9 @@ export function getHomeandAwayPicks(checkBoxName) {
 export function getCheckedRadioPicks(formId) {
   const form = document.getElementById(formId);
 
-  const checkedRadios = form.querySelectorAll('input[type="radio"]:checked');
+  const checkedRadios = form.querySelectorAll('input[type="checkbox"]:checked');
 
-  // returns one entry per game (because each game has its own radio group name)
+  // returns one entry per game (because each game has its own checkbox group name)
   return Array.from(checkedRadios, (r) => ({
     gameId: r.name.replace(/^pick_/, ""), // if you used name="pick_<GameId>"
     value: r.value, // e.g. "123A" or "123H"
@@ -138,14 +217,14 @@ export function getCheckedRadioPicks(formId) {
 export function getPicks(formId) {
   const form = document.getElementById(formId);
 
-  // Find the first radio in each game group in DOM order.
+  // Find the first checkbox in each game group in DOM order.
   // Each group appears twice (A and H), so we dedupe by name.
-  const radios = form.querySelectorAll('input[type="radio"]');
+  const checkboxes = form.querySelectorAll('input[type="checkbox"]');
 
   const seen = new Set();
   const gameNamesInOrder = [];
 
-  for (const r of radios) {
+  for (const r of checkboxes) {
     if (!seen.has(r.name)) {
       seen.add(r.name);
       gameNamesInOrder.push(r.name); // r.name is your GameId
@@ -156,7 +235,7 @@ export function getPicks(formId) {
   let out = "";
   for (const gameId of gameNamesInOrder) {
     const checked = form.querySelector(
-      `input[type="radio"][name="${CSS.escape(gameId)}"]:checked`,
+      `input[type="checkbox"][name="${CSS.escape(gameId)}"]:checked`,
     );
     out += checked ? checked.value : "?"; // putting the ? in to flag missing picks.
   }
