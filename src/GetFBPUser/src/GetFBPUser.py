@@ -95,6 +95,7 @@ def getFBPUser():
                 'emailReminders': item.get('emailReminders'),
                 'firstName': item.get('firstName'),
                 'lastName': item.get('lastName'),
+                'paymentMethod': item.get('paymentMethod'),
                 'isAccountLocked': item.get('isAccountLocked'),
                 'isAdmin': item.get('isAdmin'),
                 'isPaidUser': item.get('isPaidUser'),

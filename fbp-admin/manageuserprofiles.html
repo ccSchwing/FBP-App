@@ -178,6 +178,8 @@
         responseBody.lastName || "";
       document.getElementById("displayName").value =
         responseBody.displayName || "";
+      document.getElementById("paymentMethod").value =
+        responseBody.paymentMethod || "";
       document.getElementById("emailPickSheet").checked =
         responseBody.emailPickSheet || false;
       document.getElementById("emailReminders").checked =
@@ -250,6 +252,7 @@
           lastName: formData.get("lastName"),
           email: window.emailParam,
           displayName: formData.get("displayName"),
+          paymentMethod: formData.get("paymentMethod"),
           isAdmin: formData.has("isAdmin")
             ? formData.get("isAdmin") === "on"
             : !!existingProfile.isAdmin,
@@ -494,6 +497,10 @@
           <div>
             <label for="displayName">Display Name:</label>
             <input type="text" name="displayName" id="displayName" />
+          </div>
+          <div>
+            <label for="paymentMethod">Payment Method:</label>
+            <input type="text" name="paymentMethod" id="paymentMethod" readonly />
           </div>
           <div>
             <label for="EmailPickSheet">Email PickSheet:</label>
