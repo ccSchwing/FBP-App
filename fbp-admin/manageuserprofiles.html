@@ -178,6 +178,8 @@
         responseBody.lastName || "";
       document.getElementById("displayName").value =
         responseBody.displayName || "";
+      document.getElementById("paymentMethod").value =
+        responseBody.paymentMethod || "";
       document.getElementById("emailPickSheet").checked =
         responseBody.emailPickSheet || false;
       document.getElementById("emailReminders").checked =
@@ -498,7 +500,7 @@
           </div>
           <div>
             <label for="paymentMethod">Payment Method:</label>
-            <input type="text" name="paymentMethod" id="paymentMethod" disabled />
+            <input type="text" name="paymentMethod" id="paymentMethod" readonly />
           </div>
           <div>
             <label for="EmailPickSheet">Email PickSheet:</label>
