@@ -173,20 +173,20 @@ export function renderPickSheetOrig(items) {
     })
     .join("");
 }
-function checkAwayTeam(radioId) {
-  console.log("checkAwayTeam called with radioId:", radioId);
-  const radio = document.getElementById(radioId);
-  if (radio) {
-    radio.checked = true;
+function checkAwayTeam(checkboxId) {
+  console.log("checkAwayTeam called with checkboxId:", checkboxId);
+  const checkbox = document.getElementById(checkboxId);
+  if (checkbox) {
+    checkbox.checked = true;
   }
 }
 window.checkAwayTeam = checkAwayTeam;
 
-function checkHomeTeam(radioId) {
-  console.log("checkHomeTeam called with radioId:", radioId);
-  const radio = document.getElementById(radioId);
-  if (radio) {
-    radio.checked = true;
+function checkHomeTeam(checkboxId) {
+  console.log("checkHomeTeam called with checkboxId:", checkboxId);
+  const checkbox = document.getElementById(checkboxId);
+  if (checkbox) {
+    checkbox.checked = true;
   }
 }
 window.checkHomeTeam = checkHomeTeam;
@@ -205,9 +205,9 @@ export function getHomeandAwayPicks(checkBoxName) {
 export function getCheckedRadioPicks(formId) {
   const form = document.getElementById(formId);
 
-  const checkedRadios = form.querySelectorAll('input[type="radio"]:checked');
+  const checkedRadios = form.querySelectorAll('input[type="checkbox"]:checked');
 
-  // returns one entry per game (because each game has its own radio group name)
+  // returns one entry per game (because each game has its own checkbox group name)
   return Array.from(checkedRadios, (r) => ({
     gameId: r.name.replace(/^pick_/, ""), // if you used name="pick_<GameId>"
     value: r.value, // e.g. "123A" or "123H"
@@ -217,14 +217,14 @@ export function getCheckedRadioPicks(formId) {
 export function getPicks(formId) {
   const form = document.getElementById(formId);
 
-  // Find the first radio in each game group in DOM order.
+  // Find the first checkbox in each game group in DOM order.
   // Each group appears twice (A and H), so we dedupe by name.
-  const radios = form.querySelectorAll('input[type="radio"]');
+  const checkboxes = form.querySelectorAll('input[type="checkbox"]');
 
   const seen = new Set();
   const gameNamesInOrder = [];
 
-  for (const r of radios) {
+  for (const r of checkboxes) {
     if (!seen.has(r.name)) {
       seen.add(r.name);
       gameNamesInOrder.push(r.name); // r.name is your GameId
@@ -235,7 +235,7 @@ export function getPicks(formId) {
   let out = "";
   for (const gameId of gameNamesInOrder) {
     const checked = form.querySelector(
-      `input[type="radio"][name="${CSS.escape(gameId)}"]:checked`,
+      `input[type="checkbox"][name="${CSS.escape(gameId)}"]:checked`,
     );
     out += checked ? checked.value : "?"; // putting the ? in to flag missing picks.
   }

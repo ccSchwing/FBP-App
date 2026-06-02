@@ -236,6 +236,7 @@
         );
       } else {
         const data = await response.json();
+        console.log(`Fetched picks for user ${window.userEmail}:`, data);
         if (!data) {
           return { picks: "", tieBreaker: "" };
         }
@@ -251,14 +252,14 @@
     }
 
     function getUniqueGameIds(form) {
-      const radios = form.querySelectorAll('input[type="radio"]');
+      const checkboxes = form.querySelectorAll('input[type="checkbox"]');
       const gameIds = [];
       const seen = new Set();
 
-      for (const radio of radios) {
-        if (!seen.has(radio.name)) {
-          seen.add(radio.name);
-          gameIds.push(radio.name);
+      for (const checkbox of checkboxes) {
+        if (!seen.has(checkbox.name)) {
+          seen.add(checkbox.name);
+          gameIds.push(checkbox.name);
         }
       }
 
@@ -281,7 +282,7 @@
         }
 
         const target = form.querySelector(
-          `input[type="radio"][name="${CSS.escape(gameNames[i])}"][value="${pickValue}"]`,
+          `input[type="checkbox"][name="${CSS.escape(gameNames[i])}"][value="${pickValue}"]`,
         );
         if (target) {
           target.checked = true;
@@ -311,21 +312,21 @@
       }
 
       const awayRadio = form.querySelector(
-        `input[type="radio"][name="${CSS.escape(gameId)}"][value="A"]`,
+        `input[type="checkbox"][name="${CSS.escape(gameId)}"][value="A"]`,
       );
       const homeRadio = form.querySelector(
-        `input[type="radio"][name="${CSS.escape(gameId)}"][value="H"]`,
+        `input[type="checkbox"][name="${CSS.escape(gameId)}"][value="H"]`,
       );
       if (!awayRadio || !homeRadio) {
         return;
       }
 
-      const radioRow = awayRadio.closest("tr");
-      if (!radioRow) {
+      const checkboxRow = awayRadio.closest("tr");
+      if (!checkboxRow) {
         return;
       }
 
-      const nameRow = radioRow.nextElementSibling;
+      const nameRow = checkboxRow.nextElementSibling;
 
       const awayCells = [awayRadio.closest("td")];
       const homeCells = [homeRadio.closest("td")];
@@ -393,7 +394,7 @@
         if (!target || target.tagName !== "INPUT") {
           return;
         }
-        if (target.type !== "radio") {
+        if (target.type !== "checkbox") {
           return;
         }
 
@@ -411,7 +412,7 @@
 
       for (let i = 0; i < gameNames.length; i += 1) {
         const target = form.querySelector(
-          `input[type="radio"][name="${CSS.escape(gameNames[i])}"][value="A"]`,
+          `input[type="checkbox"][name="${CSS.escape(gameNames[i])}"][value="A"]`,
         );
         if (target) {
           target.checked = true;
@@ -444,7 +445,7 @@
         }
 
         const target = form.querySelector(
-          `input[type="radio"][name="${CSS.escape(gameId)}"][value="${favoriteSide}"]`,
+          `input[type="checkbox"][name="${CSS.escape(gameId)}"][value="${favoriteSide}"]`,
         );
         if (target) {
           target.checked = true;
@@ -458,8 +459,8 @@
       if (!form) {
         return;
       }
-      const radios = form.querySelectorAll('input[type="radio"]');
-      radios.forEach((radio) => (radio.checked = false));
+      const checkboxes = form.querySelectorAll('input[type="checkbox"]');
+      checkboxes.forEach((checkbox) => (checkbox.checked = false));
       const tieBreakerInput = document.getElementById(
         "mondayNightTieBreaker",
       );
@@ -470,6 +471,7 @@
       refreshAllSelectionHighlights();
     }
     function checkAllUnderdogs() {
+      console.log("Checking all underdogs");
       const form = document.getElementById("picksheet");
       if (!form) {
         return;
@@ -489,17 +491,11 @@
         } else if (awayUnderdogCell) {
           underdogSide = "A";
         }
-
+        document.querySelector(`input[type="checkbox"][name="${CSS.escape(gameId)}"][value="${underdogSide}"]`).checked = true;
         if (!underdogSide) {
           continue;
         }
 
-        const target = form.querySelector(
-          `input[type="radio"][name="${CSS.escape(gameId)}"][value="${underdogSide}"]`,
-        );
-        if (target) {
-          target.checked = true;
-        }
       }
 
       refreshAllSelectionHighlights();
@@ -517,7 +513,7 @@
         const randomSide = Math.random() < 0.5 ? "A" : "H";
 
         const target = form.querySelector(
-          `input[type="radio"][name="${CSS.escape(gameId)}"][value="${randomSide}"]`,
+          `input[type="checkbox"][name="${CSS.escape(gameId)}"][value="${randomSide}"]`,
         );
         if (target) {
           target.checked = true;
@@ -540,7 +536,7 @@
 
       for (let i = 0; i < gameNames.length; i += 1) {
         const target = form.querySelector(
-          `input[type="radio"][name="${CSS.escape(gameNames[i])}"][value="H"]`,
+          `input[type="checkbox"][name="${CSS.escape(gameNames[i])}"][value="H"]`,
         );
         if (target) {
           target.checked = true;
@@ -663,6 +659,7 @@ Press Cancel to go back and work on your picks before submitting.",
         savePicksButton.textContent = "Saving...";
 
         try {
+          console.log("Saving picks with payload:", payload);
           const response = await fetch(savePicksUrl, {
             method: "POST",
             headers: {
