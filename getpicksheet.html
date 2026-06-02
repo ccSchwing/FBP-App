@@ -407,7 +407,7 @@
       if (!form) {
         return;
       }
-
+      clearMyPicks();
       const gameNames = getUniqueGameIds(form);
 
       for (let i = 0; i < gameNames.length; i += 1) {
@@ -429,31 +429,19 @@
 
       for (let i = 0; i < gameNames.length; i += 1) {
         const gameId = gameNames[i];
-        const homeUnderdogCell = document.getElementById(`${gameId}-H`);
-        const awayUnderdogCell = document.getElementById(`${gameId}-A`);
-
-        // If home has the +spread, away is favorite; if away has +spread, home is favorite.
-        let favoriteSide = null;
-        if (homeUnderdogCell) {
-          favoriteSide = "A";
-        } else if (awayUnderdogCell) {
-          favoriteSide = "H";
+        if(document.getElementById(`${gameId}-H-spread`)) {
+          console.log(`Found favorite cell for home team of game ${gameId}`);
+          document.getElementById(`${gameId}A`).checked = true;
+          document.getElementById(`${gameId}H`).checked = false;
         }
-
-        if (!favoriteSide) {
-          continue;
+        if(document.getElementById(`${gameId}-A-spread`)) {
+          console.log(`Found favorite cell for away team of game ${gameId}`);
+          document.getElementById(`${gameId}H`).checked = true;
+          document.getElementById(`${gameId}A`).checked = false;
         }
-
-        const target = form.querySelector(
-          `input[type="checkbox"][name="${CSS.escape(gameId)}"][value="${favoriteSide}"]`,
-        );
-        if (target) {
-          target.checked = true;
-        }
-      }
-
       refreshAllSelectionHighlights();
     }
+  }
     function clearMyPicks() {
       const form = document.getElementById("picksheet");
       if (!form) {
@@ -481,21 +469,16 @@
 
       for (let i = 0; i < gameNames.length; i += 1) {
         const gameId = gameNames[i];
-        const homeUnderdogCell = document.getElementById(`${gameId}-H`);
-        const awayUnderdogCell = document.getElementById(`${gameId}-A`);
-
-        // If home has the +spread, away is favorite; if away has +spread, home is favorite.
-        let underdogSide = null;
-        if (homeUnderdogCell) {
-          underdogSide = "H";
-        } else if (awayUnderdogCell) {
-          underdogSide = "A";
+        if(document.getElementById(`${gameId}-H-spread`)) {
+          console.log(`Found underdog cell for home team of game ${gameId}`);
+          document.getElementById(`${gameId}A`).checked = false;
+          document.getElementById(`${gameId}H`).checked = true;
         }
-        document.querySelector(`input[type="checkbox"][name="${CSS.escape(gameId)}"][value="${underdogSide}"]`).checked = true;
-        if (!underdogSide) {
-          continue;
+        if(document.getElementById(`${gameId}-A-spread`)) {
+          console.log(`Found underdog cell for away team of game ${gameId}`);
+          document.getElementById(`${gameId}H`).checked = false;
+          document.getElementById(`${gameId}A`).checked = true;
         }
-
       }
 
       refreshAllSelectionHighlights();
@@ -505,7 +488,7 @@
       if (!form) {
         return;
       }
-
+      clearMyPicks();
       const gameNames = getUniqueGameIds(form);
 
       for (let i = 0; i < gameNames.length; i += 1) {
@@ -531,7 +514,7 @@
       if (!form) {
         return;
       }
-
+      clearMyPicks();
       const gameNames = getUniqueGameIds(form);
 
       for (let i = 0; i < gameNames.length; i += 1) {
