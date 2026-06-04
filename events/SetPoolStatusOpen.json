@@ -7,7 +7,7 @@
     "content-type": "application/json"
   },
   "body":
-    "{\"week\": 1, \"poolOpen\": true}",
+    "{\"week\": 1, \"poolOpen\": true, \"create_next_week\": true}",
   
   "requestContext": {
     "routeKey": "POST /setPoolStatusOpen",

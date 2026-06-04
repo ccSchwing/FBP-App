@@ -189,6 +189,15 @@ manifest_hash = ""
 packagetype = "Zip"
 functions = ["GetAllFBPPicks"]
 
+[function_build_definitions.373e3198-951c-498b-94b7-9b8df795d255]
+codeuri = "/Users/ccs/projects/FBP/src/OpenPool/src"
+runtime = "python3.12"
+architecture = "x86_64"
+handler = "OpenPool.openPool"
+manifest_hash = ""
+packagetype = "Zip"
+functions = ["OpenPool"]
+
 [layer_build_definitions.3dfdaf34-6782-412e-9ad6-d099b66307c6]
 layer_name = "FBPLibLayer"
 codeuri = "/Users/ccs/projects/FBP/src/FBPLib-Layer"

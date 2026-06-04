@@ -5,8 +5,8 @@ import os
 from botocore.exceptions import ClientError
 from aws_lambda_powertools.event_handler import APIGatewayHttpResolver
 from aws_lambda_powertools.event_handler.api_gateway import CORSConfig
-from fbplib import fbpLog
-from fbplib import getCurrentWeek
+from fbplib.fbpLog import fbpLog
+from fbplib.getCurrentWeek import getCurrentWeek
 
 logging.basicConfig(format='%(levelname)s %(message)s')
 logger = logging.getLogger()
@@ -36,6 +36,8 @@ def parse_pool_open(value):
         return bool(value)
     return None
 
+# If create_next_week is False, this function will update the poolOpen value for the current week.
+# If create_next_week is True, this function will create a new entry for the next week
 def _set_pool_status(create_next_week, route_name, forced_pool_open=None):
     config_table_name = os.environ.get('FBP_CONFIG_TABLE_NAME', 'FBP-Config')
     week_number = None
@@ -44,9 +46,9 @@ def _set_pool_status(create_next_week, route_name, forced_pool_open=None):
         logger.info(f"[ROUTE] Entered {route_name}")
         logger.info(f"[ROUTE] raw_path={app.current_event.raw_path}, route_key={app.current_event.request_context.route_key}")
 
-        week_number = getCurrentWeek.getCurrentWeek()
+        week_number = getCurrentWeek()
         if week_number is None:
-            fbpLog.fbpLog("fbpadmin@my-fbp.com", "SetPoolStatus", "Failed to get current week", "ERROR", "None")
+            fbpLog("fbpadmin@my-fbp.com", "SetPoolStatus", "Failed to get current week", "ERROR")
             return {
                 'statusCode': 500,
                 'body': json.dumps({'error': 'Failed to get current week'})
@@ -56,7 +58,7 @@ def _set_pool_status(create_next_week, route_name, forced_pool_open=None):
         if forced_pool_open is None:
             if body is None:
                 logger.error("No JSON body found in the request")
-                fbpLog.fbpLog("fbpadmin@my-fbp.com", "SetPoolStatus", "No JSON body found in the request", "ERROR", week_number)
+                fbpLog("fbpadmin@my-fbp.com", "SetPoolStatus", "No JSON body found in the request", "ERROR")
                 return {
                     'statusCode': 400,
                     'body': json.dumps({
@@ -68,7 +70,7 @@ def _set_pool_status(create_next_week, route_name, forced_pool_open=None):
             pool_open = parse_pool_open(body.get('poolOpen'))
             logger.info(f"Received request body: {body}, parsed poolOpen: {pool_open}")
             if pool_open is None:
-                fbpLog.fbpLog("fbpadmin@my-fbp.com", "SetPoolStatus", "poolOpen must be a boolean (true/false)", "ERROR", week_number)
+                fbpLog("fbpadmin@my-fbp.com", "SetPoolStatus", "poolOpen must be a boolean (true/false)", "ERROR")
                 return {
                     'statusCode': 400,
                     'body': json.dumps({
@@ -79,111 +81,62 @@ def _set_pool_status(create_next_week, route_name, forced_pool_open=None):
         else:
             pool_open = forced_pool_open
             logger.info(f"Using forced poolOpen={pool_open} for route {route_name}")
-            fbpLog.fbpLog("fbpadmin@my-fbp.com", "SetPoolStatus", f"Using forced poolOpen={pool_open} for route {route_name}", "INFO", week_number)
+            fbpLog("fbpadmin@my-fbp.com", "SetPoolStatus", f"Using forced poolOpen={pool_open} for route {route_name}", "INFO")
         dynamodb = boto3.resource('dynamodb')
         table = dynamodb.Table(config_table_name)
-        response = table.get_item(Key={'Week': week_number})
-        if 'Item' not in response:
-            return {
-                'statusCode': 404,
-                'body': json.dumps({
-                    'error': f'Configuration for week {week_number} not found',
-                    'week': week_number
-                })
+        # add new record for next week with poolOpen value, week_number + 1, and resultsCalculated = false
+        if create_next_week and week_number is not None:
+            logger.info(f"Creating new entry for next week: {week_number + 1}")
+            fbpLog("fbpadmin@my-fbp.com", "SetPoolStatus", f"Creating new entry for next week: {week_number + 1}", "INFO")
+            next_week_item = {
+                'Week': week_number + 1,
+                'poolOpen': pool_open,
+                'resultsCalculated': False
             }
-
-        current_item = response['Item']
-        logger.info(f"Fetched configuration for week {week_number}: {json.dumps(current_item, default=str)}")
-        logger.info(f"Current poolOpen value for week {week_number} is: {current_item.get('poolOpen', False)}")
-        fbpLog.fbpLog("fbpadmin@my-fbp.com", "SetPoolStatus", f"Fetched configuration for week {week_number}: {json.dumps(current_item, default=str)}", "INFO", week_number)
-        target_week = week_number + 1 if create_next_week else week_number
-
-        if create_next_week:
-            next_week_item = dict(current_item)
-            next_week_item['Week'] = target_week
-            next_week_item['poolOpen'] = pool_open
             try:
-                table.put_item(
-                    Item=next_week_item,
-                    ConditionExpression='attribute_not_exists(#week)',
-                    ExpressionAttributeNames={'#week': 'Week'}
-                )
+                table.put_item(Item=next_week_item)
+                logger.info(f"Created new entry for next week: {week_number + 1} with poolOpen={pool_open}")
+                fbpLog("fbpadmin@my-fbp.com", "SetPoolStatus", f"Created new entry for next week: {week_number + 1} with poolOpen={pool_open}", "INFO")
             except ClientError as error:
-                if error.response.get('Error', {}).get('Code') != 'ConditionalCheckFailedException':
-                    raise
-
-                existing_response = table.get_item(Key={'Week': target_week})
-                existing_item = existing_response.get('Item', {})
-                existing_pool_open = existing_item.get('poolOpen', False)
-                logger.info(f"Week {target_week} already exists; leaving existing poolOpen unchanged at {existing_pool_open}")
-                fbpLog.fbpLog("fbpadmin@my-fbp.com", "SetPoolStatus", f"Week {target_week} already exists; leaving existing poolOpen unchanged at {existing_pool_open}", "INFO", target_week)
+                logger.error(f"Error creating entry for next week: {error}")
+                fbpLog("fbpadmin@my-fbp.com", "SetPoolStatus", f"Error creating entry for next week: {error}", "ERROR")
                 return {
-                    'statusCode': 200,
+                    'statusCode': 500,
                     'body': json.dumps({
-                        'week': target_week,
-                        'poolOpen': existing_pool_open,
-                        'message': 'Week already initialized; no update applied'
-                    })
+                        'error': 'Database error',
+                        'details': str(error)})
                 }
-        else:
-            try:
-                updated_config = table.update_item(
-                    Key={'Week': target_week},
-                    UpdateExpression='SET #poolOpen = :poolOpen',
-                    ConditionExpression='attribute_exists(#week)',
-                    ExpressionAttributeNames={
-                        '#week': 'Week',
-                        '#poolOpen': 'poolOpen'
-                    },
-                    ExpressionAttributeValues={
-                        ':poolOpen': pool_open
-                    }
-                )
-                logger.info(f"updatedConfig: {json.dumps(updated_config, default=str)}")
-                fbpLog.fbpLog("fbpadmin@my-fbp.com", "SetPoolStatus", f"Updated poolOpen value for week {target_week} to: {pool_open}", "INFO", target_week)
-            except ClientError as error:
-                if error.response.get('Error', {}).get('Code') != 'ConditionalCheckFailedException':
-                    raise
-                fbpLog.fbpLog("fbpadmin@my-fbp.com", "SetPoolStatus", f"Week {target_week} not found; cannot set poolOpen to {pool_open}", "ERROR", target_week)
-                logger.error(f"Week {target_week} not found; cannot set poolOpen to {pool_open}")
-                return {
-                    'statusCode': 404,
-                    'body': json.dumps({
-                        'week': target_week,
-                        'poolOpen': False,
-                        'message': 'Week not found; no update applied'
-                    })
-                }
-
-        response = table.get_item(Key={'Week': target_week})
-        logger.info(f"Updated poolOpen value for week {target_week} to: {pool_open}")
-        fbpLog.fbpLog("fbpadmin@my-fbp.com", "SetPoolStatus", f"Set poolOpen to {pool_open} for week {target_week}", "INFO", target_week)
+        week=getCurrentWeek()
+        response = table.get_item(Key={'Week': week})
+        logger.info(f"Updated poolOpen value for week {week} to: {pool_open}")
+        fbpLog("fbpadmin@my-fbp.com", "SetPoolStatus", f"Set poolOpen to {pool_open} for week {week}", "INFO")
 
         if 'Item' in response:
             updated_pool_open = response['Item'].get('poolOpen', False)
-            logger.info(f"Returning updated poolOpen value for week {target_week}: {updated_pool_open}")
+            logger.info(f"Returning updated poolOpen value for week {week}: {updated_pool_open}")
             return {
                 'statusCode': 200,
                 'body': json.dumps({
-                    'week': target_week,
-                    'poolOpen': updated_pool_open
+                    'week': week,
+                    'poolOpen': updated_pool_open,
+                    'resultsCalculated': response['Item'].get('resultsCalculated', False)
                 })
             }
         else:
-            logger.error(f"Configuration for week {target_week} not found after update")
-            fbpLog.fbpLog("fbpadmin@my-fbp.com", "SetPoolStatus", f"Configuration for week {target_week} not found after update", "ERROR", target_week)
+            logger.error(f"Configuration for week {week} not found after update")
+            fbpLog("fbpadmin@my-fbp.com", "SetPoolStatus", f"Configuration for week {week} not found after update", "ERROR")
             return {
                 'statusCode': 404,
                 'body': json.dumps({
-                    'error': f'Configuration for week {target_week} not found',
-                    'week': target_week,
+                    'error': f'Configuration for week {week} not found',
+                    'week': week,
                     'poolOpen': False
                 })
             }
 
     except ClientError as error:
         logger.error(f"DynamoDB Error: {error}")
-        fbpLog.fbpLog("fbpadmin@my-fbp.com", "SetPoolStatus", f"DynamoDB Error: {error}", "ERROR", week_number)
+        fbpLog("fbpadmin@my-fbp.com", "SetPoolStatus", f"DynamoDB Error: {error}", "ERROR")
         return {
             'statusCode': 500,
             'body': json.dumps({
@@ -193,7 +146,7 @@ def _set_pool_status(create_next_week, route_name, forced_pool_open=None):
         }
     except Exception as error:
         logger.error(f"Unexpected error: {error}")
-        fbpLog.fbpLog("fbpadmin@my-fbp.com", "SetPoolStatus", f"Unexpected error: {error}", "ERROR", week_number)
+        fbpLog("fbpadmin@my-fbp.com", "SetPoolStatus", f"Unexpected error: {error}", "ERROR")
         return {
             'statusCode': 500,
             'body': json.dumps({

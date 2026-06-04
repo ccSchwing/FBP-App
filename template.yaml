@@ -77,6 +77,41 @@ Resources:
         - python3.12
     Metadata:
       BuildMethod: python3.12
+  OpenPool:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-open-pool"
+      CodeUri: src/OpenPool/src/
+      Handler: OpenPool.openPool
+      Runtime: python3.12
+      Layers:
+        - !Ref FBPLibLayer
+      Environment:
+        Variables:
+          FBPConfigTableName: !Ref FBPConfigTableName
+          FBPLogsTableName: !Ref FBPLogsTableName
+          SetPoolStatusOpen: !Ref SetPoolStatusOpen
+          CalcWeeklyResults: !Ref CalcWeeklyResults
+          SaveFBPPicks: !Ref SaveFBPPicks                
+          UpdateWeeklyResults: !Ref UpdateWeeklyResults
+          SendEmail: !Ref SendEmail
+      Policies:
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - lambda:InvokeFunction
+              Resource:
+                - !GetAtt CalcWeeklyResults.Arn
+                - !GetAtt SaveFBPPicks.Arn
+                - !GetAtt UpdateWeeklyResults.Arn
+                - !GetAtt SendEmail.Arn
+                - !GetAtt SetPoolStatusOpen.Arn
+        - DynamoDBCrudPolicy:
+            TableName: !Ref FBPConfigTableName
+        - DynamoDBCrudPolicy:
+            TableName: !Ref FBPLogsTableName
+
   EmailForwarding:
     Type: AWS::Serverless::Function
     Properties:
@@ -180,6 +215,7 @@ Resources:
                   - !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/FBP-Config"
                   - !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/2025-Log"
                   - !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/FBP-Users"
+                  - !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/FBP-Weekly-Results-2025"
   GetUserStatus:
     Type: AWS::Serverless::Function
     Properties:
@@ -301,12 +337,15 @@ Resources:
             TableName: !Ref FBPLogsTableName
         - DynamoDBReadPolicy:
             TableName: !Ref FBPConfigTableName
+        - DynamoDBCrudPolicy:
+            TableName: !Ref FBPUsersTableName
       Environment:
         Variables:
           FBPPicksTableName: !Ref FBPPicksTableName
           FBPWeeklyResults2025TableName: !Ref FBPWeeklyResults2025TableName
           FBPLogsTableName: !Ref FBPLogsTableName
-          FBPConfigTableName: !Ref FBPConfigTableName
+          FBPUsersTableName: !Ref FBPUsersTableName
+
       Events:
         ResetDBsGet:
           Type: HttpApi
@@ -329,6 +368,15 @@ Resources:
       CodeUri: src/SendEmail/src/
       Handler: SendEmail.lambda_handler
       Runtime: python3.12
+      Policies: 
+        - DynamoDBCrudPolicy:
+            TableName: !Ref FBPLogsTableName
+        - DynamoDBCrudPolicy:
+            TableName: !Ref FBPWeeklyResults2025TableName
+      Environment:
+        Variables:
+          FBPLogsTableName: !Ref FBPLogsTableName
+          FBPWeeklyResults2025TableName: !Ref FBPWeeklyResults2025TableName
       # SES stuff
       Role: 
         Fn::GetAtt:
@@ -464,10 +512,13 @@ Resources:
   UpdateWeeklyResults:
     Type: AWS::Serverless::Function
     Properties:
+      FunctionName: !Sub "${AWS::StackName}-update-weekly-results"
       CodeUri: src/UpdateWeeklyResults/src/
       Handler: UpdateWeeklyResults.lambda_handler
       Runtime: python3.12
       Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref FBPConfigTableName
         - DynamoDBCrudPolicy:
             TableName: !Ref FBPUsersTableName
         - DynamoDBCrudPolicy:
@@ -476,8 +527,6 @@ Resources:
             TableName: !Ref FBPLogsTableName
         - DynamoDBReadPolicy:
             TableName: !Ref FBPPicksTableName
-        - DynamoDBReadPolicy:
-            TableName: !Ref FBPConfigTableName
         - DynamoDBReadPolicy:
             TableName: !Ref FBPScheduleTableName
       Environment:
@@ -509,14 +558,13 @@ Resources:
   CalcWeeklyResults:
     Type: AWS::Serverless::Function
     Properties:
+      FunctionName: !Sub "${AWS::StackName}-calc-weekly-results"
       CodeUri: src/CalcWeeklyResults/src/
       Handler: CalcWeeklyResults.lambda_handler
       Runtime: python3.12
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref FBPUsersTableName
-        # - DynamoDBCrudPolicy:
-        #     TableName: !Ref FBPWeeklyResultsTableName
         - DynamoDBCrudPolicy:
             TableName: !Ref FBPLogsTableName
         - DynamoDBReadPolicy:
@@ -531,7 +579,6 @@ Resources:
           FBPConfigTableName: !Ref FBPConfigTableName
           FBPPicksTableName: !Ref FBPPicksTableName
           FBPLogsTableName: !Ref FBPLogsTableName
-          # FBPWeeklyResultsTableName: !Ref FBPWeeklyResultsTableName
           FBPScheduleTableName: !Ref FBPScheduleTableName
       Layers:
         - !Ref FBPLibLayer
@@ -599,6 +646,7 @@ Resources:
   SaveFBPPicks:
     Type: AWS::Serverless::Function
     Properties:
+      FunctionName: !Sub "${AWS::StackName}-save-fbp-picks"
       CodeUri: src/SaveFBPPicks/src/
       Handler: SaveFBPPicks.lambda_handler
       Runtime: python3.12
@@ -803,9 +851,12 @@ Resources:
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref FBPConfigTableName
+        - DynamoDBCrudPolicy:
+            TableName: !Ref FBPLogsTableName
       Environment:
         Variables:
           FBPConfigTableName: !Ref FBPConfigTableName
+          FBPLogsTableName: !Ref FBPLogsTableName
       Layers:
         - !Ref FBPLibLayer
       Events:
