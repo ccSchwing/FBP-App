@@ -316,3 +316,67 @@ def openPool(event, context):
     )
     logging.info(f"SendEmail Response: {response}")
     fbpLog("fbpadmin@my-fbp.com", "openPool", f"SendEmail Response: {response}", "INFO")
+
+    setPoolOpenFunction = os.environ.get("SetPoolStatusOpen", "SetPoolStatusOpen")
+    powertools_event = {
+  "version": "2.0",
+  "routeKey": "POST /setPoolStatusOpen",
+  "rawPath": "/setPoolStatusOpen",
+  "rawQueryString": "",
+  "headers": {
+    "content-type": "application/json"
+  },
+  "body":
+    "{\"poolOpen\": true, \"create_next_week\": true}",
+  
+  "requestContext": {
+    "routeKey": "POST /setPoolStatusOpen",
+    "stage": "$default",
+    "requestId": "local-request-id",
+    "apiId": "local",
+    "http": {
+      "method": "POST",
+      "path": "/setPoolStatusOpen",
+      "protocol": "HTTP/1.1",
+      "sourceIp": "127.0.0.1",
+      "userAgent": "sam-local"
+    }
+  },
+  "isBase64Encoded": False
+}
+    response = lambda_client.invoke(
+        FunctionName=setPoolOpenFunction,
+        InvocationType="RequestResponse",
+        Payload=json.dumps(powertools_event),
+    )
+    if response.get("StatusCode") == 200:
+        logging.info(f"SetPoolStatusOpen succeeded, pool is now open for the new week: {response.get('week')}.")
+        fbpLog("fbpadmin@my-fbp.com", "openPool", f"SetPoolStatusOpen succeeded, pool is now open for the new week: {response.get('week')}.", "INFO")
+    else:
+        logging.error(
+            f"SetPoolStatusOpen failed with status code: {response.get('StatusCode')}"
+        )
+        return {
+            "statusCode": 500,
+            "body": json.dumps(
+                {
+                    "status": "error",
+                    "message": f"SetPoolStatusOpen failed with status code: {response.get('StatusCode')}",
+                    "details": response.get("Payload").read().decode("utf-8") if response.get("Payload") else {},
+                }
+            ),
+        }
+    return {
+        "statusCode": 200,
+        "body": json.dumps(
+            {
+                "status": "success",
+                "message": "Pool opened successfully",
+                "details": {
+                    "poolOpen": True,
+                    "week": response.get("week"),
+                },
+            }
+        ),
+    }
+
