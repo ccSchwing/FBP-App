@@ -53,8 +53,8 @@ def resetDBs():
         try:
             usersTable.update_item(
                 Key={'email': email},
-                UpdateExpression="SET #totalCorrectPicks = :zero, #totalIncorrectPicks = :zero",
-                ExpressionAttributeNames={'#totalCorrectPicks': 'totalCorrectPicks', '#totalIncorrectPicks': 'totalIncorrectPicks'},
+                UpdateExpression="SET #totalCorrectPicks = :zero, #totalIncorrectPicks = :zero, #totalWins = :zero",
+                ExpressionAttributeNames={'#totalCorrectPicks': 'totalCorrectPicks', '#totalIncorrectPicks': 'totalIncorrectPicks', '#totalWins': 'totalWins'},
                 ExpressionAttributeValues={':zero': 0}
             )
         except ClientError as e:
