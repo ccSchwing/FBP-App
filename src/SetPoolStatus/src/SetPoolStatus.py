@@ -38,13 +38,14 @@ def parse_pool_open(value):
 
 # If create_next_week is False, this function will update the poolOpen value for the current week.
 # If create_next_week is True, this function will create a new entry for the next week
-def _set_pool_status(create_next_week, route_name, forced_pool_open=None):
+def _set_pool_status(create_next_week, poolAction, forced_pool_open=None):
     config_table_name = os.environ.get('FBP_CONFIG_TABLE_NAME', 'FBP-Config')
     week_number = None
-
+    dynamodb = boto3.resource('dynamodb')
+    table = dynamodb.Table(config_table_name)
     try:
-        logger.info(f"[ROUTE] Entered {route_name}")
-        logger.info(f"[ROUTE] raw_path={app.current_event.raw_path}, route_key={app.current_event.request_context.route_key}")
+        logger.info(f"[poolAction] Entered {poolAction}")
+        logger.info(f"[poolAction] raw_path={app.current_event.raw_path}, route_key={app.current_event.request_context.route_key}")
 
         week_number = getCurrentWeek()
         if week_number is None:
@@ -54,49 +55,52 @@ def _set_pool_status(create_next_week, route_name, forced_pool_open=None):
                 'body': json.dumps({'error': 'Failed to get current week'})
             }
 
-        body = app.current_event.json_body
-        if forced_pool_open is None:
-            if body is None:
-                logger.error("No JSON body found in the request")
-                fbpLog("fbpadmin@my-fbp.com", "SetPoolStatus", "No JSON body found in the request", "ERROR")
-                return {
-                    'statusCode': 400,
-                    'body': json.dumps({
-                        'error': 'Invalid request',
-                        'message': 'Request body must be a valid JSON'
-                    })
-                }
-
-            pool_open = parse_pool_open(body.get('poolOpen'))
-            logger.info(f"Received request body: {body}, parsed poolOpen: {pool_open}")
-            if pool_open is None:
-                fbpLog("fbpadmin@my-fbp.com", "SetPoolStatus", "poolOpen must be a boolean (true/false)", "ERROR")
-                return {
-                    'statusCode': 400,
-                    'body': json.dumps({
-                        'error': 'Invalid request',
-                        'message': 'poolOpen must be a boolean (true/false)'
-                    })
-                }
-        else:
-            pool_open = forced_pool_open
-            logger.info(f"Using forced poolOpen={pool_open} for route {route_name}")
-            fbpLog("fbpadmin@my-fbp.com", "SetPoolStatus", f"Using forced poolOpen={pool_open} for route {route_name}", "INFO")
-        dynamodb = boto3.resource('dynamodb')
-        table = dynamodb.Table(config_table_name)
+        poolStatus=table.get_item(Key={'Week': week_number})
+        if 'Item' not in poolStatus:
+            logger.error(f"Configuration for current week {week_number} not found.")
+            fbpLog("fbpadmin@my-fbp.com", "SetPoolStatus", f"Configuration for current week {week_number} not found.", "ERROR")
+            return {
+                'statusCode': 500,
+                'body': json.dumps({'error': f'Configuration for current week {week_number} not found'})
+            }
+        pool_open = poolStatus['Item'].get('poolOpen')
+        if pool_open is None:
+            fbpLog("fbpadmin@my-fbp.com", "SetPoolStatus", "poolOpen must be a boolean (true/false)", "ERROR")
+            return {
+                'statusCode': 400,
+                'body': json.dumps({
+                    'error': 'Invalid request',
+                    'message': 'poolOpen must be a boolean (true/false)'
+                })
+            }
+        if pool_open == True:
+            logger.info(f"Pool is currently open for week {week_number}.  It must be closed first.")
+            fbpLog("fbpadmin@my-fbp.com",
+                   "SetPoolStatus",
+                   f"Pool is currently open for week {week_number}.  It must be closed first.",
+                   "INFO")
+            return {
+                'statusCode': 400,
+                'body': json.dumps({
+                    'error': 'Pool is already open',
+                    'week': week_number,
+                    'poolOpen': pool_open
+                })
+            }
         # add new record for next week with poolOpen value, week_number + 1, and resultsCalculated = false
-        if create_next_week and week_number is not None:
+        if (create_next_week == True):
             logger.info(f"Creating new entry for next week: {week_number + 1}")
             fbpLog("fbpadmin@my-fbp.com", "SetPoolStatus", f"Creating new entry for next week: {week_number + 1}", "INFO")
             next_week_item = {
                 'Week': week_number + 1,
-                'poolOpen': pool_open,
+                'poolOpen': True,
                 'resultsCalculated': False
             }
             try:
+                newPoolOpenValue=True
                 table.put_item(Item=next_week_item)
-                logger.info(f"Created new entry for next week: {week_number + 1} with poolOpen={pool_open}")
-                fbpLog("fbpadmin@my-fbp.com", "SetPoolStatus", f"Created new entry for next week: {week_number + 1} with poolOpen={pool_open}", "INFO")
+                logger.info(f"Created new entry for next week: {week_number + 1} with poolOpen={newPoolOpenValue}")
+                fbpLog("fbpadmin@my-fbp.com", "SetPoolStatus", f"Created new entry for next week: {week_number + 1} with poolOpen={newPoolOpenValue}", "INFO")
             except ClientError as error:
                 logger.error(f"Error creating entry for next week: {error}")
                 fbpLog("fbpadmin@my-fbp.com", "SetPoolStatus", f"Error creating entry for next week: {error}", "ERROR")
@@ -106,20 +110,44 @@ def _set_pool_status(create_next_week, route_name, forced_pool_open=None):
                         'error': 'Database error',
                         'details': str(error)})
                 }
+        if (create_next_week == False):
+            logger.info(f"Updating poolOpen value for week {week_number} to: {forced_pool_open}")
+            fbpLog("fbpadmin@my-fbp.com", "SetPoolStatus", f"Updating poolOpen value for week {week_number} to: {forced_pool_open}", "INFO")
+            newPoolOpenValue=False
+            next_week_item = {
+                'Week': week_number,
+                'poolOpen': newPoolOpenValue,
+                'resultsCalculated': False
+            }
+            try:
+                table.put_item(Item=next_week_item)
+                logger.info(f"Updated poolOpen value for week {week_number} to: {newPoolOpenValue}")
+                fbpLog("fbpadmin@my-fbp.com", "SetPoolStatus", f"Updated poolOpen value for week {week_number} to: {newPoolOpenValue}", "INFO")
+            except ClientError as error:
+                logger.error(f"Error updating poolOpen value for week {week_number}: {error}")
+                fbpLog("fbpadmin@my-fbp.com", "SetPoolStatus", f"Error updating poolOpen value for week {week_number}: {error}", "ERROR")
+                return {
+                    'statusCode': 500,
+                    'body': json.dumps({
+                        'error': 'Database error',
+                        'details': str(error)})
+                }
+
+        ##
+        # After updating the pool status, retrieve the updated item to return in the response
+        ##
         week=getCurrentWeek()
         response = table.get_item(Key={'Week': week})
-        logger.info(f"Updated poolOpen value for week {week} to: {pool_open}")
-        fbpLog("fbpadmin@my-fbp.com", "SetPoolStatus", f"Set poolOpen to {pool_open} for week {week}", "INFO")
 
         if 'Item' in response:
-            updated_pool_open = response['Item'].get('poolOpen', False)
+            updated_pool_open = response['Item'].get('poolOpen')
             logger.info(f"Returning updated poolOpen value for week {week}: {updated_pool_open}")
             return {
                 'statusCode': 200,
                 'body': json.dumps({
                     'week': week,
                     'poolOpen': updated_pool_open,
-                    'resultsCalculated': response['Item'].get('resultsCalculated', False)
+                    'resultsCalculated': response['Item'].get('resultsCalculated')
                 })
             }
         else:
@@ -157,13 +185,16 @@ def _set_pool_status(create_next_week, route_name, forced_pool_open=None):
 
 @app.post("/setPoolStatusOpen")
 def setPoolStatusOpen():
-    return _set_pool_status(create_next_week=True, route_name="setPoolStatusOpen", forced_pool_open=True)
+    logger.info("Setting pool status to open")
+    logger.info(f"Request body: {app.current_event.json_body}")
+    create_next_week=app.current_event.json_body.get("create_next_week", True)
+    pool_open = app.current_event.json_body.get("pool_open", True)
+    return _set_pool_status(create_next_week=create_next_week, poolAction=pool_open, forced_pool_open=True)
 
 
-@app.post("/setPoolStatusClosed")
+@app.get("/setPoolStatusClosed")
 def setPoolStatusClosed():
-    return _set_pool_status(create_next_week=False, route_name="setPoolStatusClosed")
-
+    return _set_pool_status(create_next_week=False, poolAction="setPoolStatusClosed", forced_pool_open=False)
 
 
 def lambda_handler(event, context):

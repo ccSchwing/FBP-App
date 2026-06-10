@@ -90,9 +90,9 @@ Resources:
         Variables:
           FBPConfigTableName: !Ref FBPConfigTableName
           FBPLogsTableName: !Ref FBPLogsTableName
-          SetPoolStatusOpen: !Ref SetPoolStatusOpen
-          CalcWeeklyResults: !Ref CalcWeeklyResults
-          SaveFBPPicks: !Ref SaveFBPPicks                
+          SetPoolStatusOpen: !Ref SetPoolStatusOpen     # Open pool for new week.
+          CalcWeeklyResults: !Ref CalcWeeklyResults     # Calc NFL Game Results for the week just ended.
+          # SaveFBPPicks: !Ref SaveFBPPicks               #  NO NO NO - this is part of close pool.
           UpdateWeeklyResults: !Ref UpdateWeeklyResults
           SendEmail: !Ref SendEmail
       Policies:
@@ -103,7 +103,7 @@ Resources:
                 - lambda:InvokeFunction
               Resource:
                 - !GetAtt CalcWeeklyResults.Arn
-                - !GetAtt SaveFBPPicks.Arn
+               # - !GetAtt SaveFBPPicks.Arn
                 - !GetAtt UpdateWeeklyResults.Arn
                 - !GetAtt SendEmail.Arn
                 - !GetAtt SetPoolStatusOpen.Arn
@@ -111,6 +111,53 @@ Resources:
             TableName: !Ref FBPConfigTableName
         - DynamoDBCrudPolicy:
             TableName: !Ref FBPLogsTableName
+
+  ClosePool:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-close-pool"
+      CodeUri: src/ClosePool/src/
+      Handler: ClosePool.lambda_handler
+      Runtime: python3.12
+      Layers:
+        - !Ref FBPLibLayer
+      Environment:
+        Variables:
+          FBPConfigTableName: !Ref FBPConfigTableName
+          FBPLogsTableName: !Ref FBPLogsTableName
+          SetPoolStatusClosed: !Ref SetPoolStatusClosed     # Close pool for the week. This is the last thing done.
+          SaveFBPPicks: !Ref SaveFBPPicks                   # Validate user picks
+          SendEmail: !Ref SendEmail                         # Send email for PickSheet and GridSheet.
+      Policies:
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - lambda:InvokeFunction
+              Resource:
+                - !GetAtt SaveFBPPicks.Arn          # Validate picks.
+                - !GetAtt SendEmail.Arn             # Send email with results to users.
+                - !GetAtt SetPoolStatusClosed.Arn   # Close pool for new week.
+        - DynamoDBCrudPolicy:
+            TableName: !Ref FBPConfigTableName
+        - DynamoDBCrudPolicy:
+            TableName: !Ref FBPLogsTableName
+      Events:
+        ClosePoolGET:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref MyHttpApi
+            Path: /closePool
+            Method: GET
+            PayloadFormatVersion: '2.0'
+        ClosePoolOPTIONS:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref MyHttpApi
+            Path: /closePool
+            Method: OPTIONS
+            PayloadFormatVersion: '2.0'
+  
 
   EmailForwarding:
     Type: AWS::Serverless::Function
@@ -508,7 +555,39 @@ Resources:
             Path: /getFBPUserEmailAndDisplayName
             Method: OPTIONS
             PayloadFormatVersion: '2.0'
+  GetAllFBPEmailAndDisplayName:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/GetFBPEmailAndDisplayName/src/
+      Handler: GetFBPEmailAndDisplayName.lambda_handler
+      Runtime: python3.12
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref FBPUsersTableName
+        - DynamoDBCrudPolicy:
+            TableName: !Ref FBPLogsTableName
 
+      Environment:
+        Variables:
+          FBPUsersTableName: !Ref FBPUsersTableName
+          FBPLogsTableName: !Ref FBPLogsTableName
+      Layers:
+        - !Ref FBPLibLayer
+      Events:
+        GetAllFBPEmailAndDisplayNameGET:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref MyHttpApi
+            Path: /getAllFBPUserEmailAndDisplayName
+            Method: GET
+            PayloadFormatVersion: '2.0'
+        GetAllFBPEmailAndDisplayNameOptions:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref MyHttpApi
+            Path: /getAllFBPUserEmailAndDisplayName
+            Method: OPTIONS
+            PayloadFormatVersion: '2.0'
   UpdateWeeklyResults:
     Type: AWS::Serverless::Function
     Properties:
@@ -1134,6 +1213,14 @@ Outputs:
     Value: !Sub https://${MyHttpApi}.execute-api.${AWS::Region}.amazonaws.com/prod/getListForEmail
     Export:
       Name: !Sub ${AWS::StackName}-GetListForEmailApi
+  GetAllFBPEmailAndDisplayNameFunction:
+    Description: GetAllFBPEmailAndDisplayName Lambda Function ARN
+    Value: !GetAtt GetAllFBPEmailAndDisplayName.Arn
+  GetAllFBPEmailAndDisplayNameApi:
+    Description: GetAllFBPEmailAndDisplayName API Endpoint
+    Value: !Sub https://${MyHttpApi}.execute-api.${AWS::Region}.amazonaws.com/prod/getAllFBPUserEmailAndDisplayName
+    Export:
+      Name: !Sub ${AWS::StackName}-GetAllFBPEmailAndDisplayNameApi
   GetFBPEmailAndDisplayNameFunction:
     Description: GetFBPEmailAndDisplayName Lambda Function ARN
     Value: !GetAtt GetFBPEmailAndDisplayName.Arn

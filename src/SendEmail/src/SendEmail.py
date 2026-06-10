@@ -145,6 +145,15 @@ def sendTemplatedEmail():
                         "firstName": firstName,
                         "templateName": templateName,
                     }
+                    fbpLog(
+                        email,
+                        "SendEmail",
+                        f"Sending picks sheet email to: {email}",
+                        "INFO",
+                    )
+                    logger.info(
+                        f"Sending picks sheet email to: {email} with template: {templateName}"
+                    )  #
                     items = sendEmailWithTemplate(params=params)
         case "FBPWeeklyWinner":
             logger.info("Processing request for weekly winner")
@@ -163,10 +172,12 @@ def sendTemplatedEmail():
             )
             resultsTable = boto3.resource("dynamodb").Table(FBPWeeklyResultsTableName)
             winner = resultsTable.scan(
-                FilterExpression="#week=:week AND #winner=:winner",
-                ExpressionAttributeNames={"#week": "week", "#winner": "winner"},
-                ExpressionAttributeValues={":week": week, ":winner": True},
+                FilterExpression=boto3.dynamodb.conditions.Attr("week").eq(week)
+                & boto3.dynamodb.conditions.Attr("winner").eq(True),
+                ProjectionExpression="email, #wins, week",
+                ExpressionAttributeNames={"#wins": "correctpicks"},
             )["Items"]
+
             #
             # winner= resultsTable.scan(FilterExpression=boto3.dynamodb.conditions.Attr('winner').eq(True))['Items']
             # Use winner email address to get display name from FBP-Users
@@ -177,25 +188,44 @@ def sendTemplatedEmail():
             )["Items"]
             winnerDisplayName = winnerInfo[0].get("displayName")
             params = {
-                "email": winner[0].get("email"),
-                "firstName": winnerInfo[0].get("firstName"),
+                "email": "Dummy Value",
+                "firstName": "Dummy Value",
                 "winnerDisplayName": winnerDisplayName,
-                "wins": winner[0].get("wins"),
+                "wins": int(winner[0].get("correctpicks")),
                 "templateName": templateName,
+                "week": week,
             }
-            # Get all email address and send to them
-            emailaddrs = usersTable.scan(ProjectionExpression="email")["Items"]
-            for addr in emailaddrs:
+            debug = False
+            if debug:
+                params = {
+                    "email": "chuckschwing@proton.me",
+                    "firstName": "Chuck",
+                    "winnerDisplayName": winnerDisplayName,
+                    "wins": int(winner[0].get("correctpicks")),
+                    "templateName": templateName,
+                    "week": week,
+                }
+                items = sendEmailWithTemplate(params=params)
+                logger.info(f"items: {items}")
                 logger.info(
-                    f"Sending weekly winner email to: {addr.get('email')} with winner display name: {winnerDisplayName}"
-                )  # Log the email and template being used
-                fbpLog(
-                    "fbpadmin@my-fbp.com",
-                    "SendEmail",
-                    f"Sending weekly winner email to: {addr.get('email')} with winner display name: {winnerDisplayName}",
-                    "INFO",
+                    f"Debug mode is on, sending email to: {params.get('email')} with template: {templateName}"
                 )
-            ## items= sendEmailWithTemplate(params=params)
+            # Get all email address and send to them
+            else:
+                emailaddrs = usersTable.scan(ProjectionExpression="email, firstName")["Items"]
+                for addr in emailaddrs:
+                    logger.info(
+                        f"Sending weekly winner email to: {addr.get('email')} with winner display name: {winnerDisplayName}"
+                    )  # Log the email and template being used
+                    fbpLog(
+                        addr.get("email"),
+                        "SendEmail",
+                        f"Sending weekly winner email to: {addr.get('email')} with winner display name: {winnerDisplayName}",
+                        "INFO",
+                    )
+                    params["email"] = addr.get("email")
+                    params["firstName"] = addr.get("firstName")
+                    items = sendEmailWithTemplate(params=params)
         case "BetaTestTemplate":
             logger.info("Processing request for beta test")
             fbpLog(
@@ -249,6 +279,15 @@ def sendTemplatedEmail():
                         "firstName": firstName,
                         "templateName": templateName,
                     }
+                    fbpLog(
+                        email,
+                        "SendEmail",
+                        f"Sending grid sheet email to: {email}",
+                        "INFO",
+                    )
+                    logger.info(
+                        f"Sending grid sheet email to: {email} with template: {templateName}"
+                    )  #
                     items = sendEmailWithTemplate(params=params)
         case "ReminderEmailTemplate":
             logger.info("Processing request for reminders")
@@ -298,12 +337,19 @@ def sendTemplatedEmail():
 
 
 def sendEmailWithTemplate(params):
+    logger.info(f"TemplateData being sent: {json.dumps(params)}")
     email = params.get("email")
     firstName = params.get("firstName")
     templateName = params.get("templateName")
     logger.info(
         f"Sending email to: {email} and firstName: {firstName} with template: {templateName}"
     )  # Log the email and template being used
+    fbpLog(
+        email,
+        "SendEmail",
+        f"Sending email to: {email} and firstName: {firstName} with template: {templateName}",
+        "INFO",
+    )
     ses = boto3.client("ses", region_name="us-east-1")
     try:
         response = ses.send_templated_email(

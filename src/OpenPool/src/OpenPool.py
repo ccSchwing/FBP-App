@@ -6,15 +6,20 @@ from botocore.exceptions import ClientError
 from fbplib.fbpLog import fbpLog
 from fbplib.getCurrentWeek import getCurrentWeek
 
-
+logging.basicConfig(format="%(levelname)s %(message)s")
+logger = logging.getLogger()
+logger.info("Initializing OpenPool Lambda function")  # Log initialization message
+logger.setLevel(logging.INFO)
+logger.info(
+    "OpenPool Lambda function initialized successfully"
+)
 # This lamdda function is responsible for all of the work needed to figure out who
 # won for the week.
 # Step 0:  Make sure the pool is closed for the week that just ended.
 # If it is still open, log an error and bail.  We don't want to calculate results while the pool is still open.
 # (This should have already been done by the SetPoolStatusClose Lambda, but we can be extra sure here.)
 # Calculate the weekly NFL results
-# Validate user picks i.e. check for missing picks and make sure all picks are made
-#   If there are missing picks, make them using the user's default algorithm.
+#
 # Update the weekly results in the database, including wins/losses for each user and determining the weekly winner.
 # Send out the weekly results email to all users.
 # Open the pool for the next week.
@@ -96,6 +101,7 @@ def openPool(event, context):
 
     ##
     # Green light.  Let's do this thing.  : -)
+    # The calcWeeklyResults calculates the NFL Game Results and sets the winner for each game.
     ##
     lambda_client = boto3.client("lambda")
     powertools_event = {
@@ -146,7 +152,6 @@ def openPool(event, context):
             if result.get("statusCode") == 200:
                 logging.info(f"Calc Weekly Results Body: {body}")
                 logging.info("Calc Weekly Results succeeded, proceeding to next steps.")
-                # Here you would add the logic to invoke the next Lambda functions for emailing users, updating pool status, etc.
         else:
             logging.error(
                 f"Calc Weekly Results failed with status code: {result.get('statusCode')}"
@@ -186,94 +191,7 @@ def openPool(event, context):
             ),
         }
 
-    # Second, validate and set fbp picks for the week by invoking the SaveFBPPicks Lambda function.
-    # There is a /validateAndFixPicks entrypoint in SaveFBPPicks.
-
-    powertools_event = {
-        "version": "2.0",
-        "routeKey": "POST /validateAndFixFBPPicks",
-        "rawPath": "/validateAndFixFBPPicks",
-        "rawQueryString": "",
-        "headers": {"content-type": "application/json"},
-        "body": "{}",
-        "requestContext": {
-            "routeKey": "POST /validateAndFixPicks",
-            "stage": "$default",
-            "requestId": "local-request-id",
-            "apiId": "local",
-            "http": {
-                "method": "POST",
-                "path": "/validateAndFixPicks",
-                "protocol": "HTTP/1.1",
-                "sourceIp": "127.0.0.1",
-                "userAgent": "sam-local",
-            },
-        },
-        "isBase64Encoded": False,
-    }
-
-    # Get the Lambda function name from environment variable or use a default value
-    saveFBPPicksFunction = os.environ.get("SaveFBPPicks", "SaveFBPPicks")
-    logging.info(
-        f"Invoking SaveFBPPicks Lambda function: {saveFBPPicksFunction} with event: {powertools_event}"
-    )
-    try:
-        response = lambda_client.invoke(
-            FunctionName=saveFBPPicksFunction,
-            InvocationType="RequestResponse",
-            Payload=json.dumps(powertools_event),
-        )
-        logging.info(f"SaveFBPPicks Response: {response}")
-        result = json.loads(response["Payload"].read())
-        logging.info(f"SaveFBPPicks Result: {result}")
-        if result.get("statusCode") == 200:
-            body = result.get("body")
-            logging.info(f"SaveFBPPicks Body: {body}")
-            if isinstance(body, str):
-                body = json.loads(body)
-            if result.get("statusCode") == 200:
-                logging.info(f"SaveFBPPicks Body: {body}")
-                logging.info("SaveFBPPicks succeeded, proceeding to next steps.")
-                # Here you would add the logic to invoke the next Lambda functions for emailing users, updating pool status, etc.
-        else:
-            logging.error(
-                f"SaveFBPPicks failed with status code: {result.get('statusCode')}"
-            )
-            return {
-                "statusCode": 500,
-                "body": json.dumps(
-                    {
-                        "status": "error",
-                        "message": f"SaveFBPPicks failed with status code: {result.get('statusCode')}",
-                        "details": result.get("body", {}),
-                    }
-                ),
-            }
-    except ClientError as e:
-        logging.exception(f"Error invoking SaveFBPPicks Lambda: {e}")
-        return {
-            "statusCode": 500,
-            "body": json.dumps(
-                {
-                    "status": "error",
-                    "message": f"Error invoking SaveFBPPicks Lambda: {e}",
-                    "details": str(e),
-                }
-            ),
-        }
-    except Exception as e:
-        logging.exception(f"Unexpected error: {e}")
-        return {
-            "statusCode": 500,
-            "body": json.dumps(
-                {
-                    "status": "error",
-                    "message": f"Unexpected error: {e}",
-                    "details": str(e),
-                }
-            ),
-        }
-    # Third, UpdateWeeklyResults -- this one will update the user's wins/losses and determine the
+    # Next, UpdateWeeklyResults -- this one will update the user's wins/losses and determine the
     # weekly winner.
 
     powertools_event = {
@@ -311,6 +229,8 @@ def openPool(event, context):
     logging.info(
         f"Invoking UpdateWeeklyResults Lambda function: {updateWeeklyResultsFunction}"
     )
+    fbpLog("fbpadmin@my-fbp.com", "OpenPool", f"Invoking UpdateWeeklyResults Lambda function: {updateWeeklyResultsFunction}", "INFO")
+
     try:
         response = lambda_client.invoke(
             FunctionName=updateWeeklyResultsFunction,
@@ -325,7 +245,6 @@ def openPool(event, context):
             logging.info(f"UpdateWeeklyResults Body: {body}")
             if isinstance(body, str):
                 body = json.loads(body)
-            if result.get("statusCode") == 200:
                 logging.info(f"UpdateWeeklyResults Body: {body}")
                 logging.info("UpdateWeeklyResults succeeded, proceeding to next steps.")
                 # Here you would add the logic to invoke the next Lambda functions for emailing users, updating pool status, etc.
@@ -333,6 +252,7 @@ def openPool(event, context):
             logging.error(
                 f"UpdateWeeklyResults failed with status code: {result.get('statusCode')}"
             )
+            fbpLog("fbpadmin@my-fbp.com", "OpenPool", f"UpdateWeeklyResults failed with status code: {result.get('statusCode')}", "ERROR")
             return {
                 "statusCode": 500,
                 "body": json.dumps(
@@ -471,7 +391,7 @@ def openPool(event, context):
                 "message": "Pool opened successfully",
                 "details": {
                     "poolOpen": True,
-                    "week": response.get("week"),
+                    "week": getCurrentWeek()
                 },
             }
         ),

@@ -401,6 +401,27 @@
       }
     },
     {
+      "label": "Attach to ClosePool",
+      "type": "shell",
+      "command": "sam build -t template.yaml ClosePool && sam local invoke -t .aws-sam/build/template.yaml ClosePool --event events/ClosePool.json --env-vars ${workspaceFolder}/.vscode/debug-env.json -d 5678 --debugger-path ${workspaceFolder}/.debugger --debug-args '/tmp/lambci_debug_files/debugpy --listen 0.0.0.0:5678 --wait-for-client' --container-host-interface 0.0.0.0 --force-image-build",
+      "isBackground": true,
+      "problemMatcher": {
+        "pattern": [
+          {
+            "regexp": "^(x)(\\b)(x)$",
+            "file": 1,
+            "location": 2,
+            "message": 3
+          }
+        ],
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "Building image",
+          "endsPattern": "Debugging will proceed"
+        }
+      }
+    },
+    {
       "label": "Cleanup",
       "type": "shell",
       "command": "lsof -ti tcp:5678 | xargs kill -9 2>/dev/null; docker rm -f $(docker ps -aq --filter label=com.amazonaws.sam.resource) 2>/dev/null || true",
