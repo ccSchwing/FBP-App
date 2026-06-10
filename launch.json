@@ -320,6 +320,23 @@
       ]
     },
     {
+      "name": "Python: Attach to ClosePool",
+      "type": "debugpy",
+      "request": "attach",
+      "connect": {
+        "host": "localhost",
+        "port": 5678
+      },
+      "preLaunchTask": "Attach to ClosePool",
+      "postDebugTask": "Cleanup",
+      "pathMappings": [
+        {
+          "localRoot": "${workspaceFolder}/src/ClosePool/src",
+          "remoteRoot": "/var/task"
+        }
+      ]
+    },
+    {
       "name": "Python: Local Invoke and Debug GetListForEmail",
       "type": "debugpy",
       "request": "attach",
