@@ -77,6 +77,35 @@ Resources:
         - python3.12
     Metadata:
       BuildMethod: python3.12
+  ImportSpreadsAndFinalScores:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-import-spreads-and-final-scores"
+      CodeUri: src/ImportSpreadsAndFinalScores/src/
+      Handler: ImportSpreadsAndFinalScores.importSpreadsAndFinalScores
+      Runtime: python3.12
+      Layers:
+        - !Ref FBPLibLayer
+      Environment:
+        Variables:
+          FBPConfigTableName: !Ref FBPConfigTableName
+          FBPLogsTableName: !Ref FBPLogsTableName
+          FBPSchedule2025TableName: !Ref FBPScheduleTableName
+          S3BucketName: !Ref S3BucketName
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref FBPConfigTableName
+        - DynamoDBCrudPolicy:
+            TableName: !Ref FBPLogsTableName
+        - DynamoDBCrudPolicy:
+            TableName: !Ref FBPScheduleTableName
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - s3:GetObject
+              Resource: !Sub "arn:aws:s3:::${S3BucketName}/*"
+
   OpenPool:
     Type: AWS::Serverless::Function
     Properties:

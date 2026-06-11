@@ -207,6 +207,15 @@ manifest_hash = ""
 packagetype = "Zip"
 functions = ["GetAllFBPPicks"]
 
+[function_build_definitions.99cb6024-5b97-4606-a855-09dc9aee9517]
+codeuri = "/Users/ccs/projects/FBP/src/ImportSpreads/src"
+runtime = "python3.12"
+architecture = "x86_64"
+handler = "ImportSpreads.importSpreads"
+manifest_hash = ""
+packagetype = "Zip"
+functions = ["ImportSpreads"]
+
 [layer_build_definitions.c020c0c2-a411-414b-8fed-0bfd4c531f8d]
 layer_name = "FBPLibLayer"
 codeuri = "/Users/ccs/projects/FBP/src/FBPLib-Layer"
