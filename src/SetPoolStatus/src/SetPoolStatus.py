@@ -73,20 +73,44 @@ def _set_pool_status(create_next_week, poolAction, forced_pool_open=None):
                     'message': 'poolOpen must be a boolean (true/false)'
                 })
             }
-        if pool_open == True:
-            logger.info(f"Pool is currently open for week {week_number}.  It must be closed first.")
-            fbpLog("fbpadmin@my-fbp.com",
-                   "SetPoolStatus",
-                   f"Pool is currently open for week {week_number}.  It must be closed first.",
-                   "INFO")
+        if pool_open == False and poolAction == "setPoolStatusClosed":
+            logger.info(f"Pool is already closed, ignoring request to close it again.")
+            fbpLog("fbpadmin@my-fbp.com", "SetPoolStatus", f"Pool is already closed, ignoring request to close it again.", "INFO")
             return {
-                'statusCode': 400,
+                'statusCode': 200,
                 'body': json.dumps({
-                    'error': 'Pool is already open',
+                    'error': 'Pool is already closed',
                     'week': week_number,
                     'poolOpen': pool_open
                 })
             }
+        ##
+        # Make sure to preserver the value of resultsCalculated when updating the pool status.
+        # We don't want to accidentally reset it to false if it's already true.
+        # That would cause the system to think that the results haven't been calculated yet for the week,
+        # which could cause issues data integrity issues.
+        ##
+        currentPoolStatus=table.get_item(Key={'Week': week_number})
+        results_calculated = currentPoolStatus['Item'].get('resultsCalculated')
+
+        if pool_open == True and poolAction == "setPoolStatusClosed":
+            logger.info(f"Pool is currently open, proceeding to close it.")
+            fbpLog("fbpadmin@my-fbp.com", "SetPoolStatus", f"Pool is currently open, proceeding to close it.", "INFO")
+            if 'Item' not in currentPoolStatus:
+                logger.error(f"Configuration for current week {week_number} not found when trying to check resultsCalculated.")
+                fbpLog("fbpadmin@my-fbp.com", "SetPoolStatus", f"Configuration for current week {week_number} not found when trying to check resultsCalculated.", "ERROR")
+                return {
+                    'statusCode': 500,
+                    'body': json.dumps({'error': f'Configuration for current week {week_number} not found when trying to check resultsCalculated'})
+                }
+            else:
+                next_week_item = {
+                'Week': week_number,
+                'poolOpen': False,
+                'resultsCalculated': results_calculated
+            }
+    
+
         # add new record for next week with poolOpen value, week_number + 1, and resultsCalculated = false
         if (create_next_week == True):
             logger.info(f"Creating new entry for next week: {week_number + 1}")
@@ -117,7 +141,7 @@ def _set_pool_status(create_next_week, poolAction, forced_pool_open=None):
             next_week_item = {
                 'Week': week_number,
                 'poolOpen': newPoolOpenValue,
-                'resultsCalculated': False
+                'resultsCalculated': results_calculated
             }
             try:
                 table.put_item(Item=next_week_item)

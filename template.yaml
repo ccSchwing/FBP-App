@@ -105,7 +105,10 @@ Resources:
               Action:
                 - s3:GetObject
               Resource: !Sub "arn:aws:s3:::${S3BucketName}/*"
-
+            - Effect: Allow
+              Action:
+                - s3:ListBucket
+              Resource: !Sub "arn:aws:s3:::${S3BucketName}"
   OpenPool:
     Type: AWS::Serverless::Function
     Properties:
@@ -121,7 +124,6 @@ Resources:
           FBPLogsTableName: !Ref FBPLogsTableName
           SetPoolStatusOpen: !Ref SetPoolStatusOpen     # Open pool for new week.
           CalcWeeklyResults: !Ref CalcWeeklyResults     # Calc NFL Game Results for the week just ended.
-          # SaveFBPPicks: !Ref SaveFBPPicks               #  NO NO NO - this is part of close pool.
           UpdateWeeklyResults: !Ref UpdateWeeklyResults
           SendEmail: !Ref SendEmail
       Policies:
@@ -157,6 +159,7 @@ Resources:
           SetPoolStatusClosed: !Ref SetPoolStatusClosed     # Close pool for the week. This is the last thing done.
           SaveFBPPicks: !Ref SaveFBPPicks                   # Validate user picks
           SendEmail: !Ref SendEmail                         # Send email for PickSheet and GridSheet.
+          ImportSpreadsAndFinalScores: !Ref ImportSpreadsAndFinalScores
       Policies:
         - Version: '2012-10-17'
           Statement:
@@ -167,6 +170,7 @@ Resources:
                 - !GetAtt SaveFBPPicks.Arn          # Validate picks.
                 - !GetAtt SendEmail.Arn             # Send email with results to users.
                 - !GetAtt SetPoolStatusClosed.Arn   # Close pool for new week.
+                - !GetAtt ImportSpreadsAndFinalScores.Arn # Import spreads and final scores for the week.
         - DynamoDBCrudPolicy:
             TableName: !Ref FBPConfigTableName
         - DynamoDBCrudPolicy:

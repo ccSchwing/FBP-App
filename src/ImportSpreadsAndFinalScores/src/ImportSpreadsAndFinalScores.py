@@ -28,7 +28,15 @@ def importSpreadsAndFinalScores(event, context):
     bucket_name = os.environ.get('S3BucketName', 'my-fbp.com')
     logger.info(f"Using S3 bucket: {bucket_name}")  # Log the bucket name being used
     week=getCurrentWeek()
-    csvKey = f"schedule/2025-Schedule/week{week}-schedule.csv"
+    if week is None:
+        logger.error("Failed to determine current week. Aborting import process.")
+        fbpLog("fbpadmin@my-fbp.com", "ImportSpreads", "Failed to determine current week. Aborting import process.", "ERROR")
+        return {
+            'statusCode': 500,
+            'body': json.dumps({'error': 'Failed to determine current week'})
+        }
+    csvKey = f"schedule/2025-Schedule/week{int(week)}-schedule.csv"
+    logger.info(f"Constructed S3 key for CSV file: {csvKey}")  # Log the constructed S3 key
     try:
         response = s3.get_object(Bucket=bucket_name, Key=csvKey)
 
@@ -72,6 +80,19 @@ def importSpreadsAndFinalScores(event, context):
                 fbpLog("fbpadmin@my-fbp.com", "ImportSpreads", f"Unexpected error while processing spread data for game: {spread['homeTeam']} vs {spread['awayTeam']}. Error: {str(e)}", "ERROR")
         logger.info(f"Finished processing spreads data from {csvKey} and updating DynamoDB")
         fbpLog("fbpadmin@my-fbp.com", "ImportSpreads", f"Finished processing spreads data from {csvKey} and updating DynamoDB", "INFO")
+        return {
+            'statusCode': 200,
+            'body': json.dumps({
+                'message': f'Successfully imported spreads data from {csvKey} and updated DynamoDB',
+                'recordsProcessed': len(spreads_data)
+            })
+        }
     except ClientError as e:
         logger.exception(f"Failed to list objects in S3 bucket: {bucket_name}. Error: {e.response['Error']['Message']}")
         fbpLog("fbpadmin@my-fbp.com", "ImportSpreads", f"Failed to list objects in S3 bucket: {bucket_name}. Error: {e.response['Error']['Message']}", "ERROR")
+    return {
+        'statusCode': 500,
+        'body': json.dumps({
+            'error': f'Failed to import spreads data from S3 bucket: {bucket_name}'
+        })
+    }
