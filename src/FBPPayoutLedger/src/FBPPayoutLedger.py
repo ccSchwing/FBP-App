@@ -34,6 +34,10 @@ FBP_PAYOUT_LEDGER = os.environ.get('FBPPayoutLedgerTableName', 'FBP-Payout-Ledge
 dynamodb = boto3.resource('dynamodb')
 ledgerTable = dynamodb.Table(FBP_PAYOUT_LEDGER)
 
+FBP_USER_TABLE = os.environ.get('FBPUserTableName', 'FBP-Users')
+userTable = dynamodb.Table(FBP_USER_TABLE)
+
+
 @app.post("/deposit")
 def deposit():
     try:
@@ -133,6 +137,9 @@ def payout():
             current_balance = Decimal(response['Items'][0]['currentBalance'])
         else:
             current_balance = Decimal(0)
+        
+        displayName=userTable.get_item(Key={'email': email}).get('Item', {}).get('displayName', 'Unknown User')
+
         new_balance = current_balance - Decimal(payout_amount)
         newRecord = {
             'week': current_week,
@@ -141,6 +148,7 @@ def payout():
             'Timestamp': datetime.now(timezone.utc).isoformat() + 'Z',
             'amount': Decimal(payout_amount),
             'description': f'Payout of {payout_amount} for week {current_week}',
+            'displayName': displayName,
             'email': email
 
         }
@@ -156,12 +164,26 @@ def payout():
             'Timestamp': datetime.now(timezone.utc).isoformat() + 'Z',
             'amount': Decimal(payout_amount),
             'description': f'Payout of {payout_amount} for week {current_week}',
+            'displayName': displayName,
             'email': email
 
         }
         ledgerTable.put_item(Item=payoutRecord)
 
         logger.info("Successfully added  payout for week: %s", current_week)  # Log successful update
+
+        ##
+        # Now that the payout has been processed, the the paidUser boolean in the FBP-Users
+        # table to True for the user that was paid out.
+        ##
+        userTable.update_item(
+            Key={'email': email},
+            UpdateExpression='SET isPaidUser = :isPaidUser',
+            ExpressionAttributeValues={':isPaidUser': True}
+        )
+        logger.info("Successfully updated paidUser status for email: %s", email)  # Log successful user update
+        fbpLog(email, "Payout", f"Payout of {payout_amount} processed for {displayName}",
+               "INFO")
         body = {
             "message": "Payout successful",
             "previousBalance": str(current_balance),  # Convert Decimal to string for JSON serialization

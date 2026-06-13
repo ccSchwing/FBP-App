@@ -1,21 +1,22 @@
 {
   "version": "2.0",
-  "routeKey": "POST /payout",
-  "rawPath": "/payout",
+  "routeKey": "GET /openPool",
+  "rawPath": "/openPool",
   "rawQueryString": "",
   "headers": {
     "content-type": "application/json"
   },
-  "body": "{\"payoutAmount\":40, \"email\":\"slept-that-vacant@duck.com\"}",
   "requestContext": {
+    "apiId": "local",
+    "requestId": "local-request-id",
     "http": {
-      "method": "POST",
-      "path": "/payout",
+      "method": "GET",
+      "path": "/openPool",
       "protocol": "HTTP/1.1",
       "sourceIp": "127.0.0.1",
       "userAgent": "sam-local"
     },
-    "routeKey": "POST /payout",
+    "routeKey": "GET /openPool",
     "stage": "$default"
   },
   "isBase64Encoded": false
