@@ -79,8 +79,8 @@ def deposit():
             'Timestamp': datetime.now(timezone.utc).isoformat() + 'Z',
             'amount': Decimal(deposit_amount),
             'description': f'Deposit of {deposit_amount} for week {current_week}',
+            'displayName': "FBP Admin",
             'email': email
-
         }
         ledgerTable.put_item(Item=newRecord)
 
@@ -146,7 +146,7 @@ def payout():
             'RecordType': 'BALANCE',
             'currentBalance': new_balance,
             'Timestamp': datetime.now(timezone.utc).isoformat() + 'Z',
-            'amount': Decimal(payout_amount),
+            'amount': Decimal(payout_amount) * -1,  # Record the payout as a negative amount in the BALANCE record
             'description': f'Payout of {payout_amount} for week {current_week}',
             'displayName': displayName,
             'email': email
@@ -200,6 +200,45 @@ def payout():
         logger.error("DynamoDB ClientError: %s", error_message)  # Log DynamoDB errors
         return Response(
             body=json.dumps({"error": "Failed to process payout"}),
+            status_code=500,
+            headers={"Content-Type": "application/json"}
+        )
+@app.get("/getFBPLedger")
+def getFBPLedger():
+    try:
+        ##
+        # Just return the most recent BALANCE record.  Has the Current Balance.
+        balanceResponse = ledgerTable.query(
+            KeyConditionExpression=Key('RecordType').eq('BALANCE'),
+            ScanIndexForward=False,
+            Limit=1
+        )
+        currentBalanceItems = balanceResponse.get('Items', [])
+        logger.info("Successfully retrieved ledger with %d records", len(currentBalanceItems))  # Log the number of records retrieved
+
+        ##
+        # Return all PAYOUT records.
+        ##
+        payoutResponse = ledgerTable.query(
+            KeyConditionExpression=Key('RecordType').eq('PAYOUT'),
+            ScanIndexForward=False,
+        )
+        payoutItems = payoutResponse.get('Items', [])
+        logger.info("Successfully retrieved payout records with %d records", len(payoutItems))  # Log the number of payout records retrieved
+
+        ledgerItems = currentBalanceItems + payoutItems 
+        logger.info("Returning ledger with %d total records", len(ledgerItems))  # Log the total number of records returned
+        logger.info("Ledger items: %s", json.dumps(ledgerItems, default=decimal_default))  # Log the ledger items before returning
+        return Response(
+            body=json.dumps(ledgerItems, default=decimal_default),
+            status_code=200,
+            headers={"Content-Type": "application/json"}
+        )
+    except ClientError as e:
+        error_message = e.response.get('Error', {}).get('Message', 'Unknown error')
+        logger.error("DynamoDB ClientError: %s", error_message)  # Log DynamoDB errors
+        return Response(
+            body=json.dumps({"error": "Failed to retrieve ledger"}),
             status_code=500,
             headers={"Content-Type": "application/json"}
         )

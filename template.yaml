@@ -107,6 +107,28 @@ Resources:
             TableName: !Ref FBPUsersTableName
         - DynamoDBCrudPolicy:
             TableName: !Ref FBPPayoutLedgerTableName
+      Events:
+        FBPLedgerGetApi:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref MyHttpApi
+            Path: /getFBPLedger
+            Method: get
+            PayloadFormatVersion: '2.0'
+        FBPLedgerPostDepositApi:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref MyHttpApi
+            Path: /deposit
+            Method: post
+            PayloadFormatVersion: '2.0'
+        FBPLedgerPostPayoutApi:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref MyHttpApi
+            Path: /payout
+            Method: post
+            PayloadFormatVersion: '2.0'
   ImportSpreadsAndFinalScores:
     Type: AWS::Serverless::Function
     Properties:
@@ -1195,6 +1217,35 @@ Outputs:
     Value: !Ref MyHttpApi
     Export:
       Name: !Sub ${AWS::StackName}-HttpApiId
+  FBPPayoutLedgerFunctionArn:
+    Description: ARN of the FBP Payout Ledger Lambda function
+    Value: !GetAtt FBPPayoutLedger.Arn
+    Export:
+      Name: !Sub "${AWS::StackName}-FBPPayoutLedgerFunctionArn"
+  FBPPayoutLedgerFunctionName:
+    Description: Name of the FBP Payout Ledger Lambda function
+    Value: !Ref FBPPayoutLedger
+    Export:
+      Name: !Sub "${AWS::StackName}-FBPPayoutLedgerFunctionName"
+  # API endpoints (add these)
+  FBPLedgerApiBaseUrl:
+    Description: Base URL of the FBP Ledger API
+    Value: !Sub "https://${MyHttpApi}.execute-api.${AWS::Region}.amazonaws.com"
+    Export:
+      Name: !Sub "${AWS::StackName}-FBPLedgerApiBaseUrl"
+      
+  # Optional: Specific endpoint URLs for convenience
+  FBPLedgerGetEndpoint:
+    Description: GET endpoint for FBP Ledger
+    Value: !Sub "https://${MyHttpApi}.execute-api.${AWS::Region}.amazonaws.com/getFBPLedger"
+    
+  FBPLedgerDepositEndpoint:
+    Description: POST endpoint for deposits
+    Value: !Sub "https://${MyHttpApi}.execute-api.${AWS::Region}.amazonaws.com/deposit"
+    
+  FBPLedgerPayoutEndpoint:
+    Description: POST endpoint for payouts
+    Value: !Sub "https://${MyHttpApi}.execute-api.${AWS::Region}.amazonaws.com/payout"
   GetUserStatusFunctionArn:
     Description: ARN of the GetUserStatus Lambda function
     Value: !GetAtt GetUserStatus.Arn

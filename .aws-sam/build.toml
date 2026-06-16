@@ -216,6 +216,15 @@ manifest_hash = ""
 packagetype = "Zip"
 functions = ["ImportSpreadsAndFinalScores"]
 
+[function_build_definitions.d8e6e865-50f8-4f5a-b372-5e3c66d635f0]
+codeuri = "/Users/ccs/projects/FBP/src/FBPPayoutLedger/src"
+runtime = "python3.12"
+architecture = "x86_64"
+handler = "FBPPayoutLedger.lambda_handler"
+manifest_hash = ""
+packagetype = "Zip"
+functions = ["FBPPayoutLedger"]
+
 [layer_build_definitions.c020c0c2-a411-414b-8fed-0bfd4c531f8d]
 layer_name = "FBPLibLayer"
 codeuri = "/Users/ccs/projects/FBP/src/FBPLib-Layer"

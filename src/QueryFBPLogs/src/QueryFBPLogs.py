@@ -87,15 +87,58 @@ def query_fbp_logs():
         # Get all logs regardless of logLevel or filter by logLevel if provideod
         # Do we care about what week it is?  I don't think so.
         if logLevel == "ALL":
-            response = logTable.scan(
-                FilterExpression="#ts BETWEEN :startDate AND :endDate",
-                ExpressionAttributeNames={"#ts": "timestamp"},
+            ##
+            # Query for each log level separately and combine results to ensure we get all logs regardless of log level
+            # This is necessary because DynamoDB does not support OR conditions in KeyConditionExpression
+            ##
+             # Query for INFO logs
+            info_response = logTable.query(
+                KeyConditionExpression="#lvl = :logLevel AND #ts BETWEEN :startDate AND :endDate",
+                FilterExpression="week = :week",
+                ExpressionAttributeNames={
+                    "#ts": "timestamp",
+                    "#lvl": "level"
+                },
                 ExpressionAttributeValues={
+                    ":logLevel": 'INFO',
                     ":startDate": startDate,
-                    ":endDate": endDate
+                    ":endDate": endDate,
+                    ":week": week
                 }
             )
-            items = response.get('Items', [])
+            # Query for ERROR logs
+            error_response = logTable.query(
+                KeyConditionExpression="#lvl = :logLevel AND #ts BETWEEN :startDate AND :endDate",
+                FilterExpression="week = :week",
+                ExpressionAttributeNames={
+                    "#ts": "timestamp",
+                    "#lvl": "level"
+                },
+                ExpressionAttributeValues={
+                    ":logLevel": 'ERROR',
+                    ":startDate": startDate,
+                    ":endDate": endDate,
+                    ":week": week
+                }
+            )
+            # Query for WARNING logs
+            warning_response = logTable.query(
+                KeyConditionExpression="#lvl = :logLevel AND #ts BETWEEN :startDate AND :endDate",
+                FilterExpression="week = :week",
+                ExpressionAttributeNames={
+                    "#ts": "timestamp",
+                    "#lvl": "level"
+                },
+                ExpressionAttributeValues={
+                    ":logLevel": 'WARNING',
+                    ":startDate": startDate,
+                    ":endDate": endDate,
+                    ":week": week
+                }
+            )
+            # Combine all log entries
+            items = info_response.get('Items', []) + error_response.get('Items', []) + warning_response.get('Items', [])
+            items.sort(key=lambda x: x['timestamp'], reverse=True)
             logger.info(f"Query returned {len(items)} log entries")
             logger.info(f"Log entries: {json.dumps(items, default=decimal_default)}")
             return Response(
@@ -119,6 +162,7 @@ def query_fbp_logs():
                 }
             )
             items = response.get('Items', [])
+            items.sort(key=lambda x: x['timestamp'], reverse=True)
             logger.info(f"Query returned {len(items)} log entries")
             logger.info(f"Log entries: {json.dumps(items, default=decimal_default)}")
             return Response(
