@@ -1,0 +1,17 @@
+Week,GameId,Away,AwayScore,Date,Home,HomeScore,Spread,Underdog,Winner
+2,02-001,Commanders,31,Thu September 11,Packers,42,4.5,H,H or A
+2,02-002,Bills,27,Sun September 14,Jets,33,7.5,A,H or A
+2,02-003,Bears,17,Sun September 14,Lions,24,3.5,H,H or A
+2,02-004,Browns,24,Sun September 14,Ravens,42,10.5,H,H or A
+2,02-005,Jaguars,51,Sun September 14,Bengals,31,1.5,A,H or A
+2,02-006,Rams,42,Sun September 14,Titans,17,0.5,A,H or A
+2,02-007,Patriots,48,Sun September 14,Dolphins,14,2.5,H,H or A
+2,02-008,Giants,31,Sun September 14,Cowboys,42,7.5,A,H or A
+2,02-009,49ers,23,Sun September 14,Saints,21,3.5,A,H or A
+2,02-010,Seahawks,17,Sun September 14,Steelers,42,6.5,H,H or A
+2,02-011,Panthers,42,Sun September 14,Cardinals,56,4.5,A,H or A
+2,02-012,Broncos,31,Sun September 14,Colts,23,13.5,H,H or A
+2,02-013,Eagles,35,Sun September 14,Chiefs,17,7.5,H,H or A
+2,02-014,Falcons,27,Sun September 14,Vikings,14,3.5,A,H or A
+2,02-015,Buccaneers,21,Mon September 15,Texans,42,1.5,A,H or A
+2,02-016,Chargers,17,Mon September 15,Raiders,31,0.5,A,H or A

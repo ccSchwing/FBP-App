@@ -25,3 +25,6 @@ validateAndFixFBPPicks:https://0bwkxz9ap1.execute-api.us-east-1.amazonaws.com/pr
 queryFBPLogs:https://0bwkxz9ap1.execute-api.us-east-1.amazonaws.com/prod/queryFBPLogs
 getSchedule:https://0bwkxz9ap1.execute-api.us-east-1.amazonaws.com/prod/getschedule
 getUserStatus:https://0bwkxz9ap1.execute-api.us-east-1.amazonaws.com/prod/getUserStatus
+FBPLedger:https://0bwkxz9ap1.execute-api.us-east-1.amazonaws.com/prod/getFBPLedger
+FBPLedgerDeposit:https://0bwkxz9ap1.execute-api.us-east-1.amazonaws.com/prod/deposit
+FBPLedgerPayout:https://0bwkxz9ap1.execute-api.us-east-1.amazonaws.com/prod/payout
