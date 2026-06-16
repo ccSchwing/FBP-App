@@ -10,6 +10,7 @@ from typing import Any, List, Dict
 import boto3
 import logging
 from botocore.exceptions import ClientError
+from boto3.dynamodb.conditions import Attr
 from aws_lambda_powertools.event_handler import APIGatewayHttpResolver
 from aws_lambda_powertools.event_handler.api_gateway import CORSConfig
 from fbplib.fbpLog import fbpLog
@@ -74,8 +75,11 @@ def getWeeklyResults():
     logger.info(f"Retrieving results for week: {week}")
     fbpLog("fbpadmin@my-fbp.com", "GetWeeklyResults", f"Retrieving results for week: {week}", "INFO")
     try:
+        # Filter the scan for the current week's results.
         response = resultsTable.scan(
+            FilterExpression=Attr('week').eq(Decimal(week))
         )
+
         allUserPicks  = response.get('Items', [])
         if not allUserPicks:
             logger.warning(f"No picks found for week {week}")
