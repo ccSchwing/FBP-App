@@ -6,6 +6,7 @@ import logging
 from decimal import Decimal
 from typing import List, Dict, Any
 from botocore.exceptions import ClientError
+from boto3.dynamodb.conditions import Attr
 from aws_lambda_powertools.event_handler import APIGatewayHttpResolver, Response
 from aws_lambda_powertools.event_handler.api_gateway import CORSConfig
 from fbplib.fbpLog import fbpLog
@@ -325,7 +326,11 @@ def updateWeeklyUserResults(allUserPicks: List[Dict[str, Any]], resultsTable, us
         # End of for loop for each user's picks for the week.
     # now you can set the Winner field for each user in the
     # FBP_WEEKLY_RESULTS_TABLE based on the number of correct picks for the week.
-    response = resultsTable.scan()
+    ##
+    # Make sure to filter the scan for the current week and only update the winner for the current week.
+    response = resultsTable.scan(
+        FilterExpression=Attr('week').eq(Decimal(week))
+    )
     items = response['Items']
     max_item = max(items, key=lambda x: x.get('correctpicks', 0))
     email = max_item['email']
