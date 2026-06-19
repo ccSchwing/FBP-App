@@ -62,6 +62,10 @@ def saveFBPPicks():
     dynamodb = boto3.resource('dynamodb')
     table = dynamodb.Table(FBP_PICKS_TABLE_NAME)
 
+    # Initialize the Users Table
+    FBP_USERS_TABLE_NAME = os.environ.get('FBPUsersTableName', 'FBP-Users')
+    usersTable = boto3.resource('dynamodb').Table(FBP_USERS_TABLE_NAME)
+
     week=getCurrentWeek()
     if week is None:
         fbpLog("fbpadmin@my-fbp.com", "SaveFBPPicksPython", "Could not determine current week", "ERROR")
@@ -78,7 +82,21 @@ def saveFBPPicks():
         email = body.get('email')
         picks = body.get('picks')
         tieBreaker = body.get('tieBreaker')
-        
+        ## 
+        # If the user left the tieBreaker blank, it gets here as ''
+        # This won't do.  Get the defaultTieBreaker from the Users Table and use
+        # that if it's set.  If it's not set, set it to a random number between 21 and 63
+        if isinstance(tieBreaker, str) and tieBreaker == '':
+            # Get the defaultTieBreaker from the Users Table
+            usersData=usersTable.query(
+                    KeyConditionExpression=Key('email').eq(email)
+                )
+            user = usersData.get('Items', [{}])[0]
+            defaultTieBreaker = user.get('defaultTieBreaker')
+            if defaultTieBreaker is not None:
+                tieBreaker = int(defaultTieBreaker)
+            else:
+                tieBreaker = random.randint(21, 63)
 
         logger.info(f"Extracted email from API Gateway event: {email}")
         logger.info(f"Extracted picks from API Gateway event: {picks}")
@@ -181,36 +199,61 @@ def validateAndFixFBPPicks():
             picksItem = pickResponse['Item']
             picks = picksItem.get('picks')
             decimalTieBreaker = picksItem.get('tieBreaker')
-            tieBreaker = int(decimalTieBreaker)
-            if tieBreaker == 0: # DynamoDB sends back Decimal 0 if the field is null or missing.
-                logger.warning(f"No tieBreaker found for email: {email}, will attempt to set it using default algorithm or random number")
-                fbpLog(email=email, action="method: validateAndFixFBPPicks", details=f"No tieBreaker found for email: {email}, will attempt to set it using default algorithm or random number", level="WARNING")
-                usersDate = usersTable.query(
-                    KeyConditionExpression=Key('email').eq(email)
-                )
-                defaultTieBreaker = usersDate['Items'][0].get('defaultTieBreaker')
-                if defaultTieBreaker is not None:
-                    tieBreaker = defaultTieBreaker
-                    logger.info(f"Setting tieBreaker found for email: {email}, to {tieBreaker}")
-                    fbpLog(email=email, action="method: validateAndFixFBPPicks", details=f"Setting tieBreaker found for email: {email}, to {tieBreaker}", level="INFO")
-                    noTieBreaker = False
-            # Handle the case where there are no picks.
-            if picks is None:
-                noPicks = True
-                logger.warning(f"No picks found for email: {email}, setting noPicks flag to True")
-                fbpLog(email=email, action="method: validateAndFixFBPPicks", details=f"No picks found for email: {email}, setting noPicks flag to True", level="WARNING")
-            if tieBreaker is None:
-            # Get the defaultTieBreaker from the user table.
-                noTieBreaker = True
+            ##
+            # Check if the tieBreaker is null or missing.
+            # If so, we need to set it to the defaultTieBreaker
+            # for the user or a random number if there is no defaultTieBreaker. 
+            ##
+            if decimalTieBreaker is None or decimalTieBreaker == '':
+                logger.warning(f"tieBreaker is missing for email: {email}, will attempt to set it using defaultTieBreaker")
+                fbpLog(email=email, action="method: validateAndFixFBPPicks", details=f"tieBreaker is missing for email: {email}, will attempt to set it using defaultTieBreaker", level="WARNING")
+                decimalTieBreaker = 0
                 usersData=usersTable.query(
                     KeyConditionExpression=Key('email').eq(email)
                 )
                 defaultTieBreaker = usersData['Items'][0].get('defaultTieBreaker')
                 if defaultTieBreaker is not None:
-                    tieBreaker = defaultTieBreaker
-                    noTieBreaker = False
-                    logger.info(f"Setting tieBreaker found for email: {email}, to {tieBreaker}")
-                    fbpLog(email=email, action="method: validateAndFixFBPPicks", details=f"Setting tieBreaker found for email: {email}, to {tieBreaker}", level="INFO")
+                    decimalTieBreaker = defaultTieBreaker
+                    logger.info(f"Setting tieBreaker found for email: {email}, to {decimalTieBreaker}")
+                    fbpLog(email=email, action="method: validateAndFixFBPPicks", details=f"Setting tieBreaker found for email: {email}, to {decimalTieBreaker}", level="INFO")
+                else:               ## Set to a random number if there is no defaultTieBreaker for the user.
+                    decimalTieBreaker = random.randint(a=21, b=63)
+                    logger.info(f"No default tieBreaker found for email: {email}, setting to random number: {decimalTieBreaker}")
+                    fbpLog(email=email, action="method: validateAndFixFBPPicks", details=f"No default tieBreaker found for email: {email}, setting to random number: {decimalTieBreaker}", level="INFO")
+            if decimalTieBreaker is not None:
+                tieBreaker = int(decimalTieBreaker)
+            # if tieBreaker == 0: # DynamoDB sends back Decimal 0 if the field is null or missing.
+            #     logger.warning(f"No tieBreaker found for email: {email}, will attempt to set it using default algorithm or random number")
+            #     fbpLog(email=email, action="method: validateAndFixFBPPicks", details=f"No tieBreaker found for email: {email}, will attempt to set it using default algorithm or random number", level="WARNING")
+            #     usersDate = usersTable.query(
+            #         KeyConditionExpression=Key('email').eq(email)
+            #     )
+            #     defaultTieBreaker = usersDate['Items'][0].get('defaultTieBreaker')
+            #     if defaultTieBreaker is not None:
+            #         tieBreaker = defaultTieBreaker
+            #         logger.info(f"Setting tieBreaker found for email: {email}, to {tieBreaker}")
+            #         fbpLog(email=email, action="method: validateAndFixFBPPicks", details=f"Setting tieBreaker found for email: {email}, to {tieBreaker}", level="INFO")
+            #         noTieBreaker = False
+            # Handle the case where there are no picks.
+            if picks is None:
+                noPicks = True
+                logger.warning(f"No picks found for email: {email}, setting noPicks flag to True")
+                fbpLog(email=email, action="method: validateAndFixFBPPicks", details=f"No picks found for email: {email}, setting noPicks flag to True", level="WARNING")
+            ##
+            # I don't think i need the block of code that handles tieBreaker being None anymore, 
+            # since we are now handling it earlier with decimalTieBreaker and setting tieBreaker accordingly.
+            # if tieBreaker is None:
+            # # Get the defaultTieBreaker from the user table.
+            #     noTieBreaker = True
+            #     usersData=usersTable.query(
+            #         KeyConditionExpression=Key('email').eq(email)
+            #     )
+            #     defaultTieBreaker = usersData['Items'][0].get('defaultTieBreaker')
+            #     if defaultTieBreaker is not None:
+            #         tieBreaker = defaultTieBreaker
+            #         noTieBreaker = False
+            #         logger.info(f"Setting tieBreaker found for email: {email}, to {tieBreaker}")
+            #         fbpLog(email=email, action="method: validateAndFixFBPPicks", details=f"Setting tieBreaker found for email: {email}, to {tieBreaker}", level="INFO")
             # End if to handle no picks and no tieBreaker cases.
             # By the time we get here, we should have a picks string
             # and a tieBreaker value.
