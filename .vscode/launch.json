@@ -359,7 +359,7 @@
       ]
     },
     {
-      "name": "Python: Attach to SaveFBPPicks ",
+      "name": "Python: Attach to SaveFBPPicks",
       "type": "debugpy",
       "request": "attach",
       "connect": {
