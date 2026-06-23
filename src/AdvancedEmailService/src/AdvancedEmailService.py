@@ -36,6 +36,30 @@ class EmailService:
         self.support_email = os.environ.get('SUPPORT_EMAIL', 'fbpadmin@my-fbp.com')
 
     @tracer.capture_method
+    def _send_single_email(self, recipient: str, content_generator, data: Dict[str, Any], 
+                           reply_to: Optional[str], tags: Optional[Dict[str, str]], 
+                           email_type: str) -> EmailResponse:
+        """Send a single email and return response"""
+        subject, html_content, text_content = content_generator(data)
+
+        message_id = self._send_ses_email(
+            recipient=recipient,
+            subject=subject,
+            html_content=html_content,
+            text_content=text_content,
+            reply_to=reply_to,
+            tags=tags,
+            email_type=email_type
+        )
+
+        return EmailResponse(
+            success=True,
+            message_id=message_id,
+            email_type=email_type,
+            recipient=recipient
+        )
+
+    @tracer.capture_method
     def send_email(self, email_type: str, recipient: str, data: Dict[str, Any], 
                    reply_to: Optional[str] = None, 
                    tags: Optional[Dict[str, str]] = None) -> EmailResponse:
@@ -52,26 +76,22 @@ class EmailService:
             # Get email content generator
             content_generator = self._get_content_generator(EmailType(email_type))
 
-            # Generate email content
-            subject, html_content, text_content = content_generator(data)
-
-            # Send via SES
-            message_id = self._send_ses_email(
-                recipient=recipient,
-                subject=subject,
-                html_content=html_content,
-                text_content=text_content,
-                reply_to=reply_to,
-                tags=tags,
-                email_type=email_type
-            )
-
-            return EmailResponse(
-                success=True,
-                message_id=message_id,
-                email_type=email_type,
-                recipient=recipient
-            )
+            # Handle different email types
+            ##
+            # The welcome email is the only one that goes to an individual.
+            # The rest go to either all users, or those who have opted in.
+            # Each case can gather different recipients and send to them.
+            ##
+            match email_type:
+                case EmailType.WELCOME.value:
+                    # Handle welcome email - single recipient
+                    return self._send_single_email(recipient, content_generator, data, reply_to, tags, email_type)
+                case EmailType.REMINDER.value:
+                    # Handle reminder email - can be modified to gather multiple recipients
+                    return self._send_single_email(recipient, content_generator, data, reply_to, tags, email_type)
+                case _:
+                    # Default case for other email types
+                    return self._send_single_email(recipient, content_generator, data, reply_to, tags, email_type)
 
         except Exception as e:
             logger.error("Failed to send email", extra={
