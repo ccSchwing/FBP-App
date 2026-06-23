@@ -59,6 +59,16 @@ Parameters:
     Type: String
     Description: Verified SES identity to send from
     Default: fbpadmin@my-fbp.com
+  CompanyName:
+    Type: String
+    Default: FBP
+  BaseUrl:
+    Type: String
+    Default: https://www.my-fbp.com
+  SupportEmail:
+    Type: String
+    Description: Support email address for the company
+    Default: fbpadmin@my-fbp.com
   # Parameters for SMS
   NotifyConfigId:
       Type: String
