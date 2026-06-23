@@ -7,6 +7,7 @@ from dataclasses import dataclass, asdict
 from botocore.exceptions import ClientError
 from aws_lambda_powertools import Logger, Tracer, Metrics
 from aws_lambda_powertools.metrics import MetricUnit
+from fbplib.fbpLog import fbpLog
 
 logger = Logger()
 tracer = Tracer()
@@ -87,12 +88,68 @@ class EmailService:
                     # Handle welcome email - single recipient
                     return self._send_single_email(recipient, content_generator, data, reply_to, tags, email_type)
                 case EmailType.REMINDER.value:
-                    # Handle reminder email - can be modified to gather multiple recipients
-                    return self._send_single_email(recipient, content_generator, data, reply_to, tags, email_type)
-                case _:
-                    # Default case for other email types
-                    return self._send_single_email(recipient, content_generator, data, reply_to, tags, email_type)
+                    # Reminder emails are normally sent to opted-in users from DynamoDB.
+                    # For local testing (or missing table config), fall back to provided recipient.
+                    reminder_users = []
+                    users_table_name = os.environ.get('FBPUSERS_TABLE_NAME')
 
+                    if users_table_name:
+                        try:
+                            users_table = boto3.resource('dynamodb').Table(users_table_name)
+                            email_addrs = users_table.scan(
+                                ProjectionExpression='email, firstName, emailReminders'
+                            ).get("Items", [])
+                            reminder_users = [
+                                user for user in email_addrs
+                                if user.get('emailReminders') is True and user.get('email')
+                            ]
+                        except Exception as scan_error:
+                            logger.warning(
+                                "Failed to query reminder users from DynamoDB; using fallback recipient",
+                                extra={"error": str(scan_error), "table_name": users_table_name}
+                            )
+                    else:
+                        logger.info(
+                            "FBP_USERS_TABLE_NAME is not set; using fallback recipient for reminder"
+                        )
+
+                    ##
+                    # If no reminder users are found, fall back to sending to the provided recipient.
+                    # No.
+                    # If you don't find any reminder users, that's okay.
+                    if not reminder_users:
+                        logger.info(
+                            "No reminder users found -- This could be the case if no users have opted in for reminders"
+                        )
+
+                    for user in reminder_users:
+                        user_data = dict(data)
+                        user_data["user_name"] = user.get("firstName") or user.get("email")
+                        self._send_single_email(
+                            user["email"],
+                            content_generator,
+                            user_data,
+                            reply_to,
+                            tags,
+                            email_type,
+                        )
+
+                    return EmailResponse(
+                        success=True,
+                        message_id=f"bulk:{len(reminder_users)}",
+                        email_type=email_type,
+                        recipient=recipient
+                    )
+                case _:
+                    logger.error("Invalid request type")
+                    fbpLog("fbpadmin@my-fbp.com", "GetFBPUser", "Invalid request type", "ERROR")
+                    return EmailResponse(
+                        success=False,
+                        error="Invalid request type",
+                        email_type=email_type,
+                        recipient=recipient
+                    )
+                
         except Exception as e:
             logger.error("Failed to send email", extra={
                 "error": str(e),
@@ -239,9 +296,18 @@ def lambda_handler(event: Dict[str, Any], context) -> Dict[str, Any]:
     """Lambda handler - receives event and sends email"""
     
     try:
+        # Support both direct invocation events and API Gateway proxy events.
+        payload = event
+        if isinstance(event, dict) and "body" in event:
+            body = event.get("body")
+            if isinstance(body, str):
+                payload = json.loads(body) if body else {}
+            elif isinstance(body, dict):
+                payload = body
+
         # Validate required fields
-        recipient = event.get('recipient')
-        email_type = event.get('email_type')
+        recipient = payload.get('recipient')
+        email_type = payload.get('email_type')
         
         if not recipient or not isinstance(recipient, str):
             raise ValueError("Valid recipient email is required")
@@ -249,12 +315,16 @@ def lambda_handler(event: Dict[str, Any], context) -> Dict[str, Any]:
             raise ValueError("Valid email_type is required")
         
         # Send email using the event data
+        data = payload.get('data', {})
+        if not isinstance(data, dict):
+            data = {}
+
         result = email_service.send_email(
             email_type=email_type,
             recipient=recipient,
-            data=event.get('data', {}),
-            reply_to=event.get('reply_to'),
-            tags=event.get('tags')
+            data=data,
+            reply_to=payload.get('reply_to') or data.get('reply_to'),
+            tags=payload.get('tags')
         )
         
         # Return the result as a dict for your Lambda chain

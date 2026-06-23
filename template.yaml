@@ -384,6 +384,7 @@ Resources:
           COMPANY_NAME: !Ref CompanyName
           BASE_URL: !Ref BaseUrl
           SUPPORT_EMAIL: !Ref SupportEmail
+          FBPUSERS_TABLE_NAME: !Ref FBPUsersTableName
           
           # Powertools configuration
           POWERTOOLS_SERVICE_NAME: email-service
