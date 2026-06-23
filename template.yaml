@@ -64,7 +64,7 @@ Parameters:
     Default: FBP
   BaseUrl:
     Type: String
-    Default: https://www.my-fbp.com
+    Default: https://my-fbp.com
   SupportEmail:
     Type: String
     Description: Support email address for the company
@@ -317,6 +317,82 @@ Resources:
                 - sms-voice:DescribeNotifyTemplates
                 - sms-voice:DescribeNotifyConfiguration
                 Resource: '*'
+  AdvancedEmailServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: SESPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - ses:SendEmail
+                  - ses:SendRawEmail
+                Resource: "*"
+        - PolicyName: XRayPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - xray:PutTraceSegments
+                  - xray:PutTelemetryRecords
+                Resource: "*"
+
+  AdvancedEmailService:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-advanced-email-service"
+      CodeUri: src/AdvancedEmailService/src/  # Adjust path as needed
+      Handler: AdvancedEmailService.lambda_handler
+      Runtime: python3.12
+      Timeout: 30
+      MemorySize: 256
+      Role: !GetAtt AdvancedEmailServiceRole.Arn
+      Tracing: Active
+      Layers:
+        - !Ref FBPLibLayer
+      Events:
+        AdvancedEmailServicePost:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref MyHttpApi
+            Path: /advanced-email
+            Method: POST
+            PayloadFormatVersion: '2.0'
+        GetUserStatusOptions:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref MyHttpApi
+            Path: /advanced-email
+            Method: OPTIONS
+            PayloadFormatVersion: '2.0'
+      Environment:
+        Variables:
+          # Add any environment variables your new service needs
+          FROM_EMAIL: !Ref FromEmail
+          COMPANY_NAME: !Ref CompanyName
+          BASE_URL: !Ref BaseUrl
+          SUPPORT_EMAIL: !Ref SupportEmail
+          
+          # Powertools configuration
+          POWERTOOLS_SERVICE_NAME: email-service
+          POWERTOOLS_LOG_LEVEL: INFO
+          POWERTOOLS_METRICS_NAMESPACE: EmailService
+          POWERTOOLS_TRACER_CAPTURE_RESPONSE: true
+          POWERTOOLS_TRACER_CAPTURE_ERROR: true
+
+
   SendEmailRole:
     Type: AWS::IAM::Role
     Properties:
@@ -1311,7 +1387,16 @@ Outputs:
     Value: !Ref EmailForwarding
     Export:
       Name: !Sub "${AWS::StackName}-EmailForwardingName"
-
+  AdvancedEmailServiceArn:
+    Description: ARN of the Advanced Email Service Lambda function
+    Value: !GetAtt AdvancedEmailService.Arn
+    Export:
+      Name: !Sub "${AWS::StackName}-AdvancedEmailServiceArn"
+  AdvancedEmailServiceName:
+    Description: Name of the Advanced Email Service Lambda function
+    Value: !Ref AdvancedEmailService
+    Export:
+      Name: !Sub "${AWS::StackName}-AdvancedEmailServiceName"
   SendEmailFunction:
     Description: SendEmail Lambda Function ARN
     Value: !GetAtt SendEmail.Arn

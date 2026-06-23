@@ -308,6 +308,23 @@
       ]
     },
     {
+      "name": "Python: Attach to AdvancedEmailService",
+      "type": "debugpy",
+      "request": "attach",
+      "connect": {
+        "host": "localhost",
+        "port": 5678
+      },
+      "preLaunchTask": "Attach to AdvancedEmailService",
+      "postDebugTask": "Cleanup",
+      "pathMappings": [
+        {
+          "localRoot": "${workspaceFolder}/src/AdvancedEmailService/src",
+          "remoteRoot": "/var/task"
+        }
+      ]
+    },
+    {
       "name": "Python: Attach to GetPickSheet",
       "type": "debugpy",
       "request": "attach",

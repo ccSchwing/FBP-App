@@ -14,6 +14,7 @@ metrics = Metrics()
 
 class EmailType(Enum):
     WELCOME = "welcome"
+    REMINDER = "reminder"
     # Add more email types as you migrate from templates...
 
 @dataclass
@@ -26,34 +27,34 @@ class EmailResponse:
 
 class EmailService:
     """Production email service for Lambda chaining"""
-    
+
     def __init__(self):
         self.ses_client = boto3.client('ses')
-        self.default_sender = os.environ.get('FromEmail', 'fbpadmin@my-fbp.com')
-        self.company_name = os.environ.get('CompanyName', 'FBP')
-        self.base_url = os.environ.get('BaseUrl', 'https://www.my-fbp.com')
-        self.support_email = os.environ.get('SupportEmail', 'fbpadmin@my-fbp.com')
-    
+        self.default_sender = os.environ.get('FROM_EMAIL', 'fbpadmin@my-fbp.com')
+        self.company_name = os.environ.get('COMPANY_NAME', 'FBP')
+        self.base_url = os.environ.get('BASE_URL', 'https://my-fbp.com')
+        self.support_email = os.environ.get('SUPPORT_EMAIL', 'fbpadmin@my-fbp.com')
+
     @tracer.capture_method
     def send_email(self, email_type: str, recipient: str, data: Dict[str, Any], 
                    reply_to: Optional[str] = None, 
                    tags: Optional[Dict[str, str]] = None) -> EmailResponse:
         """Main entry point for sending emails"""
-        
+
         try:
             # Validate inputs
             if not recipient or '@' not in recipient:
                 raise ValueError("Valid recipient email is required")
-            
+
             if not data:
                 data = {}
-            
+
             # Get email content generator
             content_generator = self._get_content_generator(EmailType(email_type))
-            
+
             # Generate email content
             subject, html_content, text_content = content_generator(data)
-            
+
             # Send via SES
             message_id = self._send_ses_email(
                 recipient=recipient,
@@ -64,85 +65,119 @@ class EmailService:
                 tags=tags,
                 email_type=email_type
             )
-            
+
             return EmailResponse(
                 success=True,
                 message_id=message_id,
                 email_type=email_type,
                 recipient=recipient
             )
-            
+
         except Exception as e:
             logger.error("Failed to send email", extra={
                 "error": str(e),
                 "email_type": email_type,
                 "recipient": recipient
             })
-            
+
             return EmailResponse(
                 success=False,
                 error=str(e),
                 email_type=email_type,
                 recipient=recipient
             )
-    
+
     def _get_content_generator(self, email_type: EmailType):
         """Get the appropriate content generator for email type"""
-        
+
         generators = {
             EmailType.WELCOME: self._generate_welcome_content,
+            EmailType.REMINDER: self._generate_reminder_content,
             # Add more generators as you migrate from templates...
         }
-        
+
         generator = generators.get(email_type)
         if not generator:
             raise ValueError(f"Unsupported email type: {email_type.value}")
-        
+
         return generator
-    
+
     def _generate_welcome_content(self, data: Dict[str, Any]) -> tuple:
         """Generate welcome email content"""
         user_name = data.get('user_name', 'User')
-        activation_link = data.get('activation_link', f'{self.base_url}/activate')
-        
+
         subject = f"Welcome to FBP -- Your Account is Ready"
-        
+
         html_content = f"""
         <html>
         <body>
             <h1>Welcome to {self.company_name}, {user_name}!</h1>
-            <p>We're thrilled to have you join our community! Your account has been created successfully.</p>
+            <p>Many thanks for joining {self.company_name}! Your account has been created successfully.</p>
             <p>Quick Start Guide:</p>
+            <p>When you click on the FBP Home link, you'll be taken to the login screen.  Enter the email address
+            and your password and you'll be directed to the home page.</p>
+            <p>In the unlikely event that you've forgotten your password, don't panic.  You can easily reset it
+            at the login page itself.</p>
             <ul>
-                <li>Activate your account: <a href="{activation_link}">Activate</a></li>
-                <li>Complete your profile setup</li>
-                <li>Explore our features and tools</li>
+                <li>FBP Home: <a href="{self.base_url}">FBP Home</a></li>
+                <li>To pay for your membership: <a href="{self.base_url}/makepayment.html">Membership Payment Options</a></li>
+                <li>See the FAQ at <a href="{self.base_url}/faq.html">FAQ</a></li>
             </ul>
             <p>Need help? Contact us at <a href="mailto:{self.support_email}"><b>{self.support_email}</b></a></p>
             <p>Best regards,<br>The {self.company_name} Team</p>
         </body>
         </html>
         """
-        
+
         text_content = f"""
 Hello {user_name} --\n\nWelcome to {self.company_name}! Your {self.company_name} account has been successfully created.\n\n
 Next Steps:\n
 1.  Go to {self.base_url}\n
-2. View/Update your profile: {self.base_url}/userprofile.html\n3. When FBP Pool is open you can make/update your picks:  {self.base_url}/getpicksheet.html\n\n
-3. When FBP Pool is open you can make/update your picks:  {self.base_url}/getpicksheet.html\n\n
+2. Make a payment for your membership: {self.base_url}/makepayment.html\n
+3. See the FAQ at {self.base_url}/faq.html\n
 Questions? Contact us at {self.support_email}.\n\n
 Best regards,\n
 The FBP Team
         """
-        
+
         return subject, html_content, text_content
-    
+
+    def _generate_reminder_content(self, data: Dict[str, Any]) -> tuple:
+        """Generate reminder email content"""
+        user_name = data.get('user_name', 'User')
+
+        subject = f"Reminder from {self.company_name}"
+
+        html_content = f"""
+        <html>
+        <body>
+            <h1>Reminder from {self.company_name}, {user_name}!</h1>
+            <p>This is a friendly reminder from {self.company_name}.</p>
+            <p>You still have time to make your {self.company_name} picks for the week.</p>
+            <p>Visit the {self.company_name} Home page to make your picks: <a href="{self.base_url}">{self.company_name} Home</a></p>
+            <p>If you have questions, contact us at <a href="mailto:{self.support_email}"><b>{self.support_email}</b></a></p>
+            <p>Best regards,<br>The {self.company_name} Team</p>
+        </body>
+        </html>
+        """
+
+        text_content = f"""
+Hello {user_name} --\n\nThis is a friendly reminder from {self.company_name}.\n\n
+You still have time to make your {self.company_name} picks for the week.\n
+Visit the {self.company_name} Home page to make your picks: {self.base_url}\n
+If you have questions, contact us at {self.support_email}.\n\n
+Best regards,\n
+The {self.company_name} Team
+        """
+
+        return subject, html_content, text_content
+
     @tracer.capture_method
     def _send_ses_email(self, recipient: str, subject: str, html_content: str, 
                        text_content: str, email_type: str, reply_to: Optional[str] = None,
                        tags: Optional[Dict[str, str]] = None) -> str:
         """Send email via SES"""
-        
+
         send_args = {
             'Source': self.default_sender,
             'Destination': {'ToAddresses': [recipient]},
@@ -154,24 +189,24 @@ The FBP Team
                 }
             }
         }
-        
+
         if reply_to:
             send_args['ReplyToAddresses'] = [reply_to]
         if tags:
             send_args['Tags'] = [{'Name': k, 'Value': v} for k, v in tags.items()]
-        
+
         response = self.ses_client.send_email(**send_args)
         message_id = response['MessageId']
-        
+
         logger.info("Email sent successfully", extra={
             "message_id": message_id,
             "recipient": recipient,
             "email_type": email_type
         })
-        
+
         metrics.add_metric(name="EmailsSent", unit=MetricUnit.Count, value=1)
         metrics.add_metadata(key="email_type", value=email_type)
-        
+
         return message_id
 
 # Initialize service

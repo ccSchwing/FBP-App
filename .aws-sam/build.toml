@@ -225,6 +225,15 @@ manifest_hash = ""
 packagetype = "Zip"
 functions = ["FBPPayoutLedger"]
 
+[function_build_definitions.db954eff-6484-433a-800a-0a140b44aad4]
+codeuri = "/Users/ccs/projects/FBP/src/AdvancedEmailService/src"
+runtime = "python3.12"
+architecture = "x86_64"
+handler = "lambda_function.lambda_handler"
+manifest_hash = ""
+packagetype = "Zip"
+functions = ["AdvancedEmailService"]
+
 [layer_build_definitions.c020c0c2-a411-414b-8fed-0bfd4c531f8d]
 layer_name = "FBPLibLayer"
 codeuri = "/Users/ccs/projects/FBP/src/FBPLib-Layer"
