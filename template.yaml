@@ -901,6 +901,7 @@ Resources:
       CodeUri: src/SaveFBPPicks/src/
       Handler: SaveFBPPicks.lambda_handler
       Runtime: python3.12
+      Tracing: Active
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref FBPScheduleTableName
