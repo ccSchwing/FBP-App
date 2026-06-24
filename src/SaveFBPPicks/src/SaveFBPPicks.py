@@ -1,4 +1,5 @@
 from calendar import c
+import decimal
 import json
 from math import log
 import random
@@ -10,6 +11,7 @@ import boto3
 import logging
 from botocore.exceptions import ClientError
 from boto3.dynamodb.conditions import Attr, Key
+from aws_lambda_powertools import Tracer
 from aws_lambda_powertools.event_handler import APIGatewayHttpResolver, Response
 from aws_lambda_powertools.event_handler.api_gateway import CORSConfig
 from fbplib.decimalDefault import decimal_default
@@ -37,6 +39,7 @@ logging.basicConfig(format='%(levelname)s %(message)s')
 logger = logging.getLogger()
 logger.info("Initializing SaveFBPPicksPython Lambda function")  # Log initialization message
 logger.setLevel(logging.INFO)
+tracer = Tracer()
 
 
 cors_config = CORSConfig(
@@ -129,10 +132,14 @@ def saveFBPPicks():
     }
 
 @app.post("/validateAndFixFBPPicks")
+@tracer.capture_method
 def validateAndFixFBPPicks():
     fbpLog("fbpadmin@my-fbp.com", "SaveFBPPicksPython", "Validating and fixing FBP picks", "INFO")
     FBP_USERS_TABLE_NAME = os.environ.get('FBPUsersTableName', 'FBP-Users')
     FBP_PICKS_TABLE_NAME = os.environ.get('FBPPicksTableName', 'FBP-Picks')
+    tracer.put_annotation(key="operation", value="validateAndFixFBPPicks")
+    tracer.put_annotation(key="picks_table", value=FBP_PICKS_TABLE_NAME)
+    tracer.put_annotation(key="users_table", value=FBP_USERS_TABLE_NAME)
     logger.info(f"Using FBP Picks DynamoDB table: {FBP_PICKS_TABLE_NAME}")
     dynamodb = boto3.resource('dynamodb')
     picksTable = dynamodb.Table(FBP_PICKS_TABLE_NAME)
@@ -145,6 +152,7 @@ def validateAndFixFBPPicks():
             'statusCode': 500,
             'body': json.dumps({'error': 'Could not determine current week'}),
         }
+    tracer.put_annotation(key="week", value=str(week))
     logger.info(f"Validating and fixing picks for week: {week}")
     FBP_SCHEDULE_TABLE_NAME = os.environ.get('FBPScheduleTableName', '2025-Schedule')
     # need to query the schedule table for the week so that I can get the number
@@ -187,18 +195,34 @@ def validateAndFixFBPPicks():
             displayName = user.get('displayName')
             email = user['email']
             logger.info(f"Validating and fixing picks for email: {email}")
-            pickResponse = picksTable.get_item(
-                Key={'email': email}
+            ##
+            # You need to check for the current week as well.
+            ##
+            pickResponse = picksTable.query(
+                KeyConditionExpression=Key('email').eq(email),
+                FilterExpression=Attr('week').eq(week)
             )
-            if 'Item' not in pickResponse:
-                # User is valid, but has not mady any picks.  This could only happen in week 1.
-
-                logger.warning(f"No picks found for email: {email}, skipping validation and fixing for this user")
-                fbpLog(email=email, action="method: validateAndFixFBPPicks", details=f"No picks found for email: {email}, skipping validation and fixing for this user", level="WARNING")
-                continue
-            picksItem = pickResponse['Item']
-            picks = picksItem.get('picks')
-            decimalTieBreaker = picksItem.get('tieBreaker')
+            if 'Items' not in pickResponse or len(pickResponse['Items']) == 0:
+                noPicks = True
+                # We need to get the default tieBreaker.
+                usersData=usersTable.query(
+                    KeyConditionExpression=Key('email').eq(email)
+                )
+                defaultTieBreaker = usersData['Items'][0].get('defaultTieBreaker')
+                # convert defaultTieBreaker to a int
+                defaultTieBreaker = decimal.Decimal(defaultTieBreaker)
+                if defaultTieBreaker is not None:
+                    decimalTieBreaker = defaultTieBreaker
+                    logger.info(f"Setting tieBreaker for email: {email}, to {decimalTieBreaker}")
+                    fbpLog(email=email, action="method: validateAndFixFBPPicks", details=f"Setting tieBreaker for email: {email}, to {decimalTieBreaker}", level="INFO")
+                else:               ## Set to a random number if there is no defaultTieBreaker for the user.
+                    decimalTieBreaker = random.randint(a=21, b=63)
+                    logger.info(f"No default tieBreaker found for email: {email}, setting to random number: {decimalTieBreaker}")
+                    fbpLog(email=email, action="method: validateAndFixFBPPicks", details=f"No default tieBreaker found for email: {email}, setting to random number: {decimalTieBreaker}", level="INFO")
+            else:
+                picksItem = pickResponse['Items'][0]
+                picks = picksItem.get('picks')
+                decimalTieBreaker = picksItem.get('tieBreaker')
             ##
             # Check if the tieBreaker is null or missing.
             # If so, we need to set it to the defaultTieBreaker
@@ -222,41 +246,11 @@ def validateAndFixFBPPicks():
                     fbpLog(email=email, action="method: validateAndFixFBPPicks", details=f"No default tieBreaker found for email: {email}, setting to random number: {decimalTieBreaker}", level="INFO")
             if decimalTieBreaker is not None:
                 tieBreaker = int(decimalTieBreaker)
-            # if tieBreaker == 0: # DynamoDB sends back Decimal 0 if the field is null or missing.
-            #     logger.warning(f"No tieBreaker found for email: {email}, will attempt to set it using default algorithm or random number")
-            #     fbpLog(email=email, action="method: validateAndFixFBPPicks", details=f"No tieBreaker found for email: {email}, will attempt to set it using default algorithm or random number", level="WARNING")
-            #     usersDate = usersTable.query(
-            #         KeyConditionExpression=Key('email').eq(email)
-            #     )
-            #     defaultTieBreaker = usersDate['Items'][0].get('defaultTieBreaker')
-            #     if defaultTieBreaker is not None:
-            #         tieBreaker = defaultTieBreaker
-            #         logger.info(f"Setting tieBreaker found for email: {email}, to {tieBreaker}")
-            #         fbpLog(email=email, action="method: validateAndFixFBPPicks", details=f"Setting tieBreaker found for email: {email}, to {tieBreaker}", level="INFO")
-            #         noTieBreaker = False
             # Handle the case where there are no picks.
             if picks is None:
                 noPicks = True
                 logger.warning(f"No picks found for email: {email}, setting noPicks flag to True")
                 fbpLog(email=email, action="method: validateAndFixFBPPicks", details=f"No picks found for email: {email}, setting noPicks flag to True", level="WARNING")
-            ##
-            # I don't think i need the block of code that handles tieBreaker being None anymore, 
-            # since we are now handling it earlier with decimalTieBreaker and setting tieBreaker accordingly.
-            # if tieBreaker is None:
-            # # Get the defaultTieBreaker from the user table.
-            #     noTieBreaker = True
-            #     usersData=usersTable.query(
-            #         KeyConditionExpression=Key('email').eq(email)
-            #     )
-            #     defaultTieBreaker = usersData['Items'][0].get('defaultTieBreaker')
-            #     if defaultTieBreaker is not None:
-            #         tieBreaker = defaultTieBreaker
-            #         noTieBreaker = False
-            #         logger.info(f"Setting tieBreaker found for email: {email}, to {tieBreaker}")
-            #         fbpLog(email=email, action="method: validateAndFixFBPPicks", details=f"Setting tieBreaker found for email: {email}, to {tieBreaker}", level="INFO")
-            # End if to handle no picks and no tieBreaker cases.
-            # By the time we get here, we should have a picks string
-            # and a tieBreaker value.
             algorithm = user.get('defaultAlgorithm')
             match algorithm:
                 case "home":
@@ -382,6 +376,9 @@ def validateAndFixFBPPicks():
                         fbpLog("fbpadmin@my-fbp.com", "method: validateAndFixFBPPicks", f"Replaced ? with underdog picks: {picks}", "INFO")                
             # End of match statement to apply algorithm to replace ? with the correct pick.
 
+            ##
+            # setting this none doesn't make sense.
+            ## 
             defaultTieBreaker = None
             if noPicks:
 
@@ -546,5 +543,6 @@ def validateAndFixFBPPicks():
     }
 
 
+@tracer.capture_lambda_handler
 def lambda_handler(event, context):
     return app.resolve(event, context)  
