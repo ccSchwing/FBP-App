@@ -6,7 +6,7 @@
   "headers": {
     "content-type": "application/json"
   },
-  "body": "{\"startDate\":\"05-17-2026 00:00:00\",\"endDate\":\"05-18-2026 23:59:59\",\"week\":\"2\", \"logLevel\":\"ALL\"}",
+  "body": "{\"startDate\":\"06-17-2026 00:00:00\",\"endDate\":\"06-18-2026 23:59:59\", \"logLevel\":\"INFO\"}",
   "requestContext": {
     "http": {
       "method": "POST",

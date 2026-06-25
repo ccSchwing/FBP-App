@@ -67,7 +67,8 @@ __pypackages__/
 # -----------------------
 # IDE / Editor files
 # -----------------------
-.vscode/
+.vscode/*
+!.vscode/launch.json
 .idea/
 *.iml
 *.ipr

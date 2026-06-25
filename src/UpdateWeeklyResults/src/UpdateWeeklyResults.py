@@ -6,6 +6,7 @@ import logging
 from decimal import Decimal
 from typing import List, Dict, Any
 from botocore.exceptions import ClientError
+from boto3.dynamodb.conditions import Attr
 from aws_lambda_powertools.event_handler import APIGatewayHttpResolver, Response
 from aws_lambda_powertools.event_handler.api_gateway import CORSConfig
 from fbplib.fbpLog import fbpLog
@@ -114,23 +115,14 @@ def updateWeeklyResults():
             and incorrect picks for each user.
             '''
             weeklyResults = updateWeeklyUserResults(allUserPicks=allUserPicks, resultsTable=resultsTable, usersTable=usersTable, week=week)
-            if not weeklyResults:
+            if weeklyResults.status_code != 200:
                 logger.error("Failed to update weekly user results")
                 fbpLog("fbpadmin@my-fbp.com", "UpdateWeeklyResults", "Failed to update weekly user results", "ERROR")
-                return Response (
-                    status_code=500,
-                    content_type="application/json",
-                    body=json.dumps({'error': 'Failed to update weekly user results'}),
-                )
+                return weeklyResults
             else:
-                logger.info(f"Response data: {weeklyResults}")  # Log the response data for debugging
                 logger.info(f"Updated weekly user results for week {week}")
                 fbpLog("fbpadmin@my-fbp.com", "UpdateWeeklyResults", f"Updated weekly user results for week {week}", "INFO")
-                return Response (
-                    status_code=200,
-                    content_type="application/json",
-                    body=json.dumps(weeklyResults)
-                )
+                return weeklyResults
     except ClientError as e:
         logger.exception(f"DynamoDB Error: {e}")
         fbpLog("fbpadmin@my-fbp.com", "UpdateWeeklyResults", f"DynamoDB Error: {e}", "ERROR")
@@ -147,12 +139,81 @@ def updateWeeklyResults():
             content_type="application/json",
             body=json.dumps({'error': 'Unexpected error'}),
         )
-
-def updateWeeklyUserResults(allUserPicks: List[Dict[str, Any]], resultsTable, usersTable, week: int) -> List[Dict[str, Any]]:
+def getResultsCalculatedValueForWeek(week: int) -> Any:
     dynamodb = boto3.resource('dynamodb')
     FBP_CONFIG_TABLE_NAME = os.environ.get('FBPConfigTableName', 'FBP-Config')
     logger.info(f"Using FBP Config DynamoDB table: {FBP_CONFIG_TABLE_NAME}")
     configTable = dynamodb.Table(FBP_CONFIG_TABLE_NAME)
+    try:
+        configResponse = configTable.get_item(Key={'Week': week})
+        if 'Item' not in configResponse:
+            logger.error(f"Configuration for week {week} not found in FBP-Config table")
+            fbpLog("fbpadmin@my-fbp.com", "UpdateWeeklyResults", f"Configuration for week {week} not found in FBP-Config table", "ERROR")
+            return Response (
+                status_code=404,
+                content_type="application/json",
+                body=json.dumps({'error': f'Configuration for week {week} not found'}),
+            )
+        resultsCalculated = configResponse['Item'].get('resultsCalculated')
+        if resultsCalculated is None:
+            logger.error(f"resultsCalculated value not found for week {week} in FBP-Config table")
+            fbpLog("fbpadmin@my-fbp.com", "UpdateWeeklyResults", f"resultsCalculated value not found for week {week} in FBP-Config table", "ERROR")
+            return Response (
+                status_code=404,
+                content_type="application/json",
+                body=json.dumps({'error': f'resultsCalculated value not found for week {week}'}),
+            )
+        return Response (
+            status_code=200,
+            content_type="application/json",
+            body=json.dumps({'week': week, 'resultsCalculated': resultsCalculated}),
+        )
+    except ClientError as e:
+        logger.error(f"Error retrieving configuration for week {week} from FBP-Config table: {e}")
+        fbpLog("fbpadmin@my-fbp.com", "UpdateWeeklyResults", f"Error retrieving configuration for week {week} from FBP-Config table: {e}", "ERROR")
+        return Response (
+            status_code=500,
+            content_type="application/json",
+            body=json.dumps({'error': f'Error retrieving configuration for week {week}'}),
+        )
+
+def updateWeeklyUserResults(allUserPicks: List[Dict[str, Any]], resultsTable, usersTable, week: int) -> Response:
+    dynamodb = boto3.resource('dynamodb')
+    FBP_CONFIG_TABLE_NAME = os.environ.get('FBPConfigTableName', 'FBP-Config')
+    logger.info(f"Using FBP Config DynamoDB table: {FBP_CONFIG_TABLE_NAME}")
+    configTable = dynamodb.Table(FBP_CONFIG_TABLE_NAME)
+
+    ##
+    # Get the value of resultsCalculated for the current week from the FBP-Config table.  If resultsCalculated is true, then we should not run this method again for the current week.
+    ##
+    try:
+        configResponse = configTable.get_item(Key={'Week': week})
+        if 'Item' not in configResponse:
+            logger.error(f"Configuration for week {week} not found in FBP-Config table")
+            fbpLog("fbpadmin@my-fbp.com", "UpdateWeeklyResults", f"Configuration for week {week} not found in FBP-Config table", "ERROR")
+            return Response(status_code=404, content_type="application/json", body=json.dumps({'error': f'Configuration for week {week} not found'}))
+        #resultsCalculated = configResponse['Item'].get('resultsCalculated')
+
+        result=getResultsCalculatedValueForWeek(week)
+        if isinstance(result, Response):
+            if result.status_code != 200:
+                logger.error(f"Error retrieving resultsCalculated value for week {week}: {result.body}")
+                fbpLog("fbpadmin@my-fbp.com", "UpdateWeeklyResults", f"Error retrieving resultsCalculated value for week {week}: {result.body}", "ERROR")
+                return Response(status_code=500, content_type="application/json", body=json.dumps({'error': f'Error retrieving resultsCalculated for week {week}'}))
+            resultsCalculated = json.loads(result.body).get('resultsCalculated') if result.body else None
+        else:
+            resultsCalculated = result.get('resultsCalculated') if result else None
+        if resultsCalculated:
+            logger.info(f"Results for week {week} have already been calculated")
+            fbpLog("fbpadmin@my-fbp.com", "UpdateWeeklyResults", f"Results for week {week} have already been calculated", "INFO")
+            return Response(status_code=200, content_type="application/json", body=json.dumps({'message': f'Results for week {week} have already been calculated'}))
+    except ClientError as e:
+        logger.error(f"Error retrieving configuration for week {week} from FBP-Config table: {e}")
+        fbpLog("fbpadmin@my-fbp.com", "UpdateWeeklyResults", f"Error retrieving configuration for week {week} from FBP-Config table: {e}", "ERROR")
+        return Response(status_code=500, content_type="application/json", body=json.dumps({'error': f'Error retrieving configuration for week {week}'}))  
+    ##
+    # If we get here, it's safe to proceed.
+    ##
 
     FBP_SCHEDULE_TABLE_NAME = os.environ.get('FBPScheduleTableName', '2025-Schedule')
     logger.info(f"Using FBP Schedule DynamoDB table: {FBP_SCHEDULE_TABLE_NAME}")
@@ -163,7 +224,7 @@ def updateWeeklyUserResults(allUserPicks: List[Dict[str, Any]], resultsTable, us
     if not scheduleResults.get('Items'):
         logger.warning(f"No schedule found for week {week}")
         fbpLog("fbpadmin@my-fbp.com", "UpdateWeeklyResults", f"No schedule found for week {week}", "WARNING")
-        return []
+        return Response(status_code=404, content_type="application/json", body=json.dumps({'error': f'No schedule found for week {week}'}))
 
     scheduleItems  = scheduleResults.get('Items', [])
     scheduleItems = sorted(scheduleItems, key=lambda x: str(x['GameId']))  # Sort by GameId to ensure correct order
@@ -199,7 +260,7 @@ def updateWeeklyUserResults(allUserPicks: List[Dict[str, Any]], resultsTable, us
             if index >= len(gameResultsList):
                 logger.error(f"Index {index} out of range for gameResults")
                 fbpLog("fbpadmin@my-fbp.com", "UpdateWeeklyResults", f"Index {index} out of range for gameResults", "ERROR")
-                return fbpError
+                return Response(status_code=500, content_type="application/json", body=json.dumps({'error': f'Index {index} out of range for gameResults'}))
             else:
                 if userPicks[index] == gameResultsList[index]:
                     correctpicks += 1
@@ -235,7 +296,7 @@ def updateWeeklyUserResults(allUserPicks: List[Dict[str, Any]], resultsTable, us
         except ClientError as e:
             logger.exception(f"DynamoDB Error: {e}")
             fbpLog("fbpadmin@my-fbp.com", "UpdateWeeklyResults", f"DynamoDB Error: {e}", "ERROR")
-            return fbpError
+            return Response(status_code=500, content_type="application/json", body=json.dumps({'error': f'DynamoDB error saving results for {email}'})) 
         '''
         Update the FBP_USERS_TABLE with the Total Correct and Incorrect Picks for the user for the Season.
         '''
@@ -250,7 +311,7 @@ def updateWeeklyUserResults(allUserPicks: List[Dict[str, Any]], resultsTable, us
         except ClientError as e:
             logger.exception(f"DynamoDB Error: {e}")
             fbpLog("fbpadmin@my-fbp.com", "UpdateWeeklyResults", f"DynamoDB Error: {e}", "ERROR")
-            return fbpError
+            return Response(status_code=500, content_type="application/json", body=json.dumps({'error': f'DynamoDB error updating user totals for {email}'}))
         logger.info(f"Updated weekly results for user: {email} with correct picks: {correctpicks} and incorrect picks: {incorrectpicks}")
         fbpLog("fbpadmin@my-fbp.com", "UpdateWeeklyResults", f"Updated weekly results for user: {email} with correct picks: {correctpicks} and incorrect picks: {incorrectpicks}", "INFO")
         '''
@@ -265,7 +326,11 @@ def updateWeeklyUserResults(allUserPicks: List[Dict[str, Any]], resultsTable, us
         # End of for loop for each user's picks for the week.
     # now you can set the Winner field for each user in the
     # FBP_WEEKLY_RESULTS_TABLE based on the number of correct picks for the week.
-    response = resultsTable.scan()
+    ##
+    # Make sure to filter the scan for the current week and only update the winner for the current week.
+    response = resultsTable.scan(
+        FilterExpression=Attr('week').eq(Decimal(week))
+    )
     items = response['Items']
     max_item = max(items, key=lambda x: x.get('correctpicks', 0))
     email = max_item['email']
@@ -302,11 +367,11 @@ def updateWeeklyUserResults(allUserPicks: List[Dict[str, Any]], resultsTable, us
     except ClientError as e:
          logger.error(f"Error updating FBP-Config table: {e}")
          fbpLog("fbpadmin@my-fbp.com", "UpdateWeeklyResults", f"Error updating FBP-Config table: {e}", "ERROR")
-         return []
+         return Response(status_code=500, content_type="application/json", body=json.dumps({'error': 'Error updating FBP-Config table'}))
     logger.info(f"Updated User results for week {week}")
     fbpLog("fbpadmin@my-fbp.com", "UpdateWeeklyResults", f"Updated User results for week {week}", "INFO")
     gameResultsJSON.sort(key=lambda x: x['correctPicks'], reverse=True)  # Sort the results by correct picks in descending order
-    return gameResultsJSON
+    return Response(status_code=200, content_type="application/json", body=json.dumps(gameResultsJSON))
 
 def lambda_handler(event, context):
     print("Received event:", json.dumps(event))  # Log the received event for debugging

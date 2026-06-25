@@ -14,7 +14,6 @@ logger = logging.getLogger()
 
 def fbpLog(email, action, details, level, week=None):
     FBP_LOG_TABLE_NAME = os.environ.get('FBPLogsTableName', '2025-Log')
-    logger.info(f"Fetching current week from DynamoDB table: {FBP_LOG_TABLE_NAME}")
     dynamodb = boto3.resource('dynamodb')
     table = dynamodb.Table(FBP_LOG_TABLE_NAME)
     pytz_tz = pytz.timezone('America/New_York')

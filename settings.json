@@ -1,7 +1,0 @@
-{
-    "workbench.colorTheme": "Default High Contrast",
-    "workbench.iconTheme": "vs-minimal",
-    "workbench.preferredDarkColorTheme": "Default High Contrast",
-    "terminal.integrated.minimumContrastRatio": 7,
-    "python.defaultInterpreterPath": "/Users/ccs/projects/FBP/.venv/bin/python3.12"
-}

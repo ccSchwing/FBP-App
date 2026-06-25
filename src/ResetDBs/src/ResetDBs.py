@@ -9,7 +9,6 @@ from botocore.exceptions import ClientError
 from aws_lambda_powertools.event_handler import APIGatewayHttpResolver, Response
 from aws_lambda_powertools.event_handler.api_gateway import CORSConfig
 from fbplib.fbpLog import fbpLog
-from fbplib.getCurrentWeek import getCurrentWeek
 
 
 '''
@@ -54,13 +53,14 @@ def resetDBs():
         try:
             usersTable.update_item(
                 Key={'email': email},
-                UpdateExpression="SET #totalCorrectPicks = :zero, #totalIncorrectPicks = :zero",
-                ExpressionAttributeNames={'#totalCorrectPicks': 'totalCorrectPicks', '#totalIncorrectPicks': 'totalIncorrectPicks'},
+                UpdateExpression="SET #totalCorrectPicks = :zero, #totalIncorrectPicks = :zero, #totalWins = :zero",
+                ExpressionAttributeNames={'#totalCorrectPicks': 'totalCorrectPicks', '#totalIncorrectPicks': 'totalIncorrectPicks', '#totalWins': 'totalWins'},
                 ExpressionAttributeValues={':zero': 0}
             )
         except ClientError as e:
             logger.exception(f"DynamoDB Error: {e}")
             fbpLog("fbpadmin@my-fbp.com", "ResetDBs", f"DynamoDB Error: {e}", "ERROR")
+            return {"error": "Failed to reset DBs. Check logs for details."}
     # Set correctPicks and incorrectPicks to 0 for all users in the FBP-Weekly-YYYYResults table
     # unset Boolean Winner Field.
     resultsTable = boto3.resource('dynamodb').Table(FBP_WEEKLY_RESULTS_TABLE)
@@ -82,7 +82,7 @@ def resetDBs():
         except ClientError as e:
             logger.exception(f"DynamoDB Error: {e}")
             fbpLog("fbpadmin@my-fbp.com", "ResetDBs", f"DynamoDB Error: {e}", "ERROR")
-    return {"error": "Failed to reset DBs. Check logs for details."}
+            return {"error": "Failed to reset DBs. Check logs for details."}
 
 def lambda_handler(event, context):
     return app.resolve(event, context)

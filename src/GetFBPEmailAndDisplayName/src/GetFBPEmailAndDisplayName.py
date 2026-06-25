@@ -42,8 +42,22 @@ app=APIGatewayHttpResolver(cors=cors_config)
 def getAllFBPUserEmailAndDisplayName():
     logger.info("Handling getAllFBPUserEmailAndDisplayName request")  # Log entry into the function
     try:
-        logger.info(f"Raw event data: {json.dumps(app.current_event.raw_event, default=str)}")  # Log the raw event data
-
+        items= getFBPUserEmailandDisplayName()
+        if items:
+                return {
+                    'statusCode': 200,
+                    'body': json.dumps({
+                        'items': items
+                        })
+                    }
+        else:
+            logger.info(f"No Users found")
+            return {
+                    'statusCode': 404,
+                    'body': json.dumps({
+                        'error': f'No users found',
+                    })
+            } 
     except Exception as e:
         logger.error(f"Unexpected error: {e}")
         return {
@@ -52,26 +66,7 @@ def getAllFBPUserEmailAndDisplayName():
                 'error': f'exception occurred: {e}',
                 'message': 'An unexpected error occurred while processing the request'
             })
-        }
-
-    items= getFBPUserEmailandDisplayName()
-    
-    if items:
-        return {
-            'statusCode': 200,
-            'body': json.dumps({
-                'items': items
-                })
-            }
-    else:
-        logger.info(f"No Users found")
-        return {
-            'statusCode': 404,
-            'body': json.dumps({
-                'error': f'No users found',
-                })
-            } 
-
+        } 
         
 
 def getFBPUserEmailandDisplayName():

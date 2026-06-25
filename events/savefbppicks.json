@@ -6,7 +6,7 @@
   "headers": {
     "content-type": "application/json"
   },
-  "body": "{\"email\": \"chuckschwing@proton.me\", \"picks\": \"AAAAAAHAAAAAAAAA\", \"tieBreaker\": \"55\"}",
+  "body": "{\"email\": \"chuckschwing@proton.me\", \"picks\": \"AAAAAAHAAAAAAAAA\", \"tieBreaker\": \"\"}",
   
   "requestContext": {
     "routeKey": "POST /saveFBPPicks",

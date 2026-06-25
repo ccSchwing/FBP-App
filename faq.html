@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <script src="/js-lib/oidc-client-ts.min.js"></script>
     <link rel="stylesheet" type="text/css" href="/css/styles.css" />
-    <script type="module">
+    <!-- <script type="module">
         (async () => {
             const { auth } = await import("/js/auth.js");
             await auth.ensureAuthenticated();
@@ -18,7 +18,7 @@
             const { getUserStatus } = await import("/js-lib/userUtils.js");
             await getUserStatus();
         })().catch(console.error);
-    </script>
+    </script> -->
     <title>FBP FAQ</title>
 
     <style>
@@ -299,10 +299,20 @@
                     </p>
                 </div>
             </details>
+                <summary class="faq__question" tabindex="0">How Do I Make Payment for the FBP Pool?</summary>
+                <div class="faq__answer">
+                    <p>You can contact FBP Admin by email at <a href="mailto:fbpadmin@my-fbp.com"><b>fbpadmin@my-fbp.com</b></a>.
+                        We will do our best to respond to your inquiry as quickly as possible.
+                        Payment can be made via Venmo or PayPal. Please visit our <a href="https://my-fbp.com/makepayment.html"><b>FBP Payment Page</b></a>.
+                    </p>
+                </div>
+            </details>
+            <details class="faq__item">
                 <summary class="faq__question" tabindex="0">How Do I Contact FBP If I Have Questions?</summary>
                 <div class="faq__answer">
-                    <p>You can contact FBP Admin by email at fbpadmin@my-fbp.com.
-                        We will do our best to respond to your inquiry as quickly as possible.</p>
+                    <p>You can contact FBP Admin by email at <a href="mailto:fbpadmin@my-fbp.com"><b>fbpadmin@my-fbp.com</b></a>.
+                        We will do our best to respond to your inquiry as quickly as possible.
+                    </p>
                 </div>
             </details>
             <details class="faq__item">
@@ -326,7 +336,7 @@
                         account with instructions on how to reset your password.
                         If you don't receive the email within a few minutes, please check your spam or junk folder.
                         If you still have trouble resetting your password, please contact FBP Admin
-                        at fbpadmin@my-fbp.com.
+                        at <a href="mailto:fbpadmin@my-fbp.com"><b>fbpadmin@my-fbp.com</b></a>.
                     </p>
                     <p> Please note that your login id and password are managed and stored in an Amazon
                         Web Service in the cloud. FBP does not have access to your password and cannot
@@ -356,7 +366,10 @@
                     <p>The "Make My Picks For The Week" link is on every page in the FBP website.
                         Click that link and you'll see a table where you can make your picks for each game.
                         You can click the radio button or on the Team Helmet to make your pick.
-                        Don't forget to enter a Monday Night Tiebreaker value as well.
+                        Don't forget to enter a Monday Night Tiebreaker value as well. If you do not enter a value,
+                        your default Monday Night Tiebreaker value will be used.
+                        If you have not set a default Monday Night Tiebreaker value,
+                        a random value will be generated between 21 and 63.
                         Once you have made your picks, click the "Submit My Picks" button at
                         the bottom of the page to save your picks for the week.
                     </p>
@@ -379,7 +392,8 @@
                         for a game, your default algorithm will be used to make your pick for that game.
                         You can set your default algorithm in your profile settings.
                         You can also leave the Monday Night Tiebreaker blank and your default
-                        Monday Night Tiebreaker value will be used for that.
+                        Monday Night Tiebreaker value will be used for that. If you have not set a default
+                        Monday Night Tiebreaker value, a random value will be generated between 21 and 63.
                     </p>
                 </div>
             </details>
@@ -391,7 +405,7 @@
                         make or change your picks for that week.
                         You can see the current status of the pool on the home page of the FBP website.
                         If you have any questions about when the pool is open or closed, please contact
-                        FBP Admin at fbpadmin@my-fbp.com.
+                        FBP Admin at <a href="mailto:fbpadmin@my-fbp.com"><b>fbpadmin@my-fbp.com</b></a>.
                     </p>
                 </div>
             </details>
@@ -415,7 +429,8 @@
                         Monday Night Football game each week.
                         You can enter your tiebreaker value on the pick sheet when you make your picks for the week.
                         If you don't enter a tiebreaker value, your default tiebreaker value from your
-                        profile will be used.
+                        profile will be used. If you have not set a default Monday Night Tiebreaker value,
+                        a random value will be generated between 21 and 63.
                     </p>
                 </div>
             </details>
@@ -495,7 +510,7 @@
                     <p>Traditionally, FBP has been a private pool for a specific group of friends and family.
                         However, we are open to new players joining the fun. If you have friends who are interested in
                         joining FBP,
-                        please have them contact FBP Admin at fbpadmin@my-fbp.com.
+                        please have them contact FBP Admin at <a href="mailto:fbpadmin@my-fbp.com"><b>fbpadmin@my-fbp.com</b></a>.
                     </p>
                 </div>
             </details>

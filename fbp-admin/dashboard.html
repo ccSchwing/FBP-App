@@ -10,6 +10,8 @@
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
     <link rel="stylesheet" href="https://code.jquery.com/ui/1.13.2/themes/base/jquery-ui.min.css">
     <script src="https://code.jquery.com/ui/1.13.2/jquery-ui.min.js"></script>
+    <script
+        src="https://cdnjs.cloudflare.com/ajax/libs/jquery.tablesorter/2.31.3/js/jquery.tablesorter.min.js"></script>
     <style>
         /* Override header h1 positioning to not cover menu button */
         header h1 {
@@ -38,6 +40,7 @@
             background-color: #4caf50;
             color: white;
             font-weight: bold;
+            cursor: pointer;
         }
 
         .page-title {
@@ -64,14 +67,23 @@
     </script>
     <script type="module">
         import { getServiceUrl } from "/js-lib/urlConfig.js";
-        async function queryFBPLogs(startDate, endDate, logLevel) {
+        async function queryFBPLogs(startDate, endDate, week, logLevel) {
             try {
                 const URL_KEY = "queryFBPLogs";
                 const lambdaURL = await getServiceUrl(URL_KEY);
+                // Pass all form params and have the lambda figure out what
+                // to do.
+                const payload = { logLevel };
+                if (week && week.trim() !== "") {
+                    payload.week = week.trim();
+                } else {
+                    payload.startDate = startDate;
+                    payload.endDate = endDate;
+                }
                 const response = await fetch(lambdaURL, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ startDate, endDate, logLevel: $('input[name="logLevel"]:checked').val() }),
+                    body: JSON.stringify(payload),
                 });
                 const data = await response.json();
                 console.log("Query Logs Response:", data);
@@ -106,6 +118,8 @@
 
             // Create table
             const table = document.createElement("table");
+            table.id = "logsTable";
+            table.className = "tablesorter";
             table.style.marginLeft = "20px";
             const thead = document.createElement('thead');
             const tbody = document.createElement('tbody');
@@ -129,10 +143,21 @@
                     td.textContent = log[header] || '';
                     row.appendChild(td);
                 });
+                if (log.level === 'ERROR') {
+                    row.style.backgroundColor = '#f8d7da'; // Light red background for error logs
+                }
+                if (log.level === 'WARNING') {
+                    row.style.backgroundColor = '#fff3cd'; // Light yellow background for warning logs
+                }
                 tbody.appendChild(row);
             });
             table.appendChild(tbody);
             logsOutput.appendChild(table);
+
+            // Enable click-to-sort behavior on each column header.
+            if ($.fn.tablesorter) {
+                $("#logsTable").tablesorter();
+            }
         }        
     </script>
 </head>
@@ -150,70 +175,81 @@
             <!-- populated by adminNav.js -->
         </aside>
         <main class="results-main">
-        <script>
-            $(function () {
-                $("#startDate").datepicker({
-                    dateFormat: "mm-dd-yy 00:00:00"
+            <script>
+                $(function () {
+                    $("#startDate").datepicker({
+                        dateFormat: "mm-dd-yy 00:00:00"
+                    });
+                    $("#endDate").datepicker({
+                        dateFormat: "mm-dd-yy 23:59:59"
+                    });
+                    $('#startDate, #endDate').on('change', function () {
+                        const startDate = $('#startDate').val();
+                        const endDate = $('#endDate').val();
+                        console.log("Selected Start Date:", startDate);
+                        console.log("Selected End Date:", endDate);
+                        $('#week').val(''); // Clear the week input when startDate or endDate changes
+                    });
+                    $('#week').on('change', function () {
+                        const week = $('#week').val();
+                        console.log("Selected Week:", week);
+                        // Set starDate and endDate to empty strings.
+                        $('#startDate').val('');
+                        $('#endDate').val('');
+                    });
+                    // $('#startDate, #endDate').on('change', function () {
+                    //     const startDate = $('#startDate').val();
+                    //     const endDate = $('#endDate').val();
+                    //     console.log("Selected Start Date:", startDate);
+                    //     console.log("Selected End Date:", endDate);
+                    // });
+                    $('input[name="logLevel"]').on('change', function () {
+                        const logLevel = $(this).val();
+                        console.log("Selected Log Level:", logLevel);
+                    });
+                    $('#adminForm').on('submit', function (e) {
+                        e.preventDefault();
+                        const startDate = $('#startDate').val();
+                        const endDate = $('#endDate').val();
+                        // const logLevel = $('#logLevel').val();
+                        const logLevel = $('input[name="logLevel"]:checked').val();
+                        console.log("Selected Start Date:", startDate);
+                        console.log("Selected End Date:", endDate);
+                        console.log("Selected Log Level:", logLevel);
+                        const week = $('#week').val();
+                        queryFBPLogs(startDate, endDate, week, logLevel);
+                    });
                 });
-                $("#endDate").datepicker({
-                    dateFormat: "mm-dd-yy 23:59:59"
-                });
-                $('#startDate, #endDate').on('change', function () {
-                    const startDate = $('#startDate').val();
-                    const endDate = $('#endDate').val();
-                    console.log("Selected Start Date:", startDate);
-                    console.log("Selected End Date:", endDate);
-                });
-                $('#startDate, #endDate').on('change', function () {
-                    const startDate = $('#startDate').val();
-                    const endDate = $('#endDate').val();
-                    console.log("Selected Start Date:", startDate);
-                    console.log("Selected End Date:", endDate);
-                });
-                $('input[name="logLevel"]').on('change', function () {
-                    const logLevel = $(this).val();
-                    console.log("Selected Log Level:", logLevel);
-                });
-                $('#adminForm').on('submit', function (e) {
-                    e.preventDefault();
-                    const startDate = $('#startDate').val();
-                    const endDate = $('#endDate').val();
-                    // const logLevel = $('#logLevel').val();
-                    const logLevel = $('input[name="logLevel"]:checked').val();
-                    console.log("Selected Start Date:", startDate);
-                    console.log("Selected End Date:", endDate);
-                    console.log("Selected Log Level:", logLevel);
-                    queryFBPLogs(startDate, endDate, logLevel);
-                });
-            });
-        </script>
-        <form id="adminForm" style="margin-left: 20px;">
-            <label for="startDate">Select StartDate:</label>
-            <input type="text" id="startDate" name="startDate" />
-            <label for="endDate">Select End Date:</label>
-            <input type="text" id="endDate" name="endDate" /><br>
-            <label class="custom-radio">
-                <input type="radio" id="info" name="logLevel" value="INFO">
-                <span class="checkmark"></span>
-                INFO
-            </label><br>
-            <label class="custom-radio">
-                <input type="radio" id="warn" name="logLevel" value="WARN">
-                <span class="checkmark"></span>
-                WARN
-            </label><br>
-            <label class="custom-radio">
-                <input type="radio" id="error" name="logLevel" value="ERROR">
-                <span class="checkmark"></span>
-                ERROR
-            </label><br>
-            <label class="custom-radio">
-                <input type="radio" id="all" name="logLevel" value="ALL" checked>
-                <span class="checkmark"></span>
-                ALL
-            </label><br>
-            <button type="submit" class="btn btn-primary" style="margin-top: 10px;">Submit</button>
-        </form>
+            </script>
+            <form id="adminForm" style="margin-left: 20px;">
+                <label for="startDate">Select StartDate:</label>
+                <input type="text" id="startDate" name="startDate" />
+                <label for="endDate">Select End Date:</label>
+                <input type="text" id="endDate" name="endDate" />
+                <label for="week">Select Week:</label>
+                <input type="text" id="week" name="week" /><br>
+                <label class="custom-radio">
+                    <input type="radio" id="info" name="logLevel" value="INFO">
+                    <span class="checkmark"></span>
+                    INFO
+                </label><br>
+                <label class="custom-radio">
+                    <input type="radio" id="warn" name="logLevel" value="WARN">
+                    <span class="checkmark"></span>
+                    WARN
+                </label><br>
+                <label class="custom-radio">
+                    <input type="radio" id="error" name="logLevel" value="ERROR">
+                    <span class="checkmark"></span>
+                    ERROR
+                </label><br>
+                <label class="custom-radio">
+                    <input type="radio" id="all" name="logLevel" value="ALL" checked>
+                    <span class="checkmark"></span>
+                    ALL
+                </label><br>
+                <button type="submit" class="btn btn-primary" style="margin-top: 10px;">Submit</button>
+            </form>
         </main>
     </div>
     <div id="logsResult">
