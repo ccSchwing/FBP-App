@@ -237,6 +237,8 @@ def validateAndFixFBPPicks():
             else:
                 picksItem = pickResponse['Items'][0]
                 picks = picksItem.get('picks')
+                if picks == '':
+                    noPicks=True
                 decimalTieBreaker = picksItem.get('tieBreaker')
             ##
             # Check if the tieBreaker is null or missing.
