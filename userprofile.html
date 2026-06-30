@@ -145,6 +145,8 @@
       });
       document.getElementById("defaultTieBreaker").value =
         responseBody.defaultTieBreaker || "";
+      document.getElementById("MobileNumber").value =
+        formatPhoneNumber(responseBody.MobileNumber || responseBody.mobileNumber || "");
     }
 
     async function validateFormData() {
@@ -197,6 +199,10 @@
       try {
         const lambdaURL = await getServiceUrl("updateFBPUserPython");
         const formData = new FormData(document.forms.addFBPUser);
+        const mobileNumberDigits = (formData.get("MobileNumber") || "")
+          .toString()
+          .replace(/\D/g, "")
+          .slice(0, 10);
         const resolvedEmail = await resolveUserEmail();
         if (!resolvedEmail) {
           throw new Error("No authenticated user email found for update");
@@ -231,6 +237,7 @@
             document.querySelector('input[name="defaultAlgorithm"]:checked')
               ?.value || "",
           defaultTieBreaker: formData.get("defaultTieBreaker") || "",
+          MobileNumber: mobileNumberDigits,
         };
 
         const response = await fetch(lambdaURL, {
@@ -293,7 +300,55 @@
     window.checkVenMo = checkVenMo;
   </script>
   </head>
+  <script>
+    function formatPhoneNumber(value) {
+      const digits = value.replace(/\D/g, "").slice(0, 10);
 
+      if (digits.length === 0) return "";
+      if (digits.length <= 3) return `(${digits}`;
+      if (digits.length <= 6) {
+        return `(${digits.slice(0, 3)}) ${digits.slice(3)}`;
+      }
+      return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+    }
+
+    function initPhoneMask() {
+      const mobileNumberInput = document.getElementById("MobileNumber");
+      if (!mobileNumberInput) return;
+
+      mobileNumberInput.addEventListener("input", (event) => {
+        event.target.value = formatPhoneNumber(event.target.value);
+      });
+    }
+
+    function verifyMobileNumber() {
+      const mobileNumber = document.getElementById("MobileNumber").value;
+      const mobileNumberDigits = mobileNumber.replace(/\D/g, "").slice(0, 10);
+      const verificationCode = document.getElementById("MobileNumberVerification").value;
+
+      if (mobileNumberDigits.length !== 10) {
+        alert("Please enter a valid 10-digit mobile number.");
+        return;
+      }
+
+      // Replace the line below with a call to generate a 4 digit random number.
+      const privateVerificationCode="1234"
+      // If validation is successful, turn on the sms messaging options
+      if(verificationCode === privateVerificationCode) {
+        document.getElementById("smsReminders").disabled = false;
+        document.getElementById("smsPickSheet").disabled = false;
+        document.getElementById("smsGridSheet").disabled = false;
+        alert("Mobile number verified successfully!");
+      }
+      else{
+        alert("Invalid verification code. Please try again.");
+      }
+      console.log("Mobile Number (digits only):", mobileNumberDigits);
+      console.log("Verification Code:", verificationCode);
+    }
+
+    window.addEventListener("DOMContentLoaded", initPhoneMask);
+  </script>
   <body class="fbp-home">
     <header>
       <h1 class="page-title">User Profile</h1>
@@ -333,8 +388,10 @@
                 <img src="/images/paypal.png" onClick="checkPayPal('PayPal')" alt="PayPal"
                   style="height: 2em; vertical-align:middle; margin-left:0.5em;">
               </span>
-              <span><input type="radio" value="VenMo" name="paymentMethod" id="VenMo"><label for="VenMo"
-                  style="font-weight:400; margin-left:0.5em;">VenMo</label>
+              <span><input type="radio" value="VenMo" name="paymentMethod" id="VenMo">
+                <label for="VenMo"
+                  style="font-weight:400; margin-left:0.5em;">VenMo
+                </label>
                 <img src="/images/venmo.png" onClick="checkPayPal('VenMo')" alt="VenMo"
                   style="height:2em; vertical-align:middle; margin-left:0.5em;">
               </span>
@@ -351,6 +408,31 @@
           <div>
             <label for="emailGridSheet">Email Gridsheet:</label>
             <input type="checkbox" name="emailGridSheet" id="emailGridSheet" />
+          </div>
+          <div id="smsOptin" style="display: flex; flex-direction: column; gap: 0.5em; width: fit-content;">
+            <div style="display: flex; align-items: center; gap: 0.5em;">
+              <label for="MobileNumber">Mobile Number:</label>
+              <input type="text" name="MobileNumber" id="MobileNumber" maxlength="14" size="13" style="width: 13ch;" placeholder="(999) 999-9999" pattern="\(\d{3}\) \d{3}-\d{4}" />
+            </div>
+            <div style="display: flex; align-items: center; gap: 0.5em;">
+              <label for="MobileNumberVerification">Mobile Number Verification Code:</label>
+              <input type="text" name="MobileNumberVerification" id="MobileNumberVerification" maxlength="4" size="4" style="width: 4ch;" />
+              <input type="button" value="Verify" style="width: 10ch;" onClick="verifyMobileNumber()" />
+            </div>
+          </div>
+          <div id="sms-notifications" style="display: flex; flex-direction: column; gap: 0.5em;">
+            <div style="display: flex; align-items: center; gap: 0.5em;">
+              <label for="smsReminders">SMS Reminder:</label>
+              <input type="checkbox" name="smsReminders" id="smsReminders" disabled />
+            </div>
+            <div style="display: flex; align-items: center; gap: 0.5em;">
+              <label for="smsPickSheet">SMS PickSheet:</label>
+              <input type="checkbox" name="smsPickSheet" id="smsPickSheet" disabled />
+            </div>
+            <div style="display: flex; align-items: center; gap: 0.5em;">
+              <label for="smsGridSheet">SMS GridSheet:</label>
+              <input type="checkbox" name="smsGridSheet" id="smsGridSheet" disabled />
+            </div>
           </div>
           <div id="defaultAlgorithm" style="display: flex; flex-direction: column; gap: 0.5em; margin-bottom: 1.25rem;">
             <label for="DefaultAlgorithm" style="margin-bottom:0.25em; font-weight:500;">Default for Picks when you
@@ -418,6 +500,8 @@
               radioButtons.forEach((radio) => {
                 radio.checked = radio.value === defaultAlgorithm;
               });
+              document.getElementById("MobileNumber").value =
+                formatPhoneNumber(responseBody.MobileNumber || responseBody.mobileNumber || "");
             });
           }
         </script>
