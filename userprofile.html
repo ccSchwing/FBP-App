@@ -320,7 +320,9 @@
         event.target.value = formatPhoneNumber(event.target.value);
       });
     }
-
+    function generateVerificationCode() {
+      return Math.floor(1000 + Math.random() * 9000).toString();
+    }
     function verifyMobileNumber() {
       const mobileNumber = document.getElementById("MobileNumber").value;
       const mobileNumberDigits = mobileNumber.replace(/\D/g, "").slice(0, 10);
@@ -332,7 +334,7 @@
       }
 
       // Replace the line below with a call to generate a 4 digit random number.
-      const privateVerificationCode="1234"
+      const privateVerificationCode = generateVerificationCode();
       // If validation is successful, turn on the sms messaging options
       if(verificationCode === privateVerificationCode) {
         document.getElementById("smsReminders").disabled = false;
