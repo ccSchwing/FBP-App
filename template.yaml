@@ -196,7 +196,6 @@ Resources:
                 - lambda:InvokeFunction
               Resource:
                 - !GetAtt CalcWeeklyResults.Arn
-               # - !GetAtt SaveFBPPicks.Arn
                 - !GetAtt UpdateWeeklyResults.Arn
                 - !GetAtt SendEmail.Arn
                 - !GetAtt SetPoolStatusOpen.Arn
@@ -435,6 +434,44 @@ Resources:
                   - !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/2025-Log"
                   - !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/FBP-Users"
                   - !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/FBP-Weekly-Results-2025"
+  
+
+  SendSMSVerificationCode:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/SendSMSVerificationCode/src/
+      Handler: SendSMSVerificationCode.lambda_handler
+      Runtime: python3.12
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref FBPUsersTableName
+        - DynamoDBCrudPolicy:
+            TableName: !Ref FBPLogsTableName
+      Environment:
+        Variables:
+          FBPUsersTableName: !Ref FBPUsersTableName
+          FBPLogsTableName: !Ref FBPLogsTableName
+      Layers:
+        - !Ref FBPLibLayer
+      Events:
+        SendSMSVerificationCodePost:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref MyHttpApi
+            Path: /sendSMSVerificationCode
+            Method: POST
+            PayloadFormatVersion: '2.0'
+        SendSMSVerificationCodeOptions:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref MyHttpApi
+            Path: /sendSMSVerificationCode
+            Method: OPTIONS
+            PayloadFormatVersion: '2.0'
+
+
+
+
   GetUserStatus:
     Type: AWS::Serverless::Function
     Properties:
