@@ -65,15 +65,20 @@ def importSpreadsAndFinalScores(event, context):
             # update the Underdog field.  You MUST update the csv file first.
             ##
             underdog=spread['Underdog']  ## Can be either "H" or "A"
+            ##
+            # Update the HomeScore and AwayScore
+            ##
+            spread['HomeScore']=Decimal(str(spread['HomeScore']))
+            spread['AwayScore']=Decimal(str(spread['AwayScore']))
             try:     
                 table.update_item(
                     Key={
                         'Week': week,
                         'GameId': game_id
                     },
-                    UpdateExpression="SET #spread = :spread, #underdog = :underdog",
-                    ExpressionAttributeNames={"#spread": "Spread", "#underdog": "Underdog"},
-                    ExpressionAttributeValues={":spread": spread['Spread'], ":underdog": underdog}
+                    UpdateExpression="SET #spread = :spread, #underdog = :underdog, #homeScore = :homeScore, #awayScore = :awayScore",
+                    ExpressionAttributeNames={"#spread": "Spread", "#underdog": "Underdog", "#homeScore": "HomeScore", "#awayScore": "AwayScore"},
+                    ExpressionAttributeValues={":spread": spread['Spread'], ":underdog": underdog, ":homeScore": spread['HomeScore'], ":awayScore": spread['AwayScore']}
                 )
             except ClientError as e:
                 error_msg = e.response.get('Error', {}).get('Message', str(e))
