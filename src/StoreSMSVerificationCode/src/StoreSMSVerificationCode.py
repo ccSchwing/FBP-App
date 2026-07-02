@@ -25,8 +25,8 @@ cors_config = CORSConfig(
 
 app=APIGatewayHttpResolver(cors=cors_config)
 
-@app.post("/sendSMSVerificationCode")
-def sendVerificationCode():
+@app.post("/storeSMSVerificationCode")
+def storeVerificationCode():
 
     ##
     # get the mobile number from the event body
@@ -86,12 +86,9 @@ def sendVerificationCode():
                 ':verification_code_hash': verification_code_hash
             }
         )
-        ##
-        # This is where you send the SMS to the mobile number
-        ##
         return {
             'statusCode': 200,
-            'body': json.dumps({'message': 'Verification code sent successfully'}),
+            'body': json.dumps({'verification_code_hash': verification_code_hash}),
         }
     except Exception as e:
 

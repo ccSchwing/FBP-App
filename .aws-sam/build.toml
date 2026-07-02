@@ -234,6 +234,24 @@ manifest_hash = ""
 packagetype = "Zip"
 functions = ["AdvancedEmailService"]
 
+[function_build_definitions.44495b9c-3e12-484a-8594-28c3b7c6e7ce]
+codeuri = "/Users/ccs/projects/FBP/src/StoreSMSVerificationCode/src"
+runtime = "python3.12"
+architecture = "x86_64"
+handler = "StoreSMSVerificationCode.lambda_handler"
+manifest_hash = ""
+packagetype = "Zip"
+functions = ["StoreSMSVerificationCode"]
+
+[function_build_definitions.d688de68-149d-4a21-92b7-e42e47f71817]
+codeuri = "/Users/ccs/projects/FBP/src/GetSMSVerificationCode/src"
+runtime = "python3.12"
+architecture = "x86_64"
+handler = "GetSMSVerificationCode.lambda_handler"
+manifest_hash = ""
+packagetype = "Zip"
+functions = ["GetSMSVerificationCode"]
+
 [layer_build_definitions.c020c0c2-a411-414b-8fed-0bfd4c531f8d]
 layer_name = "FBPLibLayer"
 codeuri = "/Users/ccs/projects/FBP/src/FBPLib-Layer"

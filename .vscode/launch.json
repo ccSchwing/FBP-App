@@ -70,18 +70,35 @@
       ]
     },
     {
-      "name": "Python: Attach to SendSMSVerificationCode",
+      "name": "Python: Attach to StoreSMSVerificationCode",
       "type": "debugpy",
       "request": "attach",
       "connect": {
         "host": "localhost",
         "port": 5678
       },
-      "preLaunchTask": "Attach to SendSMSVerificationCode",
+      "preLaunchTask": "Attach to StoreSMSVerificationCode",
       "postDebugTask": "Cleanup",
       "pathMappings": [
         {
-          "localRoot": "${workspaceFolder}/src/SendSMSVerificationCode/src",
+          "localRoot": "${workspaceFolder}/src/StoreSMSVerificationCode/src",
+          "remoteRoot": "/var/task"
+        }
+      ]
+    },
+    {
+      "name": "Python: Attach to GetSMSVerificationCode",
+      "type": "debugpy",
+      "request": "attach",
+      "connect": {
+        "host": "localhost",
+        "port": 5678
+      },
+      "preLaunchTask": "Attach to GetSMSVerificationCode",
+      "postDebugTask": "Cleanup",
+      "pathMappings": [
+        {
+          "localRoot": "${workspaceFolder}/src/GetSMSVerificationCode/src",
           "remoteRoot": "/var/task"
         }
       ]
