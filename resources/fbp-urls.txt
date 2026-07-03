@@ -30,3 +30,4 @@ FBPLedgerDeposit:https://icvcclb0bj.execute-api.us-east-1.amazonaws.com/prod/dep
 FBPLedgerPayout:https://icvcclb0bj.execute-api.us-east-1.amazonaws.com/prod/payout
 storeSMSVerificationCode:https://icvcclb0bj.execute-api.us-east-1.amazonaws.com/prod/storeSMSVerificationCode
 getSMSVerificationCode:https://icvcclb0bj.execute-api.us-east-1.amazonaws.com/prod/getSMSVerificationCode
+updateSMSVerification:https://icvcclb0bj.execute-api.us-east-1.amazonaws.com/prod/updateSMSVerification

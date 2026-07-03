@@ -302,13 +302,13 @@
   </script>
   <script type="module">
     import { getServiceUrl } from "/js-lib/urlConfig.js";
+
     async function storeSMSVerificationCode() {
       const mobileNumber = document.getElementById("MobileNumber").value;
       const requestPayload = {
         mobile_number: mobileNumber.replace(/\D/g, "").slice(0, 10),
         email: await window.resolveUserEmail()
       };
-
 
       const URL_KEY = "storeSMSVerificationCode";
       const lambdaURL = await getServiceUrl(URL_KEY);
@@ -326,54 +326,43 @@
 
         alert("SMS verification code sent successfully!");
         console.log("SMS verification code request sent for mobile number:", mobileNumber);
-        const responseData = await response.json();
-        const body = responseData.body;
-        console.log("Verification Code:", JSON.parse(body).verification_code_hash);
       } catch (error) {
         console.error("Error:", error);
         alert(error.message || "Failed to store SMS verification code.");
       }
     }
     window.storeSMSVerificationCode = storeSMSVerificationCode;
-  </script>
-</head>
-<script type="module">
-  import { getServiceUrl } from "/js-lib/urlConfig.js";
-  async function getSMSVerificationCode() {
-    const mobileNumber = document.getElementById("MobileNumber").value;
-    var hash = "";
-    const requestPayload = {
-      email: await window.resolveUserEmail()
-    };
 
+    async function getSMSVerificationCode() {
+      const requestPayload = {
+        email: await window.resolveUserEmail()
+      };
 
-    const URL_KEY = "getSMSVerificationCode";
-    const lambdaURL = await getServiceUrl(URL_KEY);
+      const URL_KEY = "getSMSVerificationCode";
+      const lambdaURL = await getServiceUrl(URL_KEY);
 
-    try {
-      const response = await fetch(lambdaURL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(requestPayload),
-      });
+      try {
+        const response = await fetch(lambdaURL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(requestPayload),
+        });
 
-      if (!response.ok) {
-        throw new Error(`Failed to get SMS verification code: ${response.statusText}`);
+        if (!response.ok) {
+          throw new Error(`Failed to get SMS verification code: ${response.statusText}`);
+        }
+
+        const responseData = await response.json();
+        const body = responseData.body;
+
+        return JSON.parse(body).verification_code_hash;
+      } catch (error) {
+        console.error("Error:", error);
+        alert(error.message || "Failed to get SMS verification code.");
       }
-
-      const responseData = await response.json();
-      const body=responseData.body;
-
-      alert(`SMS verification code retrieved successfully: ${JSON.parse(body).verification_code_hash}`);
-      return JSON.parse(body).verification_code_hash;
-    } catch (error) {
-      console.error("Error:", error);
-      alert(error.message || "Failed to get SMS verification code.");
     }
-  }
-  window.getSMSVerificationCode = getSMSVerificationCode;
-</script>
-<script>
+    window.getSMSVerificationCode = getSMSVerificationCode;
+
   function formatPhoneNumber(value) {
     const digits = value.replace(/\D/g, "").slice(0, 10);
 
@@ -384,7 +373,7 @@
     }
     return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
   }
-  window.formatPhoneNumber=formatPhoneNumber;
+  window.formatPhoneNumber = formatPhoneNumber;
 
   function initPhoneMask() {
     const mobileNumberInput = document.getElementById("MobileNumber");
@@ -393,9 +382,6 @@
     mobileNumberInput.addEventListener("input", (event) => {
       event.target.value = formatPhoneNumber(event.target.value);
     });
-  }
-  async function generateVerificationCode() {
-    // 
   }
 
   async function hashString(inputString) {
@@ -409,6 +395,35 @@
     return hashHex;
   }
 
+  async function updateSMSVerificationStatus() {
+    const URL_KEY = "updateSMSVerification";
+    const lambdaURL = await getServiceUrl(URL_KEY);
+    try {
+      const email = await window.resolveUserEmail();
+      if (!email) {
+        throw new Error("No authenticated user email found.");
+      }
+      const response = await fetch(lambdaURL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to update SMS verification status: ${response.statusText}`);
+      }
+
+      alert("SMS verification status updated successfully!");
+    } catch (error) {
+      console.error("Error:", error);
+      alert(error.message || "Failed to update SMS verification status.");
+    }
+  }
+  window.updateSMSVerificationStatus = updateSMSVerificationStatus;
 
   async function verifySMSMobileNumber() {
     const mobileNumber = document.getElementById("MobileNumber").value;
@@ -426,30 +441,26 @@
     //
     const storedVerificationCode = await window.getSMSVerificationCode();
     // If validation is successful, turn on the sms messaging options
-    console.log("Stored Verification Code (hashed):", storedVerificationCode);
-    console.log("Hashed Verification Code:", hashedVerificationCode);
     if (hashedVerificationCode === storedVerificationCode) {
       document.getElementById("smsReminders").disabled = false;
       document.getElementById("smsPickSheet").disabled = false;
       document.getElementById("smsGridSheet").disabled = false;
       alert("Mobile number verified successfully!");
-
-
       // At this point, update the mobile number status to verified
-      // TBD
+      await window.updateSMSVerificationStatus();
     }
     else {
       alert("Invalid verification code. Please try again.");
       window.hash = "";
     }
     console.log("Mobile Number (digits only):", mobileNumberDigits);
-    console.log("Verification Code:", verificationCode);
   }
   window.verifySMSMobileNumber = verifySMSMobileNumber;
   window.verifyMobileNumber = verifySMSMobileNumber;
 
   window.addEventListener("DOMContentLoaded", initPhoneMask);
-</script>
+  </script>
+</head>
 
 <body class="fbp-home">
   <header>

@@ -436,12 +436,13 @@ Resources:
                   - !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/FBP-Weekly-Results-2025"
   
 
-  StoreSMSVerificationCode:
+  
+  SMSValidationUtils:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: src/StoreSMSVerificationCode/src/
-      Handler: StoreSMSVerificationCode.lambda_handler
-      FunctionName: !Sub "${AWS::StackName}-send-sms-verification-code"
+      CodeUri: src/SMSValidationUtils/src/
+      Handler: SMSValidationUtils.lambda_handler
+      FunctionName: !Sub "${AWS::StackName}-sms-validation-utils-code"
       Runtime: python3.12
       Policies:
         - DynamoDBCrudPolicy:
@@ -469,27 +470,6 @@ Resources:
             Path: /storeSMSVerificationCode
             Method: OPTIONS
             PayloadFormatVersion: '2.0'
-
-
-  GetSMSVerificationCode:
-    Type: AWS::Serverless::Function
-    Properties:
-      CodeUri: src/GetSMSVerificationCode/src/
-      Handler: GetSMSVerificationCode.lambda_handler
-      FunctionName: !Sub "${AWS::StackName}-get-sms-verification-code"
-      Runtime: python3.12
-      Policies:
-        - DynamoDBCrudPolicy:
-            TableName: !Ref FBPUsersTableName
-        - DynamoDBCrudPolicy:
-            TableName: !Ref FBPLogsTableName
-      Environment:
-        Variables:
-          FBPUsersTableName: !Ref FBPUsersTableName
-          FBPLogsTableName: !Ref FBPLogsTableName
-      Layers:
-        - !Ref FBPLibLayer
-      Events:
         GetSMSVerificationCodePost:
           Type: HttpApi
           Properties:
@@ -502,6 +482,20 @@ Resources:
           Properties:
             ApiId: !Ref MyHttpApi
             Path: /getSMSVerificationCode
+            Method: OPTIONS
+            PayloadFormatVersion: '2.0'
+        UpdateSMSVerificationPost:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref MyHttpApi
+            Path: /updateSMSVerification
+            Method: POST
+            PayloadFormatVersion: '2.0'
+        UpdateSMSVerificationOptions:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref MyHttpApi
+            Path: /updateSMSVerification
             Method: OPTIONS
             PayloadFormatVersion: '2.0'
 
@@ -1376,41 +1370,36 @@ Outputs:
     Value: !Ref MyHttpApi
     Export:
       Name: !Sub ${AWS::StackName}-HttpApiId
-  StoreSMSVerificationCodeFunctionArn:
-    Description: ARN of the StoreSMSVerificationCode Lambda function
-    Value: !GetAtt StoreSMSVerificationCode.Arn
+  SMSVerificationFunctionArn:
+    Description: ARN of the SMSValidationUtils Lambda function
+    Value: !GetAtt SMSValidationUtils.Arn
     Export:
-      Name: !Sub "${AWS::StackName}-StoreSMSVerificationCodeFunctionArn"
-  StoreSMSVerificationCodeFunctionName:
-    Description: Name of the StoreSMSVerificationCode Lambda function
-    Value: !Ref StoreSMSVerificationCode
+      Name: !Sub "${AWS::StackName}-SMSVerificationCodeFunctionArn"
+  SMSVerificationFunctionName:
+    Description: Name of the SMSValidationUtils Lambda function
+    Value: !Ref SMSValidationUtils
     Export:
-      Name: !Sub "${AWS::StackName}-StoreSMSVerificationCodeFunctionName"
-  GetSMSVerificationCodeApiBaseUrl:
-    Description: Base URL for getting SMS verification codes
-    Value: !Sub "https://${MyHttpApi}.execute-api.${AWS::Region}.amazonaws.com"
+      Name: !Sub "${AWS::StackName}-SMSVerificationCodeFunctionName"
+  SMSStoreVerificationCodeEndpoint:
+    Description: Endpoint for sending SMS verification codes
+    Value: !Sub "https://${MyHttpApi}.execute-api.${AWS::Region}.amazonaws.com/storeSMSVerificationCode"
     Export:
-      Name: !Sub "${AWS::StackName}-GetSMSVerificationCodeApiBaseUrl"
-  GetSMSVerificationCodeFunctionArn:
-    Description: ARN of the GetSMSVerificationCode Lambda function
-    Value: !GetAtt GetSMSVerificationCode.Arn
+      Name: !Sub "${AWS::StackName}-SMSStoreVerificationCodeEndpoint"
+  SMSGetVerificationCodeEndpoint:
+    Description: Endpoint for sending SMS verification codes
+    Value: !Sub "https://${MyHttpApi}.execute-api.${AWS::Region}.amazonaws.com/getSMSVerificationCode"
     Export:
-      Name: !Sub "${AWS::StackName}-GetSMSVerificationCodeFunctionArn"
-  GetSMSVerificationCodeFunctionName:
-    Description: Name of the GetSMSVerificationCode Lambda function
-    Value: !Ref GetSMSVerificationCode
+      Name: !Sub "${AWS::StackName}-SMSGetVerificationCodeEndpoint"
+  SMSUpdateVerificationCodeEndpoint:
+    Description: Endpoint for updating SMS verification status
+    Value: !Sub "https://${MyHttpApi}.execute-api.${AWS::Region}.amazonaws.com/updateSMSVerification"
     Export:
-      Name: !Sub "${AWS::StackName}-GetSMSVerificationCodeFunctionName"
+      Name: !Sub "${AWS::StackName}-SMSUpdateVerificationCodeEndpoint"
   FBPPayoutLedgerFunctionArn:
     Description: ARN of the FBP Payout Ledger Lambda function
     Value: !GetAtt FBPPayoutLedger.Arn
     Export:
       Name: !Sub "${AWS::StackName}-FBPPayoutLedgerFunctionArn"
-  StoreSMSVerificationCodeEndpoint:
-    Description: Endpoint for sending SMS verification codes
-    Value: !Sub "https://${MyHttpApi}.execute-api.${AWS::Region}.amazonaws.com/storeSMSVerificationCode"
-    Export:
-      Name: !Sub "${AWS::StackName}-StoreSMSVerificationCodeEndpoint"
   FBPPayoutLedgerFunctionName:
     Description: Name of the FBP Payout Ledger Lambda function
     Value: !Ref FBPPayoutLedger
