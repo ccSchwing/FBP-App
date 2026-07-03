@@ -39,6 +39,85 @@
       transform: none;
       left: auto;
     }
+
+    .phone-verification-card {
+      border: 1px solid #d7dce5;
+      border-radius: 12px;
+      padding: 1rem;
+      background: linear-gradient(180deg, #fafbfd 0%, #f3f6fb 100%);
+      width: min(100%, 34rem);
+      margin-bottom: 1.25rem;
+    }
+
+    .phone-verification-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+      margin-bottom: 0.35rem;
+    }
+
+    .phone-verification-title {
+      font-weight: 600;
+    }
+
+    .phone-verification-state {
+      border-radius: 999px;
+      padding: 0.2rem 0.65rem;
+      font-size: 0.8rem;
+      font-weight: 600;
+      letter-spacing: 0.01em;
+    }
+
+    .phone-verification-state[data-state="not-set"] {
+      background: #eef2f7;
+      color: #435066;
+    }
+
+    .phone-verification-state[data-state="pending"] {
+      background: #fff1cc;
+      color: #8a5a00;
+    }
+
+    .phone-verification-state[data-state="verified"] {
+      background: #dff5e8;
+      color: #1c6b40;
+    }
+
+    .phone-verification-message {
+      margin: 0 0 0.85rem;
+      color: #4b5567;
+      font-size: 0.92rem;
+    }
+
+    .phone-verification-row {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      margin-bottom: 0.65rem;
+    }
+
+    .phone-verification-row:last-child {
+      margin-bottom: 0;
+    }
+
+    .phone-verification-card #MobileNumber {
+      width: 12.5rem;
+      min-width: 12.5rem;
+      box-sizing: border-box;
+    }
+
+    .phone-verification-card #MobileNumberVerification {
+      width: 6.5rem;
+      min-width: 6.5rem;
+      box-sizing: border-box;
+    }
+
+    .phone-verification-card #verifySMSMobileNumberBtn {
+      width: 11ch;
+      min-width: 11ch;
+    }
   </style>
 
   <link rel="stylesheet" type="text/css" href="/css/styles.css" />
@@ -301,164 +380,12 @@
     window.checkVenMo = checkVenMo;
   </script>
   <script type="module">
-    import { getServiceUrl } from "/js-lib/urlConfig.js";
+    import { formatPhoneNumber, initPhoneVerification } from "/js-lib/phoneVerification.js";
 
-    async function storeSMSVerificationCode() {
-      const mobileNumber = document.getElementById("MobileNumber").value;
-      const requestPayload = {
-        mobile_number: mobileNumber.replace(/\D/g, "").slice(0, 10),
-        email: await window.resolveUserEmail()
-      };
-
-      const URL_KEY = "storeSMSVerificationCode";
-      const lambdaURL = await getServiceUrl(URL_KEY);
-
-      try {
-        const response = await fetch(lambdaURL, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(requestPayload)
-        });
-
-        if (!response.ok) {
-          throw new Error(`Failed to store SMS verification code: ${response.statusText}`);
-        }
-
-        alert("SMS verification code sent successfully!");
-        console.log("SMS verification code request sent for mobile number:", mobileNumber);
-      } catch (error) {
-        console.error("Error:", error);
-        alert(error.message || "Failed to store SMS verification code.");
-      }
-    }
-    window.storeSMSVerificationCode = storeSMSVerificationCode;
-
-    async function getSMSVerificationCode() {
-      const requestPayload = {
-        email: await window.resolveUserEmail()
-      };
-
-      const URL_KEY = "getSMSVerificationCode";
-      const lambdaURL = await getServiceUrl(URL_KEY);
-
-      try {
-        const response = await fetch(lambdaURL, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(requestPayload),
-        });
-
-        if (!response.ok) {
-          throw new Error(`Failed to get SMS verification code: ${response.statusText}`);
-        }
-
-        const responseData = await response.json();
-        const body = responseData.body;
-
-        return JSON.parse(body).verification_code_hash;
-      } catch (error) {
-        console.error("Error:", error);
-        alert(error.message || "Failed to get SMS verification code.");
-      }
-    }
-    window.getSMSVerificationCode = getSMSVerificationCode;
-
-  function formatPhoneNumber(value) {
-    const digits = value.replace(/\D/g, "").slice(0, 10);
-
-    if (digits.length === 0) return "";
-    if (digits.length <= 3) return `(${digits}`;
-    if (digits.length <= 6) {
-      return `(${digits.slice(0, 3)}) ${digits.slice(3)}`;
-    }
-    return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
-  }
-  window.formatPhoneNumber = formatPhoneNumber;
-
-  function initPhoneMask() {
-    const mobileNumberInput = document.getElementById("MobileNumber");
-    if (!mobileNumberInput) return;
-
-    mobileNumberInput.addEventListener("input", (event) => {
-      event.target.value = formatPhoneNumber(event.target.value);
+    window.formatPhoneNumber = formatPhoneNumber;
+    window.phoneVerification = initPhoneVerification({
+      resolveUserEmail: () => window.resolveUserEmail(),
     });
-  }
-
-  async function hashString(inputString) {
-    const encoder = new TextEncoder();
-    const data = encoder.encode(inputString);
-    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    const hashHex = hashArray.map(byte => byte.toString(16).padStart(2, '0')).join('');
-
-    return hashHex;
-  }
-
-  async function updateSMSVerificationStatus() {
-    const URL_KEY = "updateSMSVerification";
-    const lambdaURL = await getServiceUrl(URL_KEY);
-    try {
-      const email = await window.resolveUserEmail();
-      if (!email) {
-        throw new Error("No authenticated user email found.");
-      }
-      const response = await fetch(lambdaURL, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          email,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to update SMS verification status: ${response.statusText}`);
-      }
-
-      alert("SMS verification status updated successfully!");
-    } catch (error) {
-      console.error("Error:", error);
-      alert(error.message || "Failed to update SMS verification status.");
-    }
-  }
-  window.updateSMSVerificationStatus = updateSMSVerificationStatus;
-
-  async function verifySMSMobileNumber() {
-    const mobileNumber = document.getElementById("MobileNumber").value;
-    const mobileNumberDigits = mobileNumber.replace(/\D/g, "").slice(0, 10);
-    if (mobileNumberDigits.length !== 10) {
-      alert("Please enter a valid 10-digit mobile number.");
-      return;
-    }
-    const verificationCode = document.getElementById("MobileNumberVerification").value;
-    const hashedVerificationCode = await hashString(verificationCode);
-
-    // Replace the line below with a call to generate a 6 digit random number.
-    // At this point, take the input value from the user, hash it, fetch the hash
-    // from the FBP_Users table and compare.
-    //
-    const storedVerificationCode = await window.getSMSVerificationCode();
-    // If validation is successful, turn on the sms messaging options
-    if (hashedVerificationCode === storedVerificationCode) {
-      document.getElementById("smsReminders").disabled = false;
-      document.getElementById("smsPickSheet").disabled = false;
-      document.getElementById("smsGridSheet").disabled = false;
-      alert("Mobile number verified successfully!");
-      // At this point, update the mobile number status to verified
-      await window.updateSMSVerificationStatus();
-    }
-    else {
-      alert("Invalid verification code. Please try again.");
-      window.hash = "";
-    }
-    console.log("Mobile Number (digits only):", mobileNumberDigits);
-  }
-  window.verifySMSMobileNumber = verifySMSMobileNumber;
-  window.verifyMobileNumber = verifySMSMobileNumber;
-
-  window.addEventListener("DOMContentLoaded", initPhoneMask);
   </script>
 </head>
 
@@ -521,24 +448,26 @@
           <label for="emailGridSheet">Email Gridsheet:</label>
           <input type="checkbox" name="emailGridSheet" id="emailGridSheet" />
         </div>
-        <div id="smsOptin" style="display: flex; flex-direction: column; gap: 0.5em; width: fit-content;">
-          <div style="display: flex; align-items: center; gap: 0.5em;">
-            <label for="MobileNumber">Mobile Number:</label>
-            <input type="text" name="MobileNumber" id="MobileNumber" maxlength="14" size="13" style="width: 13ch;"
+        <section id="smsOptin" class="phone-verification-card" aria-labelledby="mobileVerificationTitle">
+          <div class="phone-verification-header">
+            <label id="mobileVerificationTitle" class="phone-verification-title" for="MobileNumber">Mobile Number</label>
+            <span id="mobileVerificationState" class="phone-verification-state" data-state="not-set">Not Set</span>
+          </div>
+          <p id="mobileVerificationMessage" class="phone-verification-message">Add a mobile number to enable SMS notifications.</p>
+          <div class="phone-verification-row">
+            <input type="text" name="MobileNumber" id="MobileNumber" maxlength="15" size="15"
               placeholder="(999) 999-9999" pattern="\(\d{3}\) \d{3}-\d{4}" />
           </div>
-          <div style="display: flex; align-items: center; gap: 0.5em;">
-            <label for="Generate Code">Send Verification Code:</label>
-            <input type="button" name="GenerateCode" id="GenerateCode" value="Text Me A Verification Code"
-              onClick="window.storeSMSVerificationCode()" />
+          <div class="phone-verification-row">
+            <label for="sendSMSVerificationCodeBtn">Send Verification Code:</label>
+            <input type="button" name="GenerateCode" id="sendSMSVerificationCodeBtn" value="Text Me A Verification Code" />
           </div>
-          <div style="display: flex; align-items: center; gap: 0.5em;">
-            <label for="MobileNumberVerification">Mobile Number Verification Code:</label>
-            <input type="text" name="MobileNumberVerification" id="MobileNumberVerification" maxlength="6" size="6"
-              style="width: 6ch;" />
-            <input type="button" value="Verify" style="width: 10ch;" onClick="window.verifySMSMobileNumber()" />
+          <div class="phone-verification-row">
+            <label for="MobileNumberVerification">Verification Code:</label>
+            <input type="text" name="MobileNumberVerification" id="MobileNumberVerification" maxlength="6" size="6" />
+            <input type="button" id="verifySMSMobileNumberBtn" value="Verify" />
           </div>
-        </div>
+        </section>
         <div id="sms-notifications" style="display: flex; flex-direction: column; gap: 0.5em;">
           <div style="display: flex; align-items: center; gap: 0.5em;">
             <label for="smsReminders">SMS Reminder:</label>
