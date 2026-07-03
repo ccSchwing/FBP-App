@@ -234,6 +234,15 @@ manifest_hash = ""
 packagetype = "Zip"
 functions = ["AdvancedEmailService"]
 
+[function_build_definitions.6437e675-e721-4a78-9902-1a408db3895e]
+codeuri = "/Users/ccs/projects/FBP/src/SMSValidationUtils/src"
+runtime = "python3.12"
+architecture = "x86_64"
+handler = "SMSValidationUtils.lambda_handler"
+manifest_hash = ""
+packagetype = "Zip"
+functions = ["SMSValidationUtils"]
+
 [layer_build_definitions.c020c0c2-a411-414b-8fed-0bfd4c531f8d]
 layer_name = "FBPLibLayer"
 codeuri = "/Users/ccs/projects/FBP/src/FBPLib-Layer"

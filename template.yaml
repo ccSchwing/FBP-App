@@ -436,11 +436,13 @@ Resources:
                   - !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/FBP-Weekly-Results-2025"
   
 
-  SendSMSVerificationCode:
+  
+  SMSValidationUtils:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: src/SendSMSVerificationCode/src/
-      Handler: SendSMSVerificationCode.lambda_handler
+      CodeUri: src/SMSValidationUtils/src/
+      Handler: SMSValidationUtils.lambda_handler
+      FunctionName: !Sub "${AWS::StackName}-sms-validation-utils-code"
       Runtime: python3.12
       Policies:
         - DynamoDBCrudPolicy:
@@ -454,22 +456,48 @@ Resources:
       Layers:
         - !Ref FBPLibLayer
       Events:
-        SendSMSVerificationCodePost:
+        StoreSMSVerificationCodePost:
           Type: HttpApi
           Properties:
             ApiId: !Ref MyHttpApi
-            Path: /sendSMSVerificationCode
+            Path: /storeSMSVerificationCode
             Method: POST
             PayloadFormatVersion: '2.0'
-        SendSMSVerificationCodeOptions:
+        StoreSMSVerificationCodeOptions:
           Type: HttpApi
           Properties:
             ApiId: !Ref MyHttpApi
-            Path: /sendSMSVerificationCode
+            Path: /storeSMSVerificationCode
             Method: OPTIONS
             PayloadFormatVersion: '2.0'
-
-
+        GetSMSVerificationCodePost:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref MyHttpApi
+            Path: /getSMSVerificationCode
+            Method: POST
+            PayloadFormatVersion: '2.0'
+        GetSMSVerificationCodeOptions:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref MyHttpApi
+            Path: /getSMSVerificationCode
+            Method: OPTIONS
+            PayloadFormatVersion: '2.0'
+        UpdateSMSVerificationPost:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref MyHttpApi
+            Path: /updateSMSVerification
+            Method: POST
+            PayloadFormatVersion: '2.0'
+        UpdateSMSVerificationOptions:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref MyHttpApi
+            Path: /updateSMSVerification
+            Method: OPTIONS
+            PayloadFormatVersion: '2.0'
 
 
   GetUserStatus:
@@ -1342,6 +1370,31 @@ Outputs:
     Value: !Ref MyHttpApi
     Export:
       Name: !Sub ${AWS::StackName}-HttpApiId
+  SMSVerificationFunctionArn:
+    Description: ARN of the SMSValidationUtils Lambda function
+    Value: !GetAtt SMSValidationUtils.Arn
+    Export:
+      Name: !Sub "${AWS::StackName}-SMSVerificationCodeFunctionArn"
+  SMSVerificationFunctionName:
+    Description: Name of the SMSValidationUtils Lambda function
+    Value: !Ref SMSValidationUtils
+    Export:
+      Name: !Sub "${AWS::StackName}-SMSVerificationCodeFunctionName"
+  SMSStoreVerificationCodeEndpoint:
+    Description: Endpoint for sending SMS verification codes
+    Value: !Sub "https://${MyHttpApi}.execute-api.${AWS::Region}.amazonaws.com/storeSMSVerificationCode"
+    Export:
+      Name: !Sub "${AWS::StackName}-SMSStoreVerificationCodeEndpoint"
+  SMSGetVerificationCodeEndpoint:
+    Description: Endpoint for sending SMS verification codes
+    Value: !Sub "https://${MyHttpApi}.execute-api.${AWS::Region}.amazonaws.com/getSMSVerificationCode"
+    Export:
+      Name: !Sub "${AWS::StackName}-SMSGetVerificationCodeEndpoint"
+  SMSUpdateVerificationCodeEndpoint:
+    Description: Endpoint for updating SMS verification status
+    Value: !Sub "https://${MyHttpApi}.execute-api.${AWS::Region}.amazonaws.com/updateSMSVerification"
+    Export:
+      Name: !Sub "${AWS::StackName}-SMSUpdateVerificationCodeEndpoint"
   FBPPayoutLedgerFunctionArn:
     Description: ARN of the FBP Payout Ledger Lambda function
     Value: !GetAtt FBPPayoutLedger.Arn

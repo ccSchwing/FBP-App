@@ -70,6 +70,7 @@
       console.log("User email:", email);
       return email;
     }
+    window.resolveUserEmail = resolveUserEmail;
 
     let cachedProfileData = null;
 
@@ -299,223 +300,339 @@
     }
     window.checkVenMo = checkVenMo;
   </script>
-  </head>
-  <script>
-    function formatPhoneNumber(value) {
-      const digits = value.replace(/\D/g, "").slice(0, 10);
+  <script type="module">
+    import { getServiceUrl } from "/js-lib/urlConfig.js";
 
-      if (digits.length === 0) return "";
-      if (digits.length <= 3) return `(${digits}`;
-      if (digits.length <= 6) {
-        return `(${digits.slice(0, 3)}) ${digits.slice(3)}`;
-      }
-      return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
-    }
-
-    function initPhoneMask() {
-      const mobileNumberInput = document.getElementById("MobileNumber");
-      if (!mobileNumberInput) return;
-
-      mobileNumberInput.addEventListener("input", (event) => {
-        event.target.value = formatPhoneNumber(event.target.value);
-      });
-    }
-    function generateVerificationCode() {
-      return Math.floor(1000 + Math.random() * 9000).toString();
-    }
-    function verifyMobileNumber() {
+    async function storeSMSVerificationCode() {
       const mobileNumber = document.getElementById("MobileNumber").value;
-      const mobileNumberDigits = mobileNumber.replace(/\D/g, "").slice(0, 10);
-      const verificationCode = document.getElementById("MobileNumberVerification").value;
+      const requestPayload = {
+        mobile_number: mobileNumber.replace(/\D/g, "").slice(0, 10),
+        email: await window.resolveUserEmail()
+      };
 
-      if (mobileNumberDigits.length !== 10) {
-        alert("Please enter a valid 10-digit mobile number.");
-        return;
-      }
+      const URL_KEY = "storeSMSVerificationCode";
+      const lambdaURL = await getServiceUrl(URL_KEY);
 
-      // Replace the line below with a call to generate a 4 digit random number.
-      const privateVerificationCode = generateVerificationCode();
-      // If validation is successful, turn on the sms messaging options
-      if(verificationCode === privateVerificationCode) {
-        document.getElementById("smsReminders").disabled = false;
-        document.getElementById("smsPickSheet").disabled = false;
-        document.getElementById("smsGridSheet").disabled = false;
-        alert("Mobile number verified successfully!");
+      try {
+        const response = await fetch(lambdaURL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(requestPayload)
+        });
+
+        if (!response.ok) {
+          throw new Error(`Failed to store SMS verification code: ${response.statusText}`);
+        }
+
+        alert("SMS verification code sent successfully!");
+        console.log("SMS verification code request sent for mobile number:", mobileNumber);
+      } catch (error) {
+        console.error("Error:", error);
+        alert(error.message || "Failed to store SMS verification code.");
       }
-      else{
-        alert("Invalid verification code. Please try again.");
-      }
-      console.log("Mobile Number (digits only):", mobileNumberDigits);
-      console.log("Verification Code:", verificationCode);
     }
+    window.storeSMSVerificationCode = storeSMSVerificationCode;
 
-    window.addEventListener("DOMContentLoaded", initPhoneMask);
+    async function getSMSVerificationCode() {
+      const requestPayload = {
+        email: await window.resolveUserEmail()
+      };
+
+      const URL_KEY = "getSMSVerificationCode";
+      const lambdaURL = await getServiceUrl(URL_KEY);
+
+      try {
+        const response = await fetch(lambdaURL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(requestPayload),
+        });
+
+        if (!response.ok) {
+          throw new Error(`Failed to get SMS verification code: ${response.statusText}`);
+        }
+
+        const responseData = await response.json();
+        const body = responseData.body;
+
+        return JSON.parse(body).verification_code_hash;
+      } catch (error) {
+        console.error("Error:", error);
+        alert(error.message || "Failed to get SMS verification code.");
+      }
+    }
+    window.getSMSVerificationCode = getSMSVerificationCode;
+
+  function formatPhoneNumber(value) {
+    const digits = value.replace(/\D/g, "").slice(0, 10);
+
+    if (digits.length === 0) return "";
+    if (digits.length <= 3) return `(${digits}`;
+    if (digits.length <= 6) {
+      return `(${digits.slice(0, 3)}) ${digits.slice(3)}`;
+    }
+    return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+  }
+  window.formatPhoneNumber = formatPhoneNumber;
+
+  function initPhoneMask() {
+    const mobileNumberInput = document.getElementById("MobileNumber");
+    if (!mobileNumberInput) return;
+
+    mobileNumberInput.addEventListener("input", (event) => {
+      event.target.value = formatPhoneNumber(event.target.value);
+    });
+  }
+
+  async function hashString(inputString) {
+    const encoder = new TextEncoder();
+    const data = encoder.encode(inputString);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    const hashHex = hashArray.map(byte => byte.toString(16).padStart(2, '0')).join('');
+
+    return hashHex;
+  }
+
+  async function updateSMSVerificationStatus() {
+    const URL_KEY = "updateSMSVerification";
+    const lambdaURL = await getServiceUrl(URL_KEY);
+    try {
+      const email = await window.resolveUserEmail();
+      if (!email) {
+        throw new Error("No authenticated user email found.");
+      }
+      const response = await fetch(lambdaURL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to update SMS verification status: ${response.statusText}`);
+      }
+
+      alert("SMS verification status updated successfully!");
+    } catch (error) {
+      console.error("Error:", error);
+      alert(error.message || "Failed to update SMS verification status.");
+    }
+  }
+  window.updateSMSVerificationStatus = updateSMSVerificationStatus;
+
+  async function verifySMSMobileNumber() {
+    const mobileNumber = document.getElementById("MobileNumber").value;
+    const mobileNumberDigits = mobileNumber.replace(/\D/g, "").slice(0, 10);
+    if (mobileNumberDigits.length !== 10) {
+      alert("Please enter a valid 10-digit mobile number.");
+      return;
+    }
+    const verificationCode = document.getElementById("MobileNumberVerification").value;
+    const hashedVerificationCode = await hashString(verificationCode);
+
+    // Replace the line below with a call to generate a 6 digit random number.
+    // At this point, take the input value from the user, hash it, fetch the hash
+    // from the FBP_Users table and compare.
+    //
+    const storedVerificationCode = await window.getSMSVerificationCode();
+    // If validation is successful, turn on the sms messaging options
+    if (hashedVerificationCode === storedVerificationCode) {
+      document.getElementById("smsReminders").disabled = false;
+      document.getElementById("smsPickSheet").disabled = false;
+      document.getElementById("smsGridSheet").disabled = false;
+      alert("Mobile number verified successfully!");
+      // At this point, update the mobile number status to verified
+      await window.updateSMSVerificationStatus();
+    }
+    else {
+      alert("Invalid verification code. Please try again.");
+      window.hash = "";
+    }
+    console.log("Mobile Number (digits only):", mobileNumberDigits);
+  }
+  window.verifySMSMobileNumber = verifySMSMobileNumber;
+  window.verifyMobileNumber = verifySMSMobileNumber;
+
+  window.addEventListener("DOMContentLoaded", initPhoneMask);
   </script>
-  <body class="fbp-home">
-    <header>
-      <h1 class="page-title">User Profile</h1>
-    </header>
-    <script type="module">
-      import { initNav } from "/js-lib/nav.js";
-      await initNav();
-    </script>
-    <div class="container" style="display:flex; gap:2rem; align-items:flex-start; margin:0; max-width:100%;">
-      <aside class="nav-choices">
-        <!-- populated by nav.js -->
-      </aside>
-      <main class="results-main">
-        <h1>View or Modify My Profile</h1>
-        <form name="addFBPUser" autocomplete="off" data-lpignore="true">
-          <input type="text" name="fake-username" autocomplete="username" tabindex="-1" aria-hidden="true"
-            style="position: absolute; left: -9999px" />
-          <div>
-            <label for="firstName">First Name:</label>
-            <input type="text" name="firstName" id="firstName" autocomplete="off" autocorrect="off" autocapitalize="off"
-              spellcheck="false" data-lpignore="true" />
+</head>
+
+<body class="fbp-home">
+  <header>
+    <h1 class="page-title">User Profile</h1>
+  </header>
+  <script type="module">
+    import { initNav } from "/js-lib/nav.js";
+    await initNav();
+  </script>
+  <div class="container" style="display:flex; gap:2rem; align-items:flex-start; margin:0; max-width:100%;">
+    <aside class="nav-choices">
+      <!-- populated by nav.js -->
+    </aside>
+    <main class="results-main">
+      <h1>View or Modify My Profile</h1>
+      <form name="addFBPUser" autocomplete="off" data-lpignore="true">
+        <input type="text" name="fake-username" autocomplete="username" tabindex="-1" aria-hidden="true"
+          style="position: absolute; left: -9999px" />
+        <div>
+          <label for="firstName">First Name:</label>
+          <input type="text" name="firstName" id="firstName" autocomplete="off" autocorrect="off" autocapitalize="off"
+            spellcheck="false" data-lpignore="true" />
+        </div>
+        <div>
+          <label for="lastName">Last Name:</label>
+          <input type="text" name="lastName" id="lastName" autocomplete="off" autocorrect="off" autocapitalize="off"
+            spellcheck="false" data-lpignore="true" />
+        </div>
+        <div>
+          <label for="displayName">Display Name:</label>
+          <input type="text" name="displayName" id="displayName" />
+        </div>
+        <div id="paymentMethod" style="display: flex; flex-direction: column; gap: 0.5em; margin-bottom: 1.25rem;">
+          <label for="paymentMethod" style="margin-bottom:0.25em; font-weight:500;">Payment Method When You Win</label>
+          <div style="display: flex; flex-direction: column; gap: 0.25em;">
+            <span><input type="radio" value="PayPal" name="paymentMethod" id="PayPal"><label for="PayPal"
+                style="font-weight:400; margin-left:0.5em;">PayPal</label>
+              <img src="/images/paypal.png" onClick="checkPayPal('PayPal')" alt="PayPal"
+                style="height: 2em; vertical-align:middle; margin-left:0.5em;">
+            </span>
+            <span><input type="radio" value="VenMo" name="paymentMethod" id="VenMo">
+              <label for="VenMo" style="font-weight:400; margin-left:0.5em;">VenMo
+              </label>
+              <img src="/images/venmo.png" onClick="checkPayPal('VenMo')" alt="VenMo"
+                style="height:2em; vertical-align:middle; margin-left:0.5em;">
+            </span>
           </div>
-          <div>
-            <label for="lastName">Last Name:</label>
-            <input type="text" name="lastName" id="lastName" autocomplete="off" autocorrect="off" autocapitalize="off"
-              spellcheck="false" data-lpignore="true" />
+        </div>
+        <div>
+          <label for="emailPickSheet">Email PickSheet:</label>
+          <input type="checkbox" name="emailPickSheet" id="emailPickSheet" />
+        </div>
+        <div>
+          <label for="emailReminders">Email Reminder:</label>
+          <input type="checkbox" name="emailReminders" id="emailReminders" />
+        </div>
+        <div>
+          <label for="emailGridSheet">Email Gridsheet:</label>
+          <input type="checkbox" name="emailGridSheet" id="emailGridSheet" />
+        </div>
+        <div id="smsOptin" style="display: flex; flex-direction: column; gap: 0.5em; width: fit-content;">
+          <div style="display: flex; align-items: center; gap: 0.5em;">
+            <label for="MobileNumber">Mobile Number:</label>
+            <input type="text" name="MobileNumber" id="MobileNumber" maxlength="14" size="13" style="width: 13ch;"
+              placeholder="(999) 999-9999" pattern="\(\d{3}\) \d{3}-\d{4}" />
           </div>
-          <div>
-            <label for="displayName">Display Name:</label>
-            <input type="text" name="displayName" id="displayName" />
+          <div style="display: flex; align-items: center; gap: 0.5em;">
+            <label for="Generate Code">Send Verification Code:</label>
+            <input type="button" name="GenerateCode" id="GenerateCode" value="Text Me A Verification Code"
+              onClick="window.storeSMSVerificationCode()" />
           </div>
-          <div id="paymentMethod" style="display: flex; flex-direction: column; gap: 0.5em; margin-bottom: 1.25rem;">
-            <label for="paymentMethod" style="margin-bottom:0.25em; font-weight:500;">Payment Method When You Win</label>
-            <div style="display: flex; flex-direction: column; gap: 0.25em;">
-              <span><input type="radio" value="PayPal" name="paymentMethod" id="PayPal"><label for="PayPal"
-                  style="font-weight:400; margin-left:0.5em;">PayPal</label>
-                <img src="/images/paypal.png" onClick="checkPayPal('PayPal')" alt="PayPal"
-                  style="height: 2em; vertical-align:middle; margin-left:0.5em;">
+          <div style="display: flex; align-items: center; gap: 0.5em;">
+            <label for="MobileNumberVerification">Mobile Number Verification Code:</label>
+            <input type="text" name="MobileNumberVerification" id="MobileNumberVerification" maxlength="6" size="6"
+              style="width: 6ch;" />
+            <input type="button" value="Verify" style="width: 10ch;" onClick="window.verifySMSMobileNumber()" />
+          </div>
+        </div>
+        <div id="sms-notifications" style="display: flex; flex-direction: column; gap: 0.5em;">
+          <div style="display: flex; align-items: center; gap: 0.5em;">
+            <label for="smsReminders">SMS Reminder:</label>
+            <input type="checkbox" name="smsReminders" id="smsReminders" disabled />
+          </div>
+          <div style="display: flex; align-items: center; gap: 0.5em;">
+            <label for="smsPickSheet">SMS PickSheet:</label>
+            <input type="checkbox" name="smsPickSheet" id="smsPickSheet" disabled />
+          </div>
+          <div style="display: flex; align-items: center; gap: 0.5em;">
+            <label for="smsGridSheet">SMS GridSheet:</label>
+            <input type="checkbox" name="smsGridSheet" id="smsGridSheet" disabled />
+          </div>
+        </div>
+        <div id="defaultAlgorithm" style="display: flex; flex-direction: column; gap: 0.5em; margin-bottom: 1.25rem;">
+          <label for="DefaultAlgorithm" style="margin-bottom:0.25em; font-weight:500;">Default for Picks when you
+            don't
+            make picks:</label>
+          <div style="display: flex; flex-direction: column; gap: 0.25em;">
+            <span><input type="radio" value="away" name="defaultAlgorithm" id="alg-away"><label for="alg-away"
+                style="font-weight:400; margin-left:0.5em;">Away Teams</label></span>
+            <span><input type="radio" value="home" name="defaultAlgorithm" id="alg-home"><label for="alg-home"
+                style="font-weight:400; margin-left:0.5em;">Home Teams</label></span>
+            <span><input type="radio" value="favorites" name="defaultAlgorithm" id="alg-favorites"><label
+                for="alg-favorites" style="font-weight:400; margin-left:0.5em;">All Favorites</label></span>
+            <span><input type="radio" value="underdogs" name="defaultAlgorithm" id="alg-underdogs"><label
+                for="alg-underdogs" style="font-weight:400; margin-left:0.5em;">All UnderDogs</label></span>
+            <span><input type="radio" value="random" name="defaultAlgorithm" id="alg-random"><label for="alg-random"
+                style="font-weight:400; margin-left:0.5em;">All Random</label></span>
+            <span>
+              <span class="tooltip-wrap">
+                <input type="text" name="defaultTieBreaker" id="defaultTieBreaker" maxlength="2" size="2">
+                <span class="tooltip">Enter the total points for the Monday Night Game (e.g., 42)</span>
               </span>
-              <span><input type="radio" value="VenMo" name="paymentMethod" id="VenMo">
-                <label for="VenMo"
-                  style="font-weight:400; margin-left:0.5em;">VenMo
-                </label>
-                <img src="/images/venmo.png" onClick="checkPayPal('VenMo')" alt="VenMo"
-                  style="height:2em; vertical-align:middle; margin-left:0.5em;">
-              </span>
-            </div>
+              <label for="defaultTieBreaker" style="font-weight:400; margin-left:0.5em;">Default Monday Night
+                Tiebreaker</label>
+            </span>
           </div>
-          <div>
-            <label for="emailPickSheet">Email PickSheet:</label>
-            <input type="checkbox" name="emailPickSheet" id="emailPickSheet" />
-          </div>
-          <div>
-            <label for="emailReminders">Email Reminder:</label>
-            <input type="checkbox" name="emailReminders" id="emailReminders" />
-          </div>
-          <div>
-            <label for="emailGridSheet">Email Gridsheet:</label>
-            <input type="checkbox" name="emailGridSheet" id="emailGridSheet" />
-          </div>
-          <div id="smsOptin" style="display: flex; flex-direction: column; gap: 0.5em; width: fit-content;">
-            <div style="display: flex; align-items: center; gap: 0.5em;">
-              <label for="MobileNumber">Mobile Number:</label>
-              <input type="text" name="MobileNumber" id="MobileNumber" maxlength="14" size="13" style="width: 13ch;" placeholder="(999) 999-9999" pattern="\(\d{3}\) \d{3}-\d{4}" />
-            </div>
-            <div style="display: flex; align-items: center; gap: 0.5em;">
-              <label for="MobileNumberVerification">Mobile Number Verification Code:</label>
-              <input type="text" name="MobileNumberVerification" id="MobileNumberVerification" maxlength="4" size="4" style="width: 4ch;" />
-              <input type="button" value="Verify" style="width: 10ch;" onClick="verifyMobileNumber()" />
-            </div>
-          </div>
-          <div id="sms-notifications" style="display: flex; flex-direction: column; gap: 0.5em;">
-            <div style="display: flex; align-items: center; gap: 0.5em;">
-              <label for="smsReminders">SMS Reminder:</label>
-              <input type="checkbox" name="smsReminders" id="smsReminders" disabled />
-            </div>
-            <div style="display: flex; align-items: center; gap: 0.5em;">
-              <label for="smsPickSheet">SMS PickSheet:</label>
-              <input type="checkbox" name="smsPickSheet" id="smsPickSheet" disabled />
-            </div>
-            <div style="display: flex; align-items: center; gap: 0.5em;">
-              <label for="smsGridSheet">SMS GridSheet:</label>
-              <input type="checkbox" name="smsGridSheet" id="smsGridSheet" disabled />
-            </div>
-          </div>
-          <div id="defaultAlgorithm" style="display: flex; flex-direction: column; gap: 0.5em; margin-bottom: 1.25rem;">
-            <label for="DefaultAlgorithm" style="margin-bottom:0.25em; font-weight:500;">Default for Picks when you
-              don't
-              make picks:</label>
-            <div style="display: flex; flex-direction: column; gap: 0.25em;">
-              <span><input type="radio" value="away" name="defaultAlgorithm" id="alg-away"><label for="alg-away"
-                  style="font-weight:400; margin-left:0.5em;">Away Teams</label></span>
-              <span><input type="radio" value="home" name="defaultAlgorithm" id="alg-home"><label for="alg-home"
-                  style="font-weight:400; margin-left:0.5em;">Home Teams</label></span>
-              <span><input type="radio" value="favorites" name="defaultAlgorithm" id="alg-favorites"><label
-                  for="alg-favorites" style="font-weight:400; margin-left:0.5em;">All Favorites</label></span>
-              <span><input type="radio" value="underdogs" name="defaultAlgorithm" id="alg-underdogs"><label
-                  for="alg-underdogs" style="font-weight:400; margin-left:0.5em;">All UnderDogs</label></span>
-              <span><input type="radio" value="random" name="defaultAlgorithm" id="alg-random"><label for="alg-random"
-                  style="font-weight:400; margin-left:0.5em;">All Random</label></span>
-              <span>
-                <span class="tooltip-wrap">
-                  <input type="text" name="defaultTieBreaker" id="defaultTieBreaker" maxlength="2" size="2">
-                  <span class="tooltip">Enter the total points for the Monday Night Game (e.g., 42)</span>
-                </span>
-                <label for="defaultTieBreaker" style="font-weight:400; margin-left:0.5em;">Default Monday Night
-                  Tiebreaker</label>
-              </span>
-            </div>
-          </div>
-        </form>
-        <script type="module">
-          // Prefill form when userProfileData is available
-          if (window.userProfileData) {
+        </div>
+      </form>
+      <script type="module">
+        // Prefill form when userProfileData is available
+        if (window.userProfileData) {
+          console.log(
+            "Pre-filling form with userProfileData:",
+            window.userProfileData,
+          );
+          window.addEventListener("userProfileDataLoaded", (event) => {
+            const userProfileData = event.detail;
             console.log(
-              "Pre-filling form with userProfileData:",
-              window.userProfileData,
+              "Pre-filling form with loaded userProfileData:",
+              userProfileData,
             );
-            window.addEventListener("userProfileDataLoaded", (event) => {
-              const userProfileData = event.detail;
-              console.log(
-                "Pre-filling form with loaded userProfileData:",
-                userProfileData,
-              );
-              let responseBody = JSON.parse(userProfileData.body);
-              document.getElementById("firstName").value =
-                responseBody.firstName || "";
-              document.getElementById("lastName").value =
-                responseBody.lastName || "";
-              document.getElementById("displayName").value =
-                responseBody.displayName || "";
-              const paymentMethod = responseBody.paymentMethod || "";
-              const paymentRadioButtons = document.querySelectorAll(
-                'input[name="paymentMethod"]',
-              );
-              paymentRadioButtons.forEach((radio) => {
-                radio.checked = radio.value === paymentMethod;
-              });
-              document.getElementById("emailPickSheet").checked =
-                responseBody.emailPickSheet || false;
-              document.getElementById("emailReminders").checked =
-                responseBody.emailReminders || false;
-              document.getElementById("emailGridSheet").checked =
-                responseBody.emailGridSheet || false;
-              const defaultAlgorithm = responseBody.defaultAlgorithm || "";
-              const radioButtons = document.querySelectorAll(
-                'input[name="defaultAlgorithm"]',
-              );
-              radioButtons.forEach((radio) => {
-                radio.checked = radio.value === defaultAlgorithm;
-              });
-              document.getElementById("MobileNumber").value =
-                formatPhoneNumber(responseBody.MobileNumber || responseBody.mobileNumber || "");
+            let responseBody = JSON.parse(userProfileData.body);
+            document.getElementById("firstName").value =
+              responseBody.firstName || "";
+            document.getElementById("lastName").value =
+              responseBody.lastName || "";
+            document.getElementById("displayName").value =
+              responseBody.displayName || "";
+            const paymentMethod = responseBody.paymentMethod || "";
+            const paymentRadioButtons = document.querySelectorAll(
+              'input[name="paymentMethod"]',
+            );
+            paymentRadioButtons.forEach((radio) => {
+              radio.checked = radio.value === paymentMethod;
             });
-          }
-        </script>
-        <button id="updateProfileBtn" type="button">Update Profile</button>
-      </main>
-    </div>
-    <footer>
-      <p>
-        Questions? Contact us at <a href="mailto:fbpadmin@my-fbp.com">fbpadmin@my-fbp.com</a>
-      </p>
-      <p>&copy; 2026 FBP. All rights reserved.</p>
-    </footer>
-  </body>
+            document.getElementById("emailPickSheet").checked =
+              responseBody.emailPickSheet || false;
+            document.getElementById("emailReminders").checked =
+              responseBody.emailReminders || false;
+            document.getElementById("emailGridSheet").checked =
+              responseBody.emailGridSheet || false;
+            const defaultAlgorithm = responseBody.defaultAlgorithm || "";
+            const radioButtons = document.querySelectorAll(
+              'input[name="defaultAlgorithm"]',
+            );
+            radioButtons.forEach((radio) => {
+              radio.checked = radio.value === defaultAlgorithm;
+            });
+            document.getElementById("MobileNumber").value =
+              formatPhoneNumber(responseBody.MobileNumber || responseBody.mobileNumber || "");
+          });
+        }
+      </script>
+      <button id="updateProfileBtn" type="button">Update Profile</button>
+    </main>
+  </div>
+  <footer>
+    <p>
+      Questions? Contact us at <a href="mailto:fbpadmin@my-fbp.com">fbpadmin@my-fbp.com</a>
+    </p>
+    <p>&copy; 2026 FBP. All rights reserved.</p>
+  </footer>
+</body>
 
 </html>
