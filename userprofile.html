@@ -39,6 +39,85 @@
       transform: none;
       left: auto;
     }
+
+    .phone-verification-card {
+      border: 1px solid #d7dce5;
+      border-radius: 12px;
+      padding: 1rem;
+      background: linear-gradient(180deg, #fafbfd 0%, #f3f6fb 100%);
+      width: min(100%, 34rem);
+      margin-bottom: 1.25rem;
+    }
+
+    .phone-verification-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+      margin-bottom: 0.35rem;
+    }
+
+    .phone-verification-title {
+      font-weight: 600;
+    }
+
+    .phone-verification-state {
+      border-radius: 999px;
+      padding: 0.2rem 0.65rem;
+      font-size: 0.8rem;
+      font-weight: 600;
+      letter-spacing: 0.01em;
+    }
+
+    .phone-verification-state[data-state="not-set"] {
+      background: #eef2f7;
+      color: #435066;
+    }
+
+    .phone-verification-state[data-state="pending"] {
+      background: #fff1cc;
+      color: #8a5a00;
+    }
+
+    .phone-verification-state[data-state="verified"] {
+      background: #dff5e8;
+      color: #1c6b40;
+    }
+
+    .phone-verification-message {
+      margin: 0 0 0.85rem;
+      color: #4b5567;
+      font-size: 0.92rem;
+    }
+
+    .phone-verification-row {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      margin-bottom: 0.65rem;
+    }
+
+    .phone-verification-row:last-child {
+      margin-bottom: 0;
+    }
+
+    .phone-verification-card #MobileNumber {
+      width: 12.5rem;
+      min-width: 12.5rem;
+      box-sizing: border-box;
+    }
+
+    .phone-verification-card #MobileNumberVerification {
+      width: 6.5rem;
+      min-width: 6.5rem;
+      box-sizing: border-box;
+    }
+
+    .phone-verification-card #verifySMSMobileNumberBtn {
+      width: 11ch;
+      min-width: 11ch;
+    }
   </style>
 
   <link rel="stylesheet" type="text/css" href="/css/styles.css" />
@@ -61,6 +140,11 @@
     import { getServiceUrl } from "/js-lib/urlConfig.js";
 
     let email = null;
+    let originalMobileNumberDigits = "";
+
+    function normalizePhoneDigits(value) {
+      return (value || "").toString().replace(/\D/g, "").slice(0, 10);
+    }
 
     async function resolveUserEmail() {
       if (email) return email;
@@ -131,6 +215,12 @@
       paymentRadioButtons.forEach((radio) => {
         radio.checked = radio.value === paymentMethod;
       });
+      document.getElementById("smsReminder").checked =
+        responseBody.smsReminder || false;
+      document.getElementById("smsPickSheet").checked =
+        responseBody.smsPickSheet || false;
+      document.getElementById("smsGridSheet").checked =
+        responseBody.smsGridSheet || false;
       document.getElementById("emailPickSheet").checked =
         responseBody.emailPickSheet || false;
       document.getElementById("emailReminders").checked =
@@ -146,8 +236,9 @@
       });
       document.getElementById("defaultTieBreaker").value =
         responseBody.defaultTieBreaker || "";
-      document.getElementById("MobileNumber").value =
-        formatPhoneNumber(responseBody.MobileNumber || responseBody.mobileNumber || "");
+      const savedMobileNumber = responseBody.mobile_number || "";
+      originalMobileNumberDigits = normalizePhoneDigits(savedMobileNumber);
+      document.getElementById("MobileNumber").value = formatPhoneNumber(savedMobileNumber);
     }
 
     async function validateFormData() {
@@ -204,6 +295,10 @@
           .toString()
           .replace(/\D/g, "")
           .slice(0, 10);
+        if (mobileNumberDigits !== originalMobileNumberDigits) {
+          alert("Mobile number changes must be verified first. Use 'Text Me A Verification Code' and then 'Verify' before saving your profile.");
+          return;
+        }
         const resolvedEmail = await resolveUserEmail();
         if (!resolvedEmail) {
           throw new Error("No authenticated user email found for update");
@@ -234,11 +329,13 @@
           emailPickSheet: formData.get("emailPickSheet") === "on",
           emailReminders: formData.get("emailReminders") === "on",
           emailGridSheet: formData.get("emailGridSheet") === "on",
+          smsReminder: formData.get("smsReminder") === "on",
+          smsPickSheet: formData.get("smsPickSheet") === "on",
+          smsGridSheet: formData.get("smsGridSheet") === "on",
           defaultAlgorithm:
             document.querySelector('input[name="defaultAlgorithm"]:checked')
               ?.value || "",
           defaultTieBreaker: formData.get("defaultTieBreaker") || "",
-          MobileNumber: mobileNumberDigits,
         };
 
         const response = await fetch(lambdaURL, {
@@ -288,177 +385,13 @@
       console.warn("User email not available during initial load:", error);
     });
   </script>
-  <script>
-    function checkPayPal(id) {
-      document.getElementById(id).checked = true;
-    }
-    window.checkPayPal = checkPayPal;
-  </script>
-  <script>
-    function checkVenMo(id) {
-      document.getElementById(id).checked = true;
-    }
-    window.checkVenMo = checkVenMo;
-  </script>
   <script type="module">
-    import { getServiceUrl } from "/js-lib/urlConfig.js";
+    import { formatPhoneNumber, initPhoneVerification } from "/js-lib/phoneVerification.js";
 
-    async function storeSMSVerificationCode() {
-      const mobileNumber = document.getElementById("MobileNumber").value;
-      const requestPayload = {
-        mobile_number: mobileNumber.replace(/\D/g, "").slice(0, 10),
-        email: await window.resolveUserEmail()
-      };
-
-      const URL_KEY = "storeSMSVerificationCode";
-      const lambdaURL = await getServiceUrl(URL_KEY);
-
-      try {
-        const response = await fetch(lambdaURL, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(requestPayload)
-        });
-
-        if (!response.ok) {
-          throw new Error(`Failed to store SMS verification code: ${response.statusText}`);
-        }
-
-        alert("SMS verification code sent successfully!");
-        console.log("SMS verification code request sent for mobile number:", mobileNumber);
-      } catch (error) {
-        console.error("Error:", error);
-        alert(error.message || "Failed to store SMS verification code.");
-      }
-    }
-    window.storeSMSVerificationCode = storeSMSVerificationCode;
-
-    async function getSMSVerificationCode() {
-      const requestPayload = {
-        email: await window.resolveUserEmail()
-      };
-
-      const URL_KEY = "getSMSVerificationCode";
-      const lambdaURL = await getServiceUrl(URL_KEY);
-
-      try {
-        const response = await fetch(lambdaURL, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(requestPayload),
-        });
-
-        if (!response.ok) {
-          throw new Error(`Failed to get SMS verification code: ${response.statusText}`);
-        }
-
-        const responseData = await response.json();
-        const body = responseData.body;
-
-        return JSON.parse(body).verification_code_hash;
-      } catch (error) {
-        console.error("Error:", error);
-        alert(error.message || "Failed to get SMS verification code.");
-      }
-    }
-    window.getSMSVerificationCode = getSMSVerificationCode;
-
-  function formatPhoneNumber(value) {
-    const digits = value.replace(/\D/g, "").slice(0, 10);
-
-    if (digits.length === 0) return "";
-    if (digits.length <= 3) return `(${digits}`;
-    if (digits.length <= 6) {
-      return `(${digits.slice(0, 3)}) ${digits.slice(3)}`;
-    }
-    return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
-  }
-  window.formatPhoneNumber = formatPhoneNumber;
-
-  function initPhoneMask() {
-    const mobileNumberInput = document.getElementById("MobileNumber");
-    if (!mobileNumberInput) return;
-
-    mobileNumberInput.addEventListener("input", (event) => {
-      event.target.value = formatPhoneNumber(event.target.value);
+    window.formatPhoneNumber = formatPhoneNumber;
+    window.phoneVerification = initPhoneVerification({
+      resolveUserEmail: () => window.resolveUserEmail(),
     });
-  }
-
-  async function hashString(inputString) {
-    const encoder = new TextEncoder();
-    const data = encoder.encode(inputString);
-    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    const hashHex = hashArray.map(byte => byte.toString(16).padStart(2, '0')).join('');
-
-    return hashHex;
-  }
-
-  async function updateSMSVerificationStatus() {
-    const URL_KEY = "updateSMSVerification";
-    const lambdaURL = await getServiceUrl(URL_KEY);
-    try {
-      const email = await window.resolveUserEmail();
-      if (!email) {
-        throw new Error("No authenticated user email found.");
-      }
-      const response = await fetch(lambdaURL, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          email,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to update SMS verification status: ${response.statusText}`);
-      }
-
-      alert("SMS verification status updated successfully!");
-    } catch (error) {
-      console.error("Error:", error);
-      alert(error.message || "Failed to update SMS verification status.");
-    }
-  }
-  window.updateSMSVerificationStatus = updateSMSVerificationStatus;
-
-  async function verifySMSMobileNumber() {
-    const mobileNumber = document.getElementById("MobileNumber").value;
-    const mobileNumberDigits = mobileNumber.replace(/\D/g, "").slice(0, 10);
-    if (mobileNumberDigits.length !== 10) {
-      alert("Please enter a valid 10-digit mobile number.");
-      return;
-    }
-    const verificationCode = document.getElementById("MobileNumberVerification").value;
-    const hashedVerificationCode = await hashString(verificationCode);
-
-    // Replace the line below with a call to generate a 6 digit random number.
-    // At this point, take the input value from the user, hash it, fetch the hash
-    // from the FBP_Users table and compare.
-    //
-    const storedVerificationCode = await window.getSMSVerificationCode();
-    // If validation is successful, turn on the sms messaging options
-    if (hashedVerificationCode === storedVerificationCode) {
-      document.getElementById("smsReminders").disabled = false;
-      document.getElementById("smsPickSheet").disabled = false;
-      document.getElementById("smsGridSheet").disabled = false;
-      alert("Mobile number verified successfully!");
-      // At this point, update the mobile number status to verified
-      await window.updateSMSVerificationStatus();
-    }
-    else {
-      alert("Invalid verification code. Please try again.");
-      window.hash = "";
-    }
-    console.log("Mobile Number (digits only):", mobileNumberDigits);
-  }
-  window.verifySMSMobileNumber = verifySMSMobileNumber;
-  window.verifyMobileNumber = verifySMSMobileNumber;
-
-  window.addEventListener("DOMContentLoaded", initPhoneMask);
   </script>
 </head>
 
@@ -493,89 +426,145 @@
           <label for="displayName">Display Name:</label>
           <input type="text" name="displayName" id="displayName" />
         </div>
-        <div id="paymentMethod" style="display: flex; flex-direction: column; gap: 0.5em; margin-bottom: 1.25rem;">
-          <label for="paymentMethod" style="margin-bottom:0.25em; font-weight:500;">Payment Method When You Win</label>
-          <div style="display: flex; flex-direction: column; gap: 0.25em;">
-            <span><input type="radio" value="PayPal" name="paymentMethod" id="PayPal"><label for="PayPal"
-                style="font-weight:400; margin-left:0.5em;">PayPal</label>
-              <img src="/images/paypal.png" onClick="checkPayPal('PayPal')" alt="PayPal"
-                style="height: 2em; vertical-align:middle; margin-left:0.5em;">
-            </span>
-            <span><input type="radio" value="VenMo" name="paymentMethod" id="VenMo">
-              <label for="VenMo" style="font-weight:400; margin-left:0.5em;">VenMo
-              </label>
-              <img src="/images/venmo.png" onClick="checkPayPal('VenMo')" alt="VenMo"
-                style="height:2em; vertical-align:middle; margin-left:0.5em;">
-            </span>
+        <div id="paymentMethod" style="margin-bottom: 1.25rem;">
+          <label for="paymentMethod" style="margin-bottom:0.25em; font-weight:500; display:block;">Payment Method When You Win</label>
+          <div class="payment-options">
+            <label class="payment-option" for="PayPal">
+              <input type="radio" value="PayPal" name="paymentMethod" id="PayPal">
+              <span class="payment-option-ui">
+                <span class="check-box" aria-hidden="true"></span>
+                <span>PayPal</span>
+                <img src="/images/paypal.png" alt="PayPal">
+              </span>
+            </label>
+            <label class="payment-option" for="VenMo">
+              <input type="radio" value="VenMo" name="paymentMethod" id="VenMo">
+              <span class="payment-option-ui">
+                <span class="check-box" aria-hidden="true"></span>
+                <span>VenMo</span>
+                <img src="/images/venmo.png" alt="VenMo">
+              </span>
+            </label>
           </div>
         </div>
         <div>
-          <label for="emailPickSheet">Email PickSheet:</label>
-          <input type="checkbox" name="emailPickSheet" id="emailPickSheet" />
+          <label style="margin-bottom:0.25em; font-weight:500; display:block;">Email Notifications</label>
+          <div class="notification-options">
+            <label class="payment-option" for="emailPickSheet">
+              <input type="checkbox" name="emailPickSheet" id="emailPickSheet" />
+              <span class="payment-option-ui">
+                <span class="check-box" aria-hidden="true"></span>
+                <span>Email PickSheet</span>
+              </span>
+            </label>
+            <label class="payment-option" for="emailReminders">
+              <input type="checkbox" name="emailReminders" id="emailReminders" />
+              <span class="payment-option-ui">
+                <span class="check-box" aria-hidden="true"></span>
+                <span>Email Reminder</span>
+              </span>
+            </label>
+            <label class="payment-option" for="emailGridSheet">
+              <input type="checkbox" name="emailGridSheet" id="emailGridSheet" />
+              <span class="payment-option-ui">
+                <span class="check-box" aria-hidden="true"></span>
+                <span>Email Gridsheet</span>
+              </span>
+            </label>
+          </div>
         </div>
-        <div>
-          <label for="emailReminders">Email Reminder:</label>
-          <input type="checkbox" name="emailReminders" id="emailReminders" />
-        </div>
-        <div>
-          <label for="emailGridSheet">Email Gridsheet:</label>
-          <input type="checkbox" name="emailGridSheet" id="emailGridSheet" />
-        </div>
-        <div id="smsOptin" style="display: flex; flex-direction: column; gap: 0.5em; width: fit-content;">
-          <div style="display: flex; align-items: center; gap: 0.5em;">
-            <label for="MobileNumber">Mobile Number:</label>
-            <input type="text" name="MobileNumber" id="MobileNumber" maxlength="14" size="13" style="width: 13ch;"
+        <section id="smsOptin" class="phone-verification-card" aria-labelledby="mobileVerificationTitle">
+          <div class="phone-verification-header">
+            <label id="mobileVerificationTitle" class="phone-verification-title" for="MobileNumber">Mobile Number</label>
+            <span id="mobileVerificationState" class="phone-verification-state" data-state="not-set">Not Set</span>
+          </div>
+          <p id="mobileVerificationMessage" class="phone-verification-message">Add a mobile number to enable SMS notifications.</p>
+          <div class="phone-verification-row">
+            <input type="text" name="MobileNumber" id="MobileNumber" maxlength="15" size="15"
               placeholder="(999) 999-9999" pattern="\(\d{3}\) \d{3}-\d{4}" />
           </div>
-          <div style="display: flex; align-items: center; gap: 0.5em;">
-            <label for="Generate Code">Send Verification Code:</label>
-            <input type="button" name="GenerateCode" id="GenerateCode" value="Text Me A Verification Code"
-              onClick="window.storeSMSVerificationCode()" />
+          <div class="phone-verification-row">
+            <label for="sendSMSVerificationCodeBtn">Send Verification Code:</label>
+            <input type="button" name="GenerateCode" id="sendSMSVerificationCodeBtn" value="Text Me A Verification Code" />
           </div>
-          <div style="display: flex; align-items: center; gap: 0.5em;">
-            <label for="MobileNumberVerification">Mobile Number Verification Code:</label>
-            <input type="text" name="MobileNumberVerification" id="MobileNumberVerification" maxlength="6" size="6"
-              style="width: 6ch;" />
-            <input type="button" value="Verify" style="width: 10ch;" onClick="window.verifySMSMobileNumber()" />
+          <div class="phone-verification-row">
+            <label for="MobileNumberVerification">Verification Code:</label>
+            <input type="text" name="MobileNumberVerification" id="MobileNumberVerification" maxlength="6" size="6" />
+            <input type="button" id="verifySMSMobileNumberBtn" value="Verify" />
           </div>
-        </div>
-        <div id="sms-notifications" style="display: flex; flex-direction: column; gap: 0.5em;">
-          <div style="display: flex; align-items: center; gap: 0.5em;">
-            <label for="smsReminders">SMS Reminder:</label>
-            <input type="checkbox" name="smsReminders" id="smsReminders" disabled />
-          </div>
-          <div style="display: flex; align-items: center; gap: 0.5em;">
-            <label for="smsPickSheet">SMS PickSheet:</label>
-            <input type="checkbox" name="smsPickSheet" id="smsPickSheet" disabled />
-          </div>
-          <div style="display: flex; align-items: center; gap: 0.5em;">
-            <label for="smsGridSheet">SMS GridSheet:</label>
-            <input type="checkbox" name="smsGridSheet" id="smsGridSheet" disabled />
+        </section>
+        <div id="sms-notifications">
+          <label style="margin-bottom:0.25em; font-weight:500; display:block;">SMS Notifications</label>
+          <div class="notification-options">
+            <label class="payment-option" for="smsReminder">
+              <input type="checkbox" name="smsReminder" id="smsReminder" disabled />
+              <span class="payment-option-ui">
+                <span class="check-box" aria-hidden="true"></span>
+                <span>SMS Reminder</span>
+              </span>
+            </label>
+            <label class="payment-option" for="smsPickSheet">
+              <input type="checkbox" name="smsPickSheet" id="smsPickSheet" disabled />
+              <span class="payment-option-ui">
+                <span class="check-box" aria-hidden="true"></span>
+                <span>SMS PickSheet</span>
+              </span>
+            </label>
+            <label class="payment-option" for="smsGridSheet">
+              <input type="checkbox" name="smsGridSheet" id="smsGridSheet" disabled />
+              <span class="payment-option-ui">
+                <span class="check-box" aria-hidden="true"></span>
+                <span>SMS GridSheet</span>
+              </span>
+            </label>
           </div>
         </div>
         <div id="defaultAlgorithm" style="display: flex; flex-direction: column; gap: 0.5em; margin-bottom: 1.25rem;">
           <label for="DefaultAlgorithm" style="margin-bottom:0.25em; font-weight:500;">Default for Picks when you
-            don't
-            make picks:</label>
-          <div style="display: flex; flex-direction: column; gap: 0.25em;">
-            <span><input type="radio" value="away" name="defaultAlgorithm" id="alg-away"><label for="alg-away"
-                style="font-weight:400; margin-left:0.5em;">Away Teams</label></span>
-            <span><input type="radio" value="home" name="defaultAlgorithm" id="alg-home"><label for="alg-home"
-                style="font-weight:400; margin-left:0.5em;">Home Teams</label></span>
-            <span><input type="radio" value="favorites" name="defaultAlgorithm" id="alg-favorites"><label
-                for="alg-favorites" style="font-weight:400; margin-left:0.5em;">All Favorites</label></span>
-            <span><input type="radio" value="underdogs" name="defaultAlgorithm" id="alg-underdogs"><label
-                for="alg-underdogs" style="font-weight:400; margin-left:0.5em;">All UnderDogs</label></span>
-            <span><input type="radio" value="random" name="defaultAlgorithm" id="alg-random"><label for="alg-random"
-                style="font-weight:400; margin-left:0.5em;">All Random</label></span>
-            <span>
-              <span class="tooltip-wrap">
-                <input type="text" name="defaultTieBreaker" id="defaultTieBreaker" maxlength="2" size="2">
+            don't make picks:</label>
+          <div class="payment-options default-algorithm-options">
+            <label class="payment-option" for="alg-away">
+              <input type="radio" value="away" name="defaultAlgorithm" id="alg-away">
+              <span class="payment-option-ui">
+                <span class="check-box" aria-hidden="true"></span>
+                <span>Away Teams</span>
+              </span>
+            </label>
+            <label class="payment-option" for="alg-home">
+              <input type="radio" value="home" name="defaultAlgorithm" id="alg-home">
+              <span class="payment-option-ui">
+                <span class="check-box" aria-hidden="true"></span>
+                <span>Home Teams</span>
+              </span>
+            </label>
+            <label class="payment-option" for="alg-favorites">
+              <input type="radio" value="favorites" name="defaultAlgorithm" id="alg-favorites">
+              <span class="payment-option-ui">
+                <span class="check-box" aria-hidden="true"></span>
+                <span>Favorites</span>
+              </span>
+            </label>
+            <label class="payment-option" for="alg-underdogs">
+              <input type="radio" value="underdogs" name="defaultAlgorithm" id="alg-underdogs">
+              <span class="payment-option-ui">
+                <span class="check-box" aria-hidden="true"></span>
+                <span>Underdogs</span>
+              </span>
+            </label>
+            <label class="payment-option" for="alg-random">
+              <input type="radio" value="random" name="defaultAlgorithm" id="alg-random">
+              <span class="payment-option-ui">
+                <span class="check-box" aria-hidden="true"></span>
+                <span>Random</span>
+              </span>
+            </label>
+            <div class="payment-option-ui tie-breaker-card">
+              <span class="tie-breaker-input-wrap tooltip-wrap">
+                <input class="tie-breaker-input" type="text" name="defaultTieBreaker" id="defaultTieBreaker" maxlength="2" size="2">
                 <span class="tooltip">Enter the total points for the Monday Night Game (e.g., 42)</span>
               </span>
-              <label for="defaultTieBreaker" style="font-weight:400; margin-left:0.5em;">Default Monday Night
-                Tiebreaker</label>
-            </span>
+              <label class="tie-breaker-label" for="defaultTieBreaker">MNF Tiebreaker</label>
+            </div>
           </div>
         </div>
       </form>
@@ -620,7 +609,10 @@
               radio.checked = radio.value === defaultAlgorithm;
             });
             document.getElementById("MobileNumber").value =
-              formatPhoneNumber(responseBody.MobileNumber || responseBody.mobileNumber || "");
+              formatPhoneNumber(responseBody.mobile_number || "");
+            originalMobileNumberDigits = normalizePhoneDigits(
+              responseBody.mobile_number || "",
+            );
           });
         }
       </script>

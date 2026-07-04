@@ -80,7 +80,7 @@ def storeVerificationCode():
         usersTable = dynamodb.Table(FBP_USERS_TABLE)
         usersTable.update_item(
             Key={'email': email},
-            UpdateExpression="SET pending_mobile_number = :mobile_number, verification_code = :verification_code, verification_code_hash = :verification_code_hash, sms_verification_status = :sms_verification_status",
+            UpdateExpression="SET mobile_number = :mobile_number, verification_code = :verification_code, verification_code_hash = :verification_code_hash, sms_verification_status = :sms_verification_status",
             ExpressionAttributeValues={
                 ':mobile_number': mobile_number,
                 ':verification_code': verification_code,
@@ -181,9 +181,9 @@ def updateSMSVerification():
         usersTable.update_item(
             Key={'email': email},
             UpdateExpression="SET sms_verification_status = :val",
-            ExpressionAttributeValues={':val': 'Verified'}
+            ExpressionAttributeValues={':val': 'VERIFIED'}
         )
-        logger.info(f"SMS verification status updated to 'Verified' successfully for email: {email}")
+        logger.info(f"SMS verification status updated to 'VERIFIED' successfully for email: {email}")
         return {
             'statusCode': 200,
             'body': json.dumps({'message': 'SMS verification updated successfully'}),

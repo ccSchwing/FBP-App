@@ -33,6 +33,13 @@ cors_config = CORSConfig(
 
 app=APIGatewayHttpResolver(cors=cors_config)
 
+
+def has_mobile_update_field(request_body):
+    if not isinstance(request_body, dict):
+        return False
+    mobile_keys = ['mobile_number', 'MobileNumber', 'mobileNumber', 'mobile']
+    return any(key in request_body for key in mobile_keys)
+
 #  The function below is the main logic for the lambda function.
 #  It will parse the email address from the event and then call
 #  the updateFBPUserData function to update the user information in DynamoDB.
@@ -65,6 +72,19 @@ def updateFBPUser():
                 body=json.dumps({
                     'error': 'Invalid request body',
                     'message': 'Request body seems to be empty or not valid JSON'
+                })
+            )
+
+        if has_mobile_update_field(request_body):
+            message = 'Mobile number updates must be completed through the SMS verification flow before saving profile changes.'
+            logger.warning(message)
+            fbpLog("fbpadmin@my-fbp.com", "UpdateFBPUser", message, "WARN")
+            return Response(
+                status_code=400,
+                body=json.dumps({
+                    'error': 'Mobile number update requires verification',
+                    'message': message,
+                    'errorCode': 'MOBILE_VERIFICATION_REQUIRED'
                 })
             )
 
@@ -177,6 +197,9 @@ def updateFBPUserData(request_body):
                 "emailGridSheet = :emailGridSheet, "
                 "emailPickSheet = :emailPickSheet, "
                 "emailReminders = :emailReminders, "
+                "smsReminder = :smsReminder, "
+                "smsPickSheet = :smsPickSheet, "
+                "smsGridSheet = :smsGridSheet, "
                 "firstName = :firstName, "
                 "lastName = :lastName, "
                 "defaultTieBreaker = :defaultTieBreaker",
@@ -188,6 +211,9 @@ def updateFBPUserData(request_body):
                 ':emailGridSheet': bool(request_body.get('emailGridSheet')),
                 ':emailPickSheet': bool(request_body.get('emailPickSheet')),
                 ':emailReminders': bool(request_body.get('emailReminders')),
+                ':smsReminder': bool(request_body.get('smsReminder')),
+                ':smsPickSheet': bool(request_body.get('smsPickSheet')),
+                ':smsGridSheet': bool(request_body.get('smsGridSheet')),
                 ':firstName': request_body.get('firstName'),
                 ':lastName': request_body.get('lastName')
             },
