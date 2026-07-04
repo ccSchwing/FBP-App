@@ -231,6 +231,170 @@
   border-width: 0 3px 3px 0;
   transform: rotate(45deg);
 }
+
+/* Payment method radio tiles with green check in a box */
+.payment-options {
+  display: grid;
+  gap: 0.6rem;
+  margin-top: 0.25rem;
+  max-width: 10rem;
+}
+
+.default-algorithm-options {
+  max-width: 10rem;
+}
+
+.notification-options {
+  display: grid;
+  gap: 0.6rem;
+  margin-top: 0.25rem;
+  margin-bottom: 1.25rem;
+  max-width: 12.5rem;
+}
+
+.tie-breaker-card {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 0.35rem;
+  max-width: 20rem;
+}
+
+.tie-breaker-input-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.tie-breaker-input {
+  width: 4.25rem;
+  min-width: 4.25rem;
+  height: 2.25rem;
+  font-size: 1.15rem;
+  font-weight: 600;
+  text-align: center;
+  border: 1px solid #cfd7e3;
+  border-radius: 0.55rem;
+  background: #fff;
+}
+
+.tie-breaker-input:focus-visible {
+  outline: 2px solid #1f8f3a;
+  outline-offset: 2px;
+  border-color: #1f8f3a;
+}
+
+.tie-breaker-label {
+  font-weight: 500;
+  line-height: 1.2;
+}
+
+.payment-option {
+  display: block;
+  cursor: pointer;
+}
+
+.payment-option input[type="radio"],
+.payment-option input[type="checkbox"] {
+  -webkit-appearance: none;
+  appearance: none;
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: 0;
+  border: 0;
+  padding: 0;
+  opacity: 0;
+  clip-path: inset(50%);
+  overflow: hidden;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.payment-option-ui {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.65rem 0.8rem;
+  border: 1px solid #cfd7e3;
+  border-radius: 10px;
+  background: #fff;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+
+.payment-option-ui .check-box {
+  width: 1.1rem;
+  height: 1.1rem;
+  border: 2px solid #96a3b5;
+  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #fff;
+  flex: 0 0 auto;
+}
+
+.payment-option-ui .check-box::after {
+  content: "";
+  width: 0.25rem;
+  height: 0.5rem;
+  border: solid #fff;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+  opacity: 0;
+}
+
+.payment-option-ui img {
+  height: 1.7rem;
+  width: auto;
+}
+
+.payment-option input[type="radio"]:focus-visible + .payment-option-ui {
+  outline: 2px solid #1f8f3a;
+  outline-offset: 2px;
+}
+
+.payment-option input[type="checkbox"]:focus-visible + .payment-option-ui {
+  outline: 2px solid #1f8f3a;
+  outline-offset: 2px;
+}
+
+.payment-option input[type="radio"]:checked + .payment-option-ui {
+  border-color: #1f8f3a;
+  background: #f2fbf5;
+  box-shadow: 0 0 0 2px rgba(31, 143, 58, 0.12);
+}
+
+.payment-option input[type="checkbox"]:checked + .payment-option-ui {
+  border-color: #1f8f3a;
+  background: #f2fbf5;
+  box-shadow: 0 0 0 2px rgba(31, 143, 58, 0.12);
+}
+
+.payment-option input[type="radio"]:checked + .payment-option-ui .check-box {
+  border-color: #1f8f3a;
+  background: #1f8f3a;
+}
+
+.payment-option input[type="checkbox"]:checked + .payment-option-ui .check-box {
+  border-color: #1f8f3a;
+  background: #1f8f3a;
+}
+
+.payment-option input[type="radio"]:checked + .payment-option-ui .check-box::after {
+  opacity: 1;
+}
+
+.payment-option input[type="checkbox"]:checked + .payment-option-ui .check-box::after {
+  opacity: 1;
+}
+
+.payment-option input[type="checkbox"]:disabled + .payment-option-ui {
+  opacity: 0.55;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
 /* Base styles inspired by shadcn/ui */
 :root {
   /* Color system */
@@ -977,6 +1141,7 @@ footer {
   display: block;
 }
 
+.custom-radio .checkmark:after {
   top: 6px;
   left: 6px;
   width: 8px;

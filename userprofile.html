@@ -385,18 +385,6 @@
       console.warn("User email not available during initial load:", error);
     });
   </script>
-  <script>
-    function checkPayPal(id) {
-      document.getElementById(id).checked = true;
-    }
-    window.checkPayPal = checkPayPal;
-  </script>
-  <script>
-    function checkVenMo(id) {
-      document.getElementById(id).checked = true;
-    }
-    window.checkVenMo = checkVenMo;
-  </script>
   <script type="module">
     import { formatPhoneNumber, initPhoneVerification } from "/js-lib/phoneVerification.js";
 
@@ -438,33 +426,52 @@
           <label for="displayName">Display Name:</label>
           <input type="text" name="displayName" id="displayName" />
         </div>
-        <div id="paymentMethod" style="display: flex; flex-direction: column; gap: 0.5em; margin-bottom: 1.25rem;">
-          <label for="paymentMethod" style="margin-bottom:0.25em; font-weight:500;">Payment Method When You Win</label>
-          <div style="display: flex; flex-direction: column; gap: 0.25em;">
-            <span><input type="radio" value="PayPal" name="paymentMethod" id="PayPal"><label for="PayPal"
-                style="font-weight:400; margin-left:0.5em;">PayPal</label>
-              <img src="/images/paypal.png" onClick="checkPayPal('PayPal')" alt="PayPal"
-                style="height: 2em; vertical-align:middle; margin-left:0.5em;">
-            </span>
-            <span><input type="radio" value="VenMo" name="paymentMethod" id="VenMo">
-              <label for="VenMo" style="font-weight:400; margin-left:0.5em;">VenMo
-              </label>
-              <img src="/images/venmo.png" onClick="checkPayPal('VenMo')" alt="VenMo"
-                style="height:2em; vertical-align:middle; margin-left:0.5em;">
-            </span>
+        <div id="paymentMethod" style="margin-bottom: 1.25rem;">
+          <label for="paymentMethod" style="margin-bottom:0.25em; font-weight:500; display:block;">Payment Method When You Win</label>
+          <div class="payment-options">
+            <label class="payment-option" for="PayPal">
+              <input type="radio" value="PayPal" name="paymentMethod" id="PayPal">
+              <span class="payment-option-ui">
+                <span class="check-box" aria-hidden="true"></span>
+                <span>PayPal</span>
+                <img src="/images/paypal.png" alt="PayPal">
+              </span>
+            </label>
+            <label class="payment-option" for="VenMo">
+              <input type="radio" value="VenMo" name="paymentMethod" id="VenMo">
+              <span class="payment-option-ui">
+                <span class="check-box" aria-hidden="true"></span>
+                <span>VenMo</span>
+                <img src="/images/venmo.png" alt="VenMo">
+              </span>
+            </label>
           </div>
         </div>
         <div>
-          <label for="emailPickSheet">Email PickSheet:</label>
-          <input type="checkbox" name="emailPickSheet" id="emailPickSheet" />
-        </div>
-        <div>
-          <label for="emailReminders">Email Reminder:</label>
-          <input type="checkbox" name="emailReminders" id="emailReminders" />
-        </div>
-        <div>
-          <label for="emailGridSheet">Email Gridsheet:</label>
-          <input type="checkbox" name="emailGridSheet" id="emailGridSheet" />
+          <label style="margin-bottom:0.25em; font-weight:500; display:block;">Email Notifications</label>
+          <div class="notification-options">
+            <label class="payment-option" for="emailPickSheet">
+              <input type="checkbox" name="emailPickSheet" id="emailPickSheet" />
+              <span class="payment-option-ui">
+                <span class="check-box" aria-hidden="true"></span>
+                <span>Email PickSheet</span>
+              </span>
+            </label>
+            <label class="payment-option" for="emailReminders">
+              <input type="checkbox" name="emailReminders" id="emailReminders" />
+              <span class="payment-option-ui">
+                <span class="check-box" aria-hidden="true"></span>
+                <span>Email Reminder</span>
+              </span>
+            </label>
+            <label class="payment-option" for="emailGridSheet">
+              <input type="checkbox" name="emailGridSheet" id="emailGridSheet" />
+              <span class="payment-option-ui">
+                <span class="check-box" aria-hidden="true"></span>
+                <span>Email Gridsheet</span>
+              </span>
+            </label>
+          </div>
         </div>
         <section id="smsOptin" class="phone-verification-card" aria-labelledby="mobileVerificationTitle">
           <div class="phone-verification-header">
@@ -486,42 +493,78 @@
             <input type="button" id="verifySMSMobileNumberBtn" value="Verify" />
           </div>
         </section>
-        <div id="sms-notifications" style="display: flex; flex-direction: column; gap: 0.5em;">
-          <div style="display: flex; align-items: center; gap: 0.5em;">
-            <label for="smsReminder">SMS Reminder:</label>
-            <input type="checkbox" name="smsReminder" id="smsReminder" disabled />
-          </div>
-          <div style="display: flex; align-items: center; gap: 0.5em;">
-            <label for="smsPickSheet">SMS PickSheet:</label>
-            <input type="checkbox" name="smsPickSheet" id="smsPickSheet" disabled />
-          </div>
-          <div style="display: flex; align-items: center; gap: 0.5em;">
-            <label for="smsGridSheet">SMS GridSheet:</label>
-            <input type="checkbox" name="smsGridSheet" id="smsGridSheet" disabled />
+        <div id="sms-notifications">
+          <label style="margin-bottom:0.25em; font-weight:500; display:block;">SMS Notifications</label>
+          <div class="notification-options">
+            <label class="payment-option" for="smsReminder">
+              <input type="checkbox" name="smsReminder" id="smsReminder" disabled />
+              <span class="payment-option-ui">
+                <span class="check-box" aria-hidden="true"></span>
+                <span>SMS Reminder</span>
+              </span>
+            </label>
+            <label class="payment-option" for="smsPickSheet">
+              <input type="checkbox" name="smsPickSheet" id="smsPickSheet" disabled />
+              <span class="payment-option-ui">
+                <span class="check-box" aria-hidden="true"></span>
+                <span>SMS PickSheet</span>
+              </span>
+            </label>
+            <label class="payment-option" for="smsGridSheet">
+              <input type="checkbox" name="smsGridSheet" id="smsGridSheet" disabled />
+              <span class="payment-option-ui">
+                <span class="check-box" aria-hidden="true"></span>
+                <span>SMS GridSheet</span>
+              </span>
+            </label>
           </div>
         </div>
         <div id="defaultAlgorithm" style="display: flex; flex-direction: column; gap: 0.5em; margin-bottom: 1.25rem;">
           <label for="DefaultAlgorithm" style="margin-bottom:0.25em; font-weight:500;">Default for Picks when you
             don't make picks:</label>
-          <div style="display: flex; flex-direction: column; gap: 0.25em;">
-            <span><input type="radio" value="away" name="defaultAlgorithm" id="alg-away"><label for="alg-away"
-                style="font-weight:400; margin-left:0.5em;">Away Teams</label></span>
-            <span><input type="radio" value="home" name="defaultAlgorithm" id="alg-home"><label for="alg-home"
-                style="font-weight:400; margin-left:0.5em;">Home Teams</label></span>
-            <span><input type="radio" value="favorites" name="defaultAlgorithm" id="alg-favorites"><label
-                for="alg-favorites" style="font-weight:400; margin-left:0.5em;">Favorites</label></span>
-            <span><input type="radio" value="underdogs" name="defaultAlgorithm" id="alg-underdogs"><label
-                for="alg-underdogs" style="font-weight:400; margin-left:0.5em;">Underdogs</label></span>
-            <span><input type="radio" value="random" name="defaultAlgorithm" id="alg-random"><label for="alg-random"
-                style="font-weight:400; margin-left:0.5em;">Random</label></span>
-            <span>
-              <span class="tooltip-wrap">
-                <input type="text" name="defaultTieBreaker" id="defaultTieBreaker" maxlength="2" size="2">
+          <div class="payment-options default-algorithm-options">
+            <label class="payment-option" for="alg-away">
+              <input type="radio" value="away" name="defaultAlgorithm" id="alg-away">
+              <span class="payment-option-ui">
+                <span class="check-box" aria-hidden="true"></span>
+                <span>Away Teams</span>
+              </span>
+            </label>
+            <label class="payment-option" for="alg-home">
+              <input type="radio" value="home" name="defaultAlgorithm" id="alg-home">
+              <span class="payment-option-ui">
+                <span class="check-box" aria-hidden="true"></span>
+                <span>Home Teams</span>
+              </span>
+            </label>
+            <label class="payment-option" for="alg-favorites">
+              <input type="radio" value="favorites" name="defaultAlgorithm" id="alg-favorites">
+              <span class="payment-option-ui">
+                <span class="check-box" aria-hidden="true"></span>
+                <span>Favorites</span>
+              </span>
+            </label>
+            <label class="payment-option" for="alg-underdogs">
+              <input type="radio" value="underdogs" name="defaultAlgorithm" id="alg-underdogs">
+              <span class="payment-option-ui">
+                <span class="check-box" aria-hidden="true"></span>
+                <span>Underdogs</span>
+              </span>
+            </label>
+            <label class="payment-option" for="alg-random">
+              <input type="radio" value="random" name="defaultAlgorithm" id="alg-random">
+              <span class="payment-option-ui">
+                <span class="check-box" aria-hidden="true"></span>
+                <span>Random</span>
+              </span>
+            </label>
+            <div class="payment-option-ui tie-breaker-card">
+              <span class="tie-breaker-input-wrap tooltip-wrap">
+                <input class="tie-breaker-input" type="text" name="defaultTieBreaker" id="defaultTieBreaker" maxlength="2" size="2">
                 <span class="tooltip">Enter the total points for the Monday Night Game (e.g., 42)</span>
               </span>
-              <label for="defaultTieBreaker" style="font-weight:400; margin-left:0.5em;">Default Monday Night
-                Tiebreaker</label>
-            </span>
+              <label class="tie-breaker-label" for="defaultTieBreaker">MNF Tiebreaker</label>
+            </div>
           </div>
         </div>
       </form>
