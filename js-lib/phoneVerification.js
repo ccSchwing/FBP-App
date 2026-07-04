@@ -29,26 +29,21 @@ function getStateLabel(stateKey) {
 }
 
 function deriveState(profileBody) {
-  const verifiedDigits = normalizePhoneNumber(
-    profileBody?.MobileNumber || profileBody?.mobileNumber || "",
-  );
-  const pendingDigits = normalizePhoneNumber(
-    profileBody?.pending_mobile_number || "",
-  );
+  const mobileDigits = normalizePhoneNumber(profileBody?.mobile_number || "");
   const status = String(profileBody?.sms_verification_status || "")
     .trim()
     .toUpperCase();
 
-  if (status === "VERIFIED" && verifiedDigits) {
-    return { stateKey: "verified", digits: verifiedDigits };
+  if (status === "VERIFIED" && mobileDigits) {
+    return { stateKey: "verified", digits: mobileDigits };
   }
 
-  if (status === "PENDING" && (pendingDigits || verifiedDigits)) {
-    return { stateKey: "pending", digits: pendingDigits || verifiedDigits };
+  if (status === "PENDING" && mobileDigits) {
+    return { stateKey: "pending", digits: mobileDigits };
   }
 
-  if (pendingDigits || verifiedDigits) {
-    return { stateKey: "pending", digits: pendingDigits || verifiedDigits };
+  if (mobileDigits) {
+    return { stateKey: "pending", digits: mobileDigits };
   }
 
   return { stateKey: "not-set", digits: "" };
@@ -85,7 +80,7 @@ export function initPhoneVerification({ resolveUserEmail } = {}) {
     verifyButton: "verifySMSMobileNumberBtn",
     stateBadge: "mobileVerificationState",
     stateMessage: "mobileVerificationMessage",
-    smsReminder: "smsReminders",
+    smsReminder: "smsReminder",
     smsPickSheet: "smsPickSheet",
     smsGridSheet: "smsGridSheet",
   };

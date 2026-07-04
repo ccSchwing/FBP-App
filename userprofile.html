@@ -140,6 +140,11 @@
     import { getServiceUrl } from "/js-lib/urlConfig.js";
 
     let email = null;
+    let originalMobileNumberDigits = "";
+
+    function normalizePhoneDigits(value) {
+      return (value || "").toString().replace(/\D/g, "").slice(0, 10);
+    }
 
     async function resolveUserEmail() {
       if (email) return email;
@@ -210,6 +215,12 @@
       paymentRadioButtons.forEach((radio) => {
         radio.checked = radio.value === paymentMethod;
       });
+      document.getElementById("smsReminder").checked =
+        responseBody.smsReminder || false;
+      document.getElementById("smsPickSheet").checked =
+        responseBody.smsPickSheet || false;
+      document.getElementById("smsGridSheet").checked =
+        responseBody.smsGridSheet || false;
       document.getElementById("emailPickSheet").checked =
         responseBody.emailPickSheet || false;
       document.getElementById("emailReminders").checked =
@@ -225,8 +236,9 @@
       });
       document.getElementById("defaultTieBreaker").value =
         responseBody.defaultTieBreaker || "";
-      document.getElementById("MobileNumber").value =
-        formatPhoneNumber(responseBody.MobileNumber || responseBody.mobileNumber || "");
+      const savedMobileNumber = responseBody.mobile_number || "";
+      originalMobileNumberDigits = normalizePhoneDigits(savedMobileNumber);
+      document.getElementById("MobileNumber").value = formatPhoneNumber(savedMobileNumber);
     }
 
     async function validateFormData() {
@@ -283,6 +295,10 @@
           .toString()
           .replace(/\D/g, "")
           .slice(0, 10);
+        if (mobileNumberDigits !== originalMobileNumberDigits) {
+          alert("Mobile number changes must be verified first. Use 'Text Me A Verification Code' and then 'Verify' before saving your profile.");
+          return;
+        }
         const resolvedEmail = await resolveUserEmail();
         if (!resolvedEmail) {
           throw new Error("No authenticated user email found for update");
@@ -313,11 +329,13 @@
           emailPickSheet: formData.get("emailPickSheet") === "on",
           emailReminders: formData.get("emailReminders") === "on",
           emailGridSheet: formData.get("emailGridSheet") === "on",
+          smsReminder: formData.get("smsReminder") === "on",
+          smsPickSheet: formData.get("smsPickSheet") === "on",
+          smsGridSheet: formData.get("smsGridSheet") === "on",
           defaultAlgorithm:
             document.querySelector('input[name="defaultAlgorithm"]:checked')
               ?.value || "",
           defaultTieBreaker: formData.get("defaultTieBreaker") || "",
-          MobileNumber: mobileNumberDigits,
         };
 
         const response = await fetch(lambdaURL, {
@@ -470,8 +488,8 @@
         </section>
         <div id="sms-notifications" style="display: flex; flex-direction: column; gap: 0.5em;">
           <div style="display: flex; align-items: center; gap: 0.5em;">
-            <label for="smsReminders">SMS Reminder:</label>
-            <input type="checkbox" name="smsReminders" id="smsReminders" disabled />
+            <label for="smsReminder">SMS Reminder:</label>
+            <input type="checkbox" name="smsReminder" id="smsReminder" disabled />
           </div>
           <div style="display: flex; align-items: center; gap: 0.5em;">
             <label for="smsPickSheet">SMS PickSheet:</label>
@@ -484,19 +502,18 @@
         </div>
         <div id="defaultAlgorithm" style="display: flex; flex-direction: column; gap: 0.5em; margin-bottom: 1.25rem;">
           <label for="DefaultAlgorithm" style="margin-bottom:0.25em; font-weight:500;">Default for Picks when you
-            don't
-            make picks:</label>
+            don't make picks:</label>
           <div style="display: flex; flex-direction: column; gap: 0.25em;">
             <span><input type="radio" value="away" name="defaultAlgorithm" id="alg-away"><label for="alg-away"
                 style="font-weight:400; margin-left:0.5em;">Away Teams</label></span>
             <span><input type="radio" value="home" name="defaultAlgorithm" id="alg-home"><label for="alg-home"
                 style="font-weight:400; margin-left:0.5em;">Home Teams</label></span>
             <span><input type="radio" value="favorites" name="defaultAlgorithm" id="alg-favorites"><label
-                for="alg-favorites" style="font-weight:400; margin-left:0.5em;">All Favorites</label></span>
+                for="alg-favorites" style="font-weight:400; margin-left:0.5em;">Favorites</label></span>
             <span><input type="radio" value="underdogs" name="defaultAlgorithm" id="alg-underdogs"><label
-                for="alg-underdogs" style="font-weight:400; margin-left:0.5em;">All UnderDogs</label></span>
+                for="alg-underdogs" style="font-weight:400; margin-left:0.5em;">Underdogs</label></span>
             <span><input type="radio" value="random" name="defaultAlgorithm" id="alg-random"><label for="alg-random"
-                style="font-weight:400; margin-left:0.5em;">All Random</label></span>
+                style="font-weight:400; margin-left:0.5em;">Random</label></span>
             <span>
               <span class="tooltip-wrap">
                 <input type="text" name="defaultTieBreaker" id="defaultTieBreaker" maxlength="2" size="2">
@@ -549,7 +566,10 @@
               radio.checked = radio.value === defaultAlgorithm;
             });
             document.getElementById("MobileNumber").value =
-              formatPhoneNumber(responseBody.MobileNumber || responseBody.mobileNumber || "");
+              formatPhoneNumber(responseBody.mobile_number || "");
+            originalMobileNumberDigits = normalizePhoneDigits(
+              responseBody.mobile_number || "",
+            );
           });
         }
       </script>

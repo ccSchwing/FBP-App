@@ -93,12 +93,17 @@ def getFBPUser():
                 'emailGridSheet': item.get('emailGridSheet'),
                 'emailPickSheet': item.get('emailPickSheet'),
                 'emailReminders': item.get('emailReminders'),
+                'smsReminder': item.get('smsReminder'),
+                'smsPickSheet': item.get('smsPickSheet'),
+                'smsGridSheet': item.get('smsGridSheet'),
                 'firstName': item.get('firstName'),
                 'lastName': item.get('lastName'),
                 'paymentMethod': item.get('paymentMethod'),
                 'isAccountLocked': item.get('isAccountLocked'),
                 'isAdmin': item.get('isAdmin'),
                 'isPaidUser': item.get('isPaidUser'),
+                'mobile_number': item.get('mobile_number'),
+                'sms_verification_status': item.get('sms_verification_status'),
                 },default=decimal_default)
             }
     else:
