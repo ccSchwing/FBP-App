@@ -1,6 +1,8 @@
 # AWS SAM / Serverless project .gitignore
 # Tailor this file to your runtime (Java / Node / Python / etc.) and CI/CD setup.
-
+#
+# Don't commit twilio-layer.
+twilio-layer/
 # -----------------------
 # SAM build & packaging
 # -----------------------

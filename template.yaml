@@ -74,11 +74,20 @@ Parameters:
       Type: String
       Description: AWS End User Messaging Notify Configuration ID
       Default: nc-1234567890abcdef0
-  DefaultPhoneNumber:
+  TwilioPhoneNumber:
     Type: String
-    Description: Default phone number for alerts
-    Default: '+17325007427'
+    Description: Originating Twilio phone number in E.164 format (e.g., +1234567890)
+    Default: '+16093012328'
     AllowedPattern: '^\+[1]\d{1,11}$'   # E.164 format, US numbers only
+  TwilioCredentialsSecretArn:
+      Type: String
+      Description: ARN of the Secrets Manager secret containing Twilio credentials
+      # Replace with the actual ARN of your secret. The secret should contain the Twilio Account SID and Auth Token.
+      Default: arn:aws:secretsmanager:us-east-1:768286545465:secret:TWILIO_SECRET-a6Y1ZP
+  TwilioSecret:
+    Type: String
+    Description: JSON string containing Twilio credentials (Account SID and Auth Token and Twilio Phone number).
+    Default: 'Twilio-Secret'
 Resources:
   FBPLibLayer:
     Type: AWS::Serverless::LayerVersion
@@ -316,6 +325,81 @@ Resources:
                 - sms-voice:DescribeNotifyTemplates
                 - sms-voice:DescribeNotifyConfiguration
                 Resource: '*'
+  AdvancedSMSServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: TwilioSMSPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - secretsmanager:GetSecretValue
+                Resource: !Ref TwilioCredentialsSecretArn ## Replace with actual ARN of the secret containing Twilio credentials
+        - PolicyName: XRayPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - xray:PutTraceSegments
+                  - xray:PutTelemetryRecords
+                Resource: "*"
+  AdvancedSMSService:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-advanced-sms-service"
+      CodeUri: src/AdvancedSMSService/src/  # Adjust path as needed
+      Handler: AdvancedSMSService.lambda_handler
+      Runtime: python3.12
+      Timeout: 30
+      MemorySize: 256
+      Role: !GetAtt AdvancedSMSServiceRole.Arn
+      Tracing: Active
+      Layers:
+        - !Ref FBPLibLayer
+      Events:
+        AdvancedSMSServicePost:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref MyHttpApi
+            Path: /advanced-sms
+            Method: POST
+            PayloadFormatVersion: '2.0'
+        GetUserStatusOptions:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref MyHttpApi
+            Path: /advanced-sms
+            Method: OPTIONS
+            PayloadFormatVersion: '2.0'
+      Environment:
+        Variables:
+          # Add any environment variables your new service needs
+          TWILIO_SECRET: !Ref TwilioSecret
+          TWILIO_PHONE_NUMBER: !Ref TwilioPhoneNumber
+          COMPANY_NAME: !Ref CompanyName
+          BASE_URL: !Ref BaseUrl
+          SUPPORT_EMAIL: !Ref SupportEmail
+          FBPUSERS_TABLE_NAME: !Ref FBPUsersTableName
+          FBPLOGS_TABLE_NAME: !Ref FBPLogsTableName
+          TWILIO_CREDENTIALS_SECRET_ARN: !Ref TwilioCredentialsSecretArn
+          # Powertools configuration
+          POWERTOOLS_SERVICE_NAME: email-service
+          POWERTOOLS_LOG_LEVEL: INFO
+          POWERTOOLS_METRICS_NAMESPACE: EmailService
+          POWERTOOLS_TRACER_CAPTURE_RESPONSE: true
+          POWERTOOLS_TRACER_CAPTURE_ERROR: true
   AdvancedEmailServiceRole:
     Type: AWS::IAM::Role
     Properties:
@@ -384,6 +468,7 @@ Resources:
           BASE_URL: !Ref BaseUrl
           SUPPORT_EMAIL: !Ref SupportEmail
           FBPUSERS_TABLE_NAME: !Ref FBPUsersTableName
+          FBPLOGS_TABLE_NAME: !Ref FBPLogsTableName
           
           # Powertools configuration
           POWERTOOLS_SERVICE_NAME: email-service
@@ -1370,6 +1455,21 @@ Outputs:
     Value: !Ref MyHttpApi
     Export:
       Name: !Sub ${AWS::StackName}-HttpApiId
+  AdvancedSMSServiceFunctionArn:
+    Description: ARN of the AdvancedSMSService Lambda function
+    Value: !GetAtt AdvancedSMSService.Arn
+    Export:
+      Name: !Sub "${AWS::StackName}-AdvancedSMSServiceFunctionArn"
+  AdvancedSMSServiceFunctionName:
+    Description: Name of the AdvancedSMSService Lambda function
+    Value: !Ref AdvancedSMSService
+    Export:
+      Name: !Sub "${AWS::StackName}-AdvancedSMSService"
+  AdvancedSMSServiceEndpoint:
+    Description: Endpoint for the AdvancedSMSService API
+    Value: !Sub "https://${MyHttpApi}.execute-api.${AWS::Region}.amazonaws.com/advancedSMSService"
+    Export:
+      Name: !Sub "${AWS::StackName}-AdvancedSMSEndpoint"
   SMSVerificationFunctionArn:
     Description: ARN of the SMSValidationUtils Lambda function
     Value: !GetAtt SMSValidationUtils.Arn
@@ -1488,7 +1588,12 @@ Outputs:
     Description: Name of the Advanced Email Service Lambda function
     Value: !Ref AdvancedEmailService
     Export:
-      Name: !Sub "${AWS::StackName}-AdvancedEmailServiceName"
+      Name: !Sub "${AWS::StackName}-AdvancedEmailService"
+  AdvancedEmailServiceApi:
+    Description: URL of the Advanced Email Service API endpoint
+    Value: !Sub https://${MyHttpApi}.execute-api.${AWS::Region}.amazonaws.com/prod/advancedEmailService
+    Export:
+      Name: !Sub ${AWS::StackName}-AdvancedEmailServiceApi
   SendEmailFunction:
     Description: SendEmail Lambda Function ARN
     Value: !GetAtt SendEmail.Arn
