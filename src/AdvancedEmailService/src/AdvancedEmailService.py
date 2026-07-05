@@ -1,11 +1,13 @@
 import json
 import boto3
-from typing import Dict, Any, List, Optional
+import os
+from typing import Dict, Any, Optional
 from enum import Enum
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
 from botocore.exceptions import ClientError
 from aws_lambda_powertools import Logger, Tracer, Metrics
 from aws_lambda_powertools.metrics import MetricUnit
+from fbplib.fbpLog import fbpLog
 
 logger = Logger()
 tracer = Tracer()
@@ -13,366 +15,324 @@ metrics = Metrics()
 
 class EmailType(Enum):
     WELCOME = "welcome"
-    PASSWORD_RESET = "password_reset"
-    ORDER_CONFIRMATION = "order_confirmation"
-    NOTIFICATION = "notification"
+    REMINDER = "reminder"
+    # Add more email types as you migrate from templates...
 
 @dataclass
-class EmailRequest:
-    email_type: EmailType
-    recipient: str
-    data: Dict[str, Any]
-    sender_name: Optional[str] = None
+class EmailResponse:
+    success: bool
+    message_id: Optional[str] = None
+    error: Optional[str] = None
+    email_type: Optional[str] = None
+    recipient: Optional[str] = None
 
-class AdvancedEmailService:
-    """Advanced email service with multiple email types"""
-    
-    def __init__(self, ses_client):
-        self.ses_client = ses_client
-        self.default_sender = "noreply@yourcompany.com"
-        self.company_name = "Your Company"
-    
+class EmailService:
+    """Production email service for Lambda chaining"""
+
+    def __init__(self):
+        self.ses_client = boto3.client('ses')
+        self.default_sender = os.environ.get('FROM_EMAIL', 'fbpadmin@my-fbp.com')
+        self.company_name = os.environ.get('COMPANY_NAME', 'FBP')
+        self.base_url = os.environ.get('BASE_URL', 'https://my-fbp.com')
+        self.support_email = os.environ.get('SUPPORT_EMAIL', 'fbpadmin@my-fbp.com')
+
     @tracer.capture_method
-    def send_email(self, email_request: EmailRequest) -> str:
-        """Route email sending based on type"""
-        
-        email_handlers = {
-            EmailType.WELCOME: self._send_welcome_email,
-            EmailType.PASSWORD_RESET: self._send_password_reset_email,
-            EmailType.ORDER_CONFIRMATION: self._send_order_confirmation_email,
-            EmailType.NOTIFICATION: self._send_notification_email
+    def _send_single_email(self, recipient: str, content_generator, data: Dict[str, Any], 
+                           reply_to: Optional[str], tags: Optional[Dict[str, str]], 
+                           email_type: str) -> EmailResponse:
+        """Send a single email and return response"""
+        subject, html_content, text_content = content_generator(data)
+
+        message_id = self._send_ses_email(
+            recipient=recipient,
+            subject=subject,
+            html_content=html_content,
+            text_content=text_content,
+            reply_to=reply_to,
+            tags=tags,
+            email_type=email_type
+        )
+
+        return EmailResponse(
+            success=True,
+            message_id=message_id,
+            email_type=email_type,
+            recipient=recipient
+        )
+
+    @tracer.capture_method
+    def send_email(self, email_type: str, recipient: str, data: Dict[str, Any], 
+                   reply_to: Optional[str] = None, 
+                   tags: Optional[Dict[str, str]] = None) -> EmailResponse:
+        """Main entry point for sending emails"""
+
+        try:
+            # Validate inputs
+            if not recipient or '@' not in recipient:
+                raise ValueError("Valid recipient email is required")
+
+            if not data:
+                data = {}
+
+            # Get email content generator
+            content_generator = self._get_content_generator(EmailType(email_type))
+
+            # Handle different email types
+            ##
+            # The welcome email is the only one that goes to an individual.
+            # The rest go to either all users, or those who have opted in.
+            # Each case can gather different recipients and send to them.
+            ##
+            match email_type:
+                case EmailType.WELCOME.value:
+                    # Handle welcome email - single recipient
+                    return self._send_single_email(recipient, content_generator, data, reply_to, tags, email_type)
+                case EmailType.REMINDER.value:
+                    # Reminder emails are normally sent to opted-in users from DynamoDB.
+                    # For local testing (or missing table config), fall back to provided recipient.
+                    reminder_users = []
+                    users_table_name = os.environ.get('FBPUSERS_TABLE_NAME')
+
+                    if users_table_name:
+                        try:
+                            users_table = boto3.resource('dynamodb').Table(users_table_name)
+                            email_addrs = users_table.scan(
+                                ProjectionExpression='email, firstName, emailReminders'
+                            ).get("Items", [])
+                            reminder_users = [
+                                user for user in email_addrs
+                                if user.get('emailReminders') is True and user.get('email')
+                            ]
+                        except Exception as scan_error:
+                            logger.warning(
+                                "Failed to query reminder users from DynamoDB; using fallback recipient",
+                                extra={"error": str(scan_error), "table_name": users_table_name}
+                            )
+                    else:
+                        logger.info(
+                            "FBP_USERS_TABLE_NAME is not set; using fallback recipient for reminder"
+                        )
+
+                    ##
+                    # If no reminder users are found, fall back to sending to the provided recipient.
+                    # No.
+                    # If you don't find any reminder users, that's okay.
+                    if not reminder_users:
+                        logger.info(
+                            "No reminder users found -- This could be the case if no users have opted in for reminders"
+                        )
+
+                    for user in reminder_users:
+                        user_data = dict(data)
+                        user_data["user_name"] = user.get("firstName") or user.get("email")
+                        self._send_single_email(
+                            user["email"],
+                            content_generator,
+                            user_data,
+                            reply_to,
+                            tags,
+                            email_type,
+                        )
+
+                    return EmailResponse(
+                        success=True,
+                        message_id=f"bulk:{len(reminder_users)}",
+                        email_type=email_type,
+                        recipient=recipient
+                    )
+                case _:
+                    logger.error("Invalid request type")
+                    fbpLog("fbpadmin@my-fbp.com", "GetFBPUser", "Invalid request type", "ERROR")
+                    return EmailResponse(
+                        success=False,
+                        error="Invalid request type",
+                        email_type=email_type,
+                        recipient=recipient
+                    )
+                
+        except Exception as e:
+            logger.error("Failed to send email", extra={
+                "error": str(e),
+                "email_type": email_type,
+                "recipient": recipient
+            })
+
+            return EmailResponse(
+                success=False,
+                error=str(e),
+                email_type=email_type,
+                recipient=recipient
+            )
+
+    def _get_content_generator(self, email_type: EmailType):
+        """Get the appropriate content generator for email type"""
+
+        generators = {
+            EmailType.WELCOME: self._generate_welcome_content,
+            EmailType.REMINDER: self._generate_reminder_content,
+            # Add more generators as you migrate from templates...
         }
-        
-        handler = email_handlers.get(email_request.email_type)
-        if not handler:
-            raise ValueError(f"Unsupported email type: {email_request.email_type}")
-        
-        return handler(email_request)
-    
-    def _send_welcome_email(self, request: EmailRequest) -> str:
-        """Send welcome email"""
-        user_name = request.data.get('user_name', 'User')
-        activation_link = request.data.get('activation_link', 'https://yourapp.com/activate')
-        
+
+        generator = generators.get(email_type)
+        if not generator:
+            raise ValueError(f"Unsupported email type: {email_type.value}")
+
+        return generator
+
+    def _generate_welcome_content(self, data: Dict[str, Any]) -> tuple:
+        """Generate welcome email content"""
+        user_name = data.get('user_name', 'User')
+
+        subject = f"Welcome to FBP -- Your Account is Ready"
+
         html_content = f"""
         <html>
-        <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 40px; text-align: center; color: white;">
-                <h1>Welcome to {self.company_name}! 🎉</h1>
-            </div>
-            <div style="padding: 30px;">
-                <h2>Hi {user_name},</h2>
-                <p>We're excited to have you on board! Your journey with us starts now.</p>
-                
-                <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
-                    <h3>🚀 Quick Start Guide:</h3>
-                    <ul>
-                        <li>Activate your account</li>
-                        <li>Complete your profile</li>
-                        <li>Explore our features</li>
-                    </ul>
-                </div>
-                
-                <div style="text-align: center; margin: 30px 0;">
-                    <a href="{activation_link}" 
-                       style="background-color: #28a745; color: white; padding: 15px 30px; 
-                              text-decoration: none; border-radius: 5px; font-weight: bold;">
-                        Activate Account
-                    </a>
-                </div>
-                
-                <p>Need help? Reply to this email or visit our <a href="https://yourapp.com/help">Help Center</a>.</p>
-            </div>
+        <body>
+            <h1>Welcome to {self.company_name}, {user_name}!</h1>
+            <p>Many thanks for joining {self.company_name}! Your account has been created successfully.</p>
+            <p>Quick Start Guide:</p>
+            <p>When you click on the FBP Home link, you'll be taken to the login screen.  Enter the email address
+            and your password and you'll be directed to the home page.</p>
+            <p>In the unlikely event that you've forgotten your password, don't panic.  You can easily reset it
+            at the login page itself.</p>
+            <ul>
+                <li>FBP Home: <a href="{self.base_url}">FBP Home</a></li>
+                <li>To pay for your membership: <a href="{self.base_url}/makepayment.html">Membership Payment Options</a></li>
+                <li>See the FAQ at <a href="{self.base_url}/faq.html">FAQ</a></li>
+            </ul>
+            <p>Need help? Contact us at <a href="mailto:{self.support_email}"><b>{self.support_email}</b></a></p>
+            <p>Best regards,<br>The {self.company_name} Team</p>
         </body>
         </html>
         """
-        
+
         text_content = f"""
-        Welcome to {self.company_name}!
-        
-        Hi {user_name},
-        
-        We're excited to have you on board! Your journey with us starts now.
-        
-        Quick Start Guide:
-        - Activate your account: {activation_link}
-        - Complete your profile
-        - Explore our features
-        
-        Need help? Reply to this email or visit: https://yourapp.com/help
-        
-        Best regards,
-        The {self.company_name} Team
+Hello {user_name} --\n\nWelcome to {self.company_name}! Your {self.company_name} account has been successfully created.\n\n
+Next Steps:\n
+1.  Go to {self.base_url}\n
+2. Make a payment for your membership: {self.base_url}/makepayment.html\n
+3. See the FAQ at {self.base_url}/faq.html\n
+Questions? Contact us at {self.support_email}.\n\n
+Best regards,\n
+The FBP Team
         """
-        
-        return self._send_ses_email(
-            recipient=request.recipient,
-            subject=f"Welcome to {self.company_name}, {user_name}! 🎉",
-            html_content=html_content,
-            text_content=text_content,
-            email_type="welcome"
-        )
-    
-    def _send_password_reset_email(self, request: EmailRequest) -> str:
-        """Send password reset email"""
-        user_name = request.data.get('user_name', 'User')
-        reset_link = request.data.get('reset_link')
-        expires_in = request.data.get('expires_in', '1 hour')
-        
-        if not reset_link:
-            raise ValueError("reset_link is required for password reset emails")
-        
+
+        return subject, html_content, text_content
+
+    def _generate_reminder_content(self, data: Dict[str, Any]) -> tuple:
+        """Generate reminder email content"""
+        user_name = data.get('user_name', 'User')
+
+        subject = f"Reminder from {self.company_name}"
+
         html_content = f"""
         <html>
-        <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <div style="background-color: #dc3545; padding: 30px; text-align: center; color: white;">
-                <h1>🔒 Password Reset Request</h1>
-            </div>
-            <div style="padding: 30px;">
-                <h2>Hi {user_name},</h2>
-                <p>We received a request to reset your password. If you didn't make this request, you can safely ignore this email.</p>
-                
-                <div style="background-color: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; border-radius: 5px; margin: 20px 0;">
-                    <strong>⚠️ Security Notice:</strong> This link expires in {expires_in}.
-                </div>
-                
-                <div style="text-align: center; margin: 30px 0;">
-                    <a href="{reset_link}" 
-                       style="background-color: #dc3545; color: white; padding: 15px 30px; 
-                              text-decoration: none; border-radius: 5px; font-weight: bold;">
-                        Reset Password
-                    </a>
-                </div>
-                
-                <p><small>If the button doesn't work, copy and paste this link: {reset_link}</small></p>
-            </div>
+        <body>
+            <h1>Reminder from {self.company_name}, {user_name}!</h1>
+            <p>This is a friendly reminder from {self.company_name}.</p>
+            <p>You still have time to make your {self.company_name} picks for the week.</p>
+            <p>Visit the {self.company_name} Home page to make your picks: <a href="{self.base_url}">{self.company_name} Home</a></p>
+            <p>If you have questions, contact us at <a href="mailto:{self.support_email}"><b>{self.support_email}</b></a></p>
+            <p>Best regards,<br>The {self.company_name} Team</p>
         </body>
         </html>
         """
-        
+
         text_content = f"""
-        Password Reset Request
-        
-        Hi {user_name},
-        
-        We received a request to reset your password. If you didn't make this request, you can safely ignore this email.
-        
-        Reset your password: {reset_link}
-        
-        Security Notice: This link expires in {expires_in}.
-        
-        Best regards,
-        The {self.company_name} Team
+Hello {user_name} --\n\nThis is a friendly reminder from {self.company_name}.\n\n
+You still have time to make your {self.company_name} picks for the week.\n
+Visit the {self.company_name} Home page to make your picks: {self.base_url}\n
+If you have questions, contact us at {self.support_email}.\n\n
+Best regards,\n
+The {self.company_name} Team
         """
-        
-        return self._send_ses_email(
-            recipient=request.recipient,
-            subject="Reset Your Password",
-            html_content=html_content,
-            text_content=text_content,
-            email_type="password_reset"
-        )
-    
-    def _send_order_confirmation_email(self, request: EmailRequest) -> str:
-        """Send order confirmation email"""
-        order_id = request.data.get('order_id')
-        customer_name = request.data.get('customer_name', 'Customer')
-        items = request.data.get('items', [])
-        total = request.data.get('total', '0.00')
-        tracking_url = request.data.get('tracking_url')
-        
-        # Generate items HTML
-        items_html = ""
-        for item in items:
-            items_html += f"""
-            <tr>
-                <td style="padding: 10px; border-bottom: 1px solid #eee;">{item.get('name', 'Item')}</td>
-                <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: center;">{item.get('quantity', 1)}</td>
-                <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: right;">${item.get('price', '0.00')}</td>
-            </tr>
-            """
-        
-        html_content = f"""
-        <html>
-        <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <div style="background-color: #28a745; padding: 30px; text-align: center; color: white;">
-                <h1>✅ Order Confirmed!</h1>
-                <p>Order #{order_id}</p>
-            </div>
-            <div style="padding: 30px;">
-                <h2>Thank you, {customer_name}!</h2>
-                <p>Your order has been confirmed and is being processed.</p>
-                
-                <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
-                    <h3>Order Details:</h3>
-                    <table style="width: 100%; border-collapse: collapse;">
-                        <thead>
-                            <tr style="background-color: #e9ecef;">
-                                <th style="padding: 10px; text-align: left;">Item</th>
-                                <th style="padding: 10px; text-align: center;">Qty</th>
-                                <th style="padding: 10px; text-align: right;">Price</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {items_html}
-                            <tr style="font-weight: bold; background-color: #e9ecef;">
-                                <td style="padding: 15px;" colspan="2">Total:</td>
-                                <td style="padding: 15px; text-align: right;">${total}</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-                
-                {f'<p><a href="{tracking_url}" style="color: #007bff;">Track your order</a></p>' if tracking_url else ''}
-                
-                <p>We'll send you another email when your order ships.</p>
-            </div>
-        </body>
-        </html>
-        """
-        
-        return self._send_ses_email(
-            recipient=request.recipient,
-            subject=f"Order Confirmation #{order_id}",
-            html_content=html_content,
-            text_content=f"Order #{order_id} confirmed. Total: ${total}",
-            email_type="order_confirmation"
-        )
-    
-    def _send_notification_email(self, request: EmailRequest) -> str:
-        """Send generic notification email"""
-        title = request.data.get('title', 'Notification')
-        message = request.data.get('message', '')
-        action_url = request.data.get('action_url')
-        action_text = request.data.get('action_text', 'View Details')
-        
-        html_content = f"""
-        <html>
-        <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <div style="background-color: #17a2b8; padding: 30px; text-align: center; color: white;">
-                <h1>📢 {title}</h1>
-            </div>
-            <div style="padding: 30px;">
-                <p>{message}</p>
-                
-                {f'''
-                <div style="text-align: center; margin: 30px 0;">
-                    <a href="{action_url}" 
-                       style="background-color: #17a2b8; color: white; padding: 15px 30px; 
-                              text-decoration: none; border-radius: 5px; font-weight: bold;">
-                        {action_text}
-                    </a>
-                </div>
-                ''' if action_url else ''}
-            </div>
-        </body>
-        </html>
-        """
-        
-        return self._send_ses_email(
-            recipient=request.recipient,
-            subject=title,
-            html_content=html_content,
-            text_content=f"{title}\n\n{message}" + (f"\n\n{action_text}: {action_url}" if action_url else ""),
-            email_type="notification"
-        )
-    
+
+        return subject, html_content, text_content
+
     @tracer.capture_method
     def _send_ses_email(self, recipient: str, subject: str, html_content: str, 
-                       text_content: str, email_type: str) -> str:
+                       text_content: str, email_type: str, reply_to: Optional[str] = None,
+                       tags: Optional[Dict[str, str]] = None) -> str:
         """Send email via SES"""
-        try:
-            response = self.ses_client.send_email(
-                Source=self.default_sender,
-                Destination={'ToAddresses': [recipient]},
-                Message={
-                    'Subject': {'Data': subject, 'Charset': 'UTF-8'},
-                    'Body': {
-                        'Html': {'Data': html_content, 'Charset': 'UTF-8'},
-                        'Text': {'Data': text_content, 'Charset': 'UTF-8'}
-                    }
+
+        send_args = {
+            'Source': self.default_sender,
+            'Destination': {'ToAddresses': [recipient]},
+            'Message': {
+                'Subject': {'Data': subject, 'Charset': 'UTF-8'},
+                'Body': {
+                    'Html': {'Data': html_content, 'Charset': 'UTF-8'},
+                    'Text': {'Data': text_content, 'Charset': 'UTF-8'}
                 }
-            )
-            
-            message_id = response['MessageId']
-            
-            logger.info("Email sent successfully", extra={
-                "message_id": message_id,
-                "recipient": recipient,
-                "email_type": email_type,
-                "subject": subject
-            })
-            
-            metrics.add_metric(name="EmailsSent", unit=MetricUnit.Count, value=1)
-            metrics.add_metadata(key="email_type", value=email_type)
-            
-            return message_id
-            
-        except ClientError as e:
-            logger.error("Failed to send email", extra={
-                "error_code": e.response['Error']['Code'],
-                "error_message": e.response['Error']['Message'],
-                "recipient": recipient,
-                "email_type": email_type
-            })
-            
-            metrics.add_metric(name="EmailErrors", unit=MetricUnit.Count, value=1)
-            metrics.add_metadata(key="email_type", value=email_type)
-            metrics.add_metadata(key="error_code", value=e.response['Error']['Code'])
-            
-            raise
+            }
+        }
+
+        if reply_to:
+            send_args['ReplyToAddresses'] = [reply_to]
+        if tags:
+            send_args['Tags'] = [{'Name': k, 'Value': v} for k, v in tags.items()]
+
+        response = self.ses_client.send_email(**send_args)
+        message_id = response['MessageId']
+
+        logger.info("Email sent successfully", extra={
+            "message_id": message_id,
+            "recipient": recipient,
+            "email_type": email_type
+        })
+
+        metrics.add_metric(name="EmailsSent", unit=MetricUnit.Count, value=1)
+        metrics.add_metadata(key="email_type", value=email_type)
+
+        return message_id
 
 # Initialize service
-email_service = AdvancedEmailService(boto3.client('ses'))
+email_service = EmailService()
 
 @logger.inject_lambda_context
-@tracer.capture_lambda_handler
+@tracer.capture_lambda_handler  
 @metrics.log_metrics
 def lambda_handler(event: Dict[str, Any], context) -> Dict[str, Any]:
-    """Advanced Lambda handler for multiple email types"""
+    """Lambda handler - receives event and sends email"""
     
     try:
-        body = json.loads(event.get('body', '{}'))
+        # Support both direct invocation events and API Gateway proxy events.
+        payload = event
+        if isinstance(event, dict) and "body" in event:
+            body = event.get("body")
+            if isinstance(body, str):
+                payload = json.loads(body) if body else {}
+            elif isinstance(body, dict):
+                payload = body
+
+        # Validate required fields
+        recipient = payload.get('recipient')
+        email_type = payload.get('email_type')
         
-        # Create email request
-        email_request = EmailRequest(
-            email_type=EmailType(body.get('email_type')),
-            recipient=body.get('recipient'),
-            data=body.get('data', {}),
-            sender_name=body.get('sender_name')
+        if not recipient or not isinstance(recipient, str):
+            raise ValueError("Valid recipient email is required")
+        if not email_type or not isinstance(email_type, str):
+            raise ValueError("Valid email_type is required")
+        
+        # Send email using the event data
+        data = payload.get('data', {})
+        if not isinstance(data, dict):
+            data = {}
+
+        result = email_service.send_email(
+            email_type=email_type,
+            recipient=recipient,
+            data=data,
+            reply_to=payload.get('reply_to') or data.get('reply_to'),
+            tags=payload.get('tags')
         )
         
-        # Send email
-        message_id = email_service.send_email(email_request)
+        # Return the result as a dict for your Lambda chain
+        return asdict(result)
         
-        return {
-            'statusCode': 200,
-            'body': json.dumps({
-                'message': f'{email_request.email_type.value} email sent successfully',
-                'message_id': message_id
-            })
-        }
-        
-    except ValueError as e:
-        logger.error("Invalid request", extra={"error": str(e)})
-        return {
-            'statusCode': 400,
-            'body': json.dumps({'error': str(e)})
-        }
-    
-    except ClientError as e:
-        logger.error("SES error", extra={"error": str(e)})
-        return {
-            'statusCode': 500,
-            'body': json.dumps({
-                'error': 'Failed to send email',
-                'details': e.response['Error']['Message']
-            })
-        }
-    
     except Exception as e:
-        logger.error("Unexpected error", extra={"error": str(e)})
+        logger.error("Lambda handler error", extra={"error": str(e)})
         return {
-            'statusCode': 500,
-            'body': json.dumps({'error': 'Internal server error'})
+            'success': False,
+            'error': str(e)
         }
