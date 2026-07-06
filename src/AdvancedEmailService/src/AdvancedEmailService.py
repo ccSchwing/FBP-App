@@ -61,14 +61,16 @@ class EmailService:
         )
 
     @tracer.capture_method
-    def send_email(self, email_type: str, recipient: str, data: Dict[str, Any], 
+    def send_email(self, email_type: str, recipient: Optional[str], data: Dict[str, Any], 
                    reply_to: Optional[str] = None, 
                    tags: Optional[Dict[str, str]] = None) -> EmailResponse:
         """Main entry point for sending emails"""
 
         try:
             # Validate inputs
-            if not recipient or '@' not in recipient:
+            if email_type == EmailType.WELCOME.value and (not recipient or '@' not in recipient):
+                raise ValueError("Valid recipient email is required")
+            if email_type != EmailType.REMINDER.value and (not recipient or '@' not in recipient):
                 raise ValueError("Valid recipient email is required")
 
             if not data:
@@ -308,11 +310,16 @@ def lambda_handler(event: Dict[str, Any], context) -> Dict[str, Any]:
         # Validate required fields
         recipient = payload.get('recipient')
         email_type = payload.get('email_type')
-        
-        if not recipient or not isinstance(recipient, str):
-            raise ValueError("Valid recipient email is required")
         if not email_type or not isinstance(email_type, str):
             raise ValueError("Valid email_type is required")
+        if email_type==EmailType.REMINDER.value and not recipient:
+            # For reminder emails, recipient is optional since it can be determined from DynamoDB.
+            logger.info("Reminder email request without recipient - will attempt to send to opted-in users")
+        ##
+        # if email_type is WELCOME, recipient is required and must be a valid email address.
+        ##
+        if email_type == EmailType.WELCOME.value and (not recipient or not isinstance(recipient, str)):
+            raise ValueError("Recipient email is required for welcome emails")
         
         # Send email using the event data
         data = payload.get('data', {})
