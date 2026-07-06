@@ -187,6 +187,8 @@ def validateAndFixFBPPicks():
         # for loop here to loop thru all email addrs.
         email=""
         picks=""
+        userPicks=""                    ## Use this to store the original picks from the user so that we can
+                                        ## show know what we changed.  This is only saved when we actually fix the picks.
         tieBreaker=""
         algorithm=""
         displayName=""
@@ -246,6 +248,7 @@ def validateAndFixFBPPicks():
             else:
                 picksItem = pickResponse['Items'][0]
                 picks = picksItem.get('picks')
+                userPicks = picks
                 if picks == '':
                     noPicks=True
                 decimalTieBreaker = picksItem.get('tieBreaker')
@@ -442,14 +445,22 @@ def validateAndFixFBPPicks():
                 tieBreaker = defaultTieBreaker
             if picksFixed:
                 pmb='System'
+                picksTable.update_item(
+                    Key={'email': email}, 
+                    UpdateExpression="SET #picks = :p, #tieBreaker = :t, #week = :w, #displayName = :d, #picksMadeBy = :pmb, #userPicks = :up",
+                    ExpressionAttributeNames={'#picks': 'picks', '#tieBreaker': 'tieBreaker', '#week': 'week', '#displayName': 'displayName', '#picksMadeBy': 'picksMadeBy', '#userPicks': 'userPicks'},
+                    ExpressionAttributeValues={':p': picks, ':t': tieBreaker, ':w': week, ':d': displayName, ':pmb': pmb, ':up': userPicks}
+            )
             else:
                 pmb='User'
-            picksTable.update_item(
-                Key={'email': email}, 
-                UpdateExpression="SET #picks = :p, #tieBreaker = :t, #week = :w, #displayName = :d, #picksMadeBy = :pmb",
-                ExpressionAttributeNames={'#picks': 'picks', '#tieBreaker': 'tieBreaker', '#week': 'week', '#displayName': 'displayName', '#picksMadeBy': 'picksMadeBy'},
-                ExpressionAttributeValues={':p': picks, ':t': tieBreaker, ':w': week, ':d': displayName, ':pmb': pmb}
+                userPicks = ""
+                picksTable.update_item(
+                    Key={'email': email}, 
+                    UpdateExpression="SET #picks = :p, #tieBreaker = :t, #week = :w, #displayName = :d, #picksMadeBy = :pmb, #userPicks = :up",
+                    ExpressionAttributeNames={'#picks': 'picks', '#tieBreaker': 'tieBreaker', '#week': 'week', '#displayName': 'displayName', '#picksMadeBy': 'picksMadeBy', '#userPicks': 'userPicks'},
+                    ExpressionAttributeValues={':p': picks, ':t': tieBreaker, ':w': week, ':d': displayName, ':pmb': pmb, ':up': userPicks}
             )
+
             ##
             # You need to reset your relevant flags and variables here for the next user in the loop.
             noPicks = False
@@ -457,6 +468,7 @@ def validateAndFixFBPPicks():
             noTieBreaker = False
             email=""
             picks=""
+            userPicks=""
             tieBreaker=""
             algorithm=""
             displayName=""
