@@ -31,3 +31,4 @@ FBPLedgerPayout:https://icvcclb0bj.execute-api.us-east-1.amazonaws.com/prod/payo
 storeSMSVerificationCode:https://icvcclb0bj.execute-api.us-east-1.amazonaws.com/prod/storeSMSVerificationCode
 getSMSVerificationCode:https://icvcclb0bj.execute-api.us-east-1.amazonaws.com/prod/getSMSVerificationCode
 updateSMSVerification:https://icvcclb0bj.execute-api.us-east-1.amazonaws.com/prod/updateSMSVerification
+advancedEmail:https://icvcclb0bj.execute-api.us-east-1.amazonaws.com/prod/advanced-email
