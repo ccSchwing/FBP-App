@@ -195,7 +195,8 @@ Resources:
           FBPLogsTableName: !Ref FBPLogsTableName
           SetPoolStatusOpen: !Ref SetPoolStatusOpen     # Open pool for new week.
           CalcWeeklyResults: !Ref CalcWeeklyResults     # Calc NFL Game Results for the week just ended.
-          UpdateWeeklyResults: !Ref UpdateWeeklyResults
+          UpdateWeeklyResults: !Ref UpdateWeeklyResults # Update User results.
+          ImportSpreadsAndFinalScores: !Ref ImportSpreadsAndFinalScores # Import spreads and final scores for the week.
           SendEmail: !Ref SendEmail
       Policies:
         - Version: '2012-10-17'
@@ -206,6 +207,7 @@ Resources:
               Resource:
                 - !GetAtt CalcWeeklyResults.Arn
                 - !GetAtt UpdateWeeklyResults.Arn
+                - !GetAtt ImportSpreadsAndFinalScores.Arn
                 - !GetAtt SendEmail.Arn
                 - !GetAtt SetPoolStatusOpen.Arn
         - DynamoDBCrudPolicy:
@@ -229,7 +231,7 @@ Resources:
           SetPoolStatusClosed: !Ref SetPoolStatusClosed     # Close pool for the week. This is the last thing done.
           SaveFBPPicks: !Ref SaveFBPPicks                   # Validate user picks
           SendEmail: !Ref SendEmail                         # Send email for PickSheet and GridSheet.
-          ImportSpreadsAndFinalScores: !Ref ImportSpreadsAndFinalScores
+          ImportSpreadsAndFinalScores: !Ref ImportSpreadsAndFinalScores # Import spreads and final scores for the week.
       Policies:
         - Version: '2012-10-17'
           Statement:

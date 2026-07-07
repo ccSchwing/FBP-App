@@ -383,6 +383,74 @@ def openPool(event, context):
                 }
             ),
         }
+        ##
+        # Call the ImportSpreadsAndFinalScores Lambda to import the spreads and final scores for the new week.
+        # This will allow the spreads and final scores to be in place by the time the users
+        # start making their picks for the new week.
+        ##
+    powertools_event = {
+        "version": "2.0",
+        "routeKey": "GET /importSpreadsAndFinalScores",
+        "rawPath": "/importSpreadsAndFinalScores",
+        "rawQueryString": "",
+        "headers": {"content-type": "application/json"},
+        "body": "" ,
+        "requestContext": {
+            "routeKey": "GET /importSpreadsAndFinalScores",
+            "stage": "$default",
+            "requestId": "local-request-id",
+            "apiId": "local",
+            "http": {
+                "method": "GET",
+                "path": "/importSpreadsAndFinalScores",
+                "protocol": "HTTP/1.1",
+                "sourceIp": "127.0.0.1",
+                "userAgent": "sam-local"
+            }
+        },
+        "isBase64Encoded": False
+    }
+
+    importSpreadsAndFinalScoresFunction = os.environ.get("ImportSpreadsAndFinalScores", "ImportSpreadsAndFinalScores")
+    response = lambda_client.invoke(
+        FunctionName=importSpreadsAndFinalScoresFunction,
+        InvocationType="RequestResponse",
+        Payload=json.dumps(powertools_event),
+    )
+    if response.get("StatusCode") == 200:
+        logging.info(
+            f"ImportSpreadsAndFinalScores succeeded, pool is now open for the new week: {response.get('week')}."
+        )
+        fbpLog(
+            "fbpadmin@my-fbp.com",
+            "openPool",
+            f"ImportSpreadsAndFinalScores succeeded, pool is now open for the new week: {response.get('week')}.",
+            "INFO",
+        )
+    else:
+        logging.error(
+            f"ImportSpreadsAndFinalScores failed with status code: {response.get('StatusCode')}"
+        )
+        fbpLog(
+            "fbpadmin@my-fbp.com",
+            "openPool",
+            f"ImportSpreadsAndFinalScores failed with status code: {response.get('StatusCode')}.",
+            "ERROR",
+        )
+        return {
+            "statusCode": 500,
+            "body": json.dumps(
+                {
+                    "status": "error",
+                    "message": f"ImportSpreadsAndFinalScores failed with status code: {response.get('StatusCode')}",
+                    "details": (
+                        response.get("Payload").read().decode("utf-8")
+                        if response.get("Payload")
+                        else {}
+                    ),
+                }
+            ),
+        }
     return {
         "statusCode": 200,
         "body": json.dumps(
