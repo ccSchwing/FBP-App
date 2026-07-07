@@ -35,6 +35,9 @@ Parameters:
   FBPWeeklyResults2025TableName:
     Type: String
     Default: FBP-Weekly-Results-2025
+  FBPTeamRecordsTableName:
+    Type: String
+    Default: 2025-Record
   FBPPayoutLedgerTableName:
     Type: String
     Default: FBP-Payout-Ledger
@@ -99,6 +102,45 @@ Resources:
         - python3.12
     Metadata:
       BuildMethod: python3.12
+  TeamRecord:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-team-record"
+      CodeUri: src/TeamRecord/src/
+      Handler: TeamRecord.lambda_handler
+      Runtime: python3.12
+      Layers:
+        - !Ref FBPLibLayer
+      Environment:
+        Variables:
+          FBPConfigTableName: !Ref FBPConfigTableName
+          FBPLogsTableName: !Ref FBPLogsTableName
+          FBPTeamRecordsTableName: !Ref FBPTeamRecordsTableName
+          FBPScheduleTableName: !Ref FBPScheduleTableName
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref FBPConfigTableName
+        - DynamoDBCrudPolicy:
+            TableName: !Ref FBPLogsTableName
+        - DynamoDBReadPolicy:
+            TableName: !Ref FBPScheduleTableName
+        - DynamoDBCrudPolicy:
+            TableName: !Ref FBPTeamRecordsTableName
+      Events:
+        TeamRecordGetApi:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref MyHttpApi
+            Path: /getTeamRecord
+            Method: get
+            PayloadFormatVersion: '2.0'
+        TeamRecordOptionsApi:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref MyHttpApi
+            Path: /getTeamRecord
+            Method: OPTIONS
+            PayloadFormatVersion: '2.0'
   FBPPayoutLedger:
     Type: AWS::Serverless::Function
     Properties:
