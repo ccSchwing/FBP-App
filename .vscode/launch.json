@@ -53,6 +53,23 @@
       ]
     },
     {
+      "name": "Python: Local Invoke and Debug TeamRecord",
+      "type": "debugpy",
+      "request": "attach",
+      "connect": {
+        "host": "localhost",
+        "port": 5678
+      },
+      "preLaunchTask": "Debug TeamRecord",
+      "postDebugTask": "Cleanup",
+      "pathMappings": [
+        {
+          "localRoot": "${workspaceFolder}/src/TeamRecord/src",
+          "remoteRoot": "/var/task"
+        }
+      ]
+    },
+    {
       "name": "Python: Attach to ImportSpreadsAndFinalScores",
       "type": "debugpy",
       "request": "attach",
