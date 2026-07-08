@@ -141,6 +141,42 @@ Resources:
             Path: /getTeamRecord
             Method: OPTIONS
             PayloadFormatVersion: '2.0'
+  GetTeamRecords:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-get-team-records"
+      CodeUri: src/GetTeamRecords/src/
+      Handler: GetTeamRecords.lambda_handler
+      Runtime: python3.12
+      Layers:
+        - !Ref FBPLibLayer
+      Environment:
+        Variables:
+          FBPConfigTableName: !Ref FBPConfigTableName
+          FBPLogsTableName: !Ref FBPLogsTableName
+          FBPTeamRecordsTableName: !Ref FBPTeamRecordsTableName
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref FBPConfigTableName
+        - DynamoDBCrudPolicy:
+            TableName: !Ref FBPLogsTableName
+        - DynamoDBCrudPolicy:
+            TableName: !Ref FBPTeamRecordsTableName
+      Events:
+        GetTeamRecordsApi:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref MyHttpApi
+            Path: /getTeamRecords
+            Method: get
+            PayloadFormatVersion: '2.0'
+        GetTeamRecordsOptionsApi:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref MyHttpApi
+            Path: /getTeamRecords
+            Method: OPTIONS
+            PayloadFormatVersion: '2.0'
   FBPPayoutLedger:
     Type: AWS::Serverless::Function
     Properties:
