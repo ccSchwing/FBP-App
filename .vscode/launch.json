@@ -70,6 +70,23 @@
       ]
     },
     {
+      "name": "Python: Local Invoke and Debug GetTeamRecords",
+      "type": "debugpy",
+      "request": "attach",
+      "connect": {
+        "host": "localhost",
+        "port": 5678
+      },
+      "preLaunchTask": "Debug GetTeamRecords",
+      "postDebugTask": "Cleanup",
+      "pathMappings": [
+        {
+          "localRoot": "${workspaceFolder}/src/GetTeamRecords/src",
+          "remoteRoot": "/var/task"
+        }
+      ]
+    },
+    {
       "name": "Python: Attach to ImportSpreadsAndFinalScores",
       "type": "debugpy",
       "request": "attach",
