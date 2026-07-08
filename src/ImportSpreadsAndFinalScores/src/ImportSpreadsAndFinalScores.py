@@ -28,6 +28,7 @@ def importSpreadsAndFinalScores(event, context):
     bucket_name = os.environ.get('S3BucketName', 'my-fbp.com')
     logger.info(f"Using S3 bucket: {bucket_name}")  # Log the bucket name being used
     week=getCurrentWeek()
+    week=5
     if week is None:
         logger.error("Failed to determine current week. Aborting import process.")
         fbpLog("fbpadmin@my-fbp.com", "ImportSpreads", "Failed to determine current week. Aborting import process.", "ERROR")
@@ -57,6 +58,7 @@ def importSpreadsAndFinalScores(event, context):
 
         logger.info(f"Retrieved {len(spreads_data)} objects from bucket: {bucket_name}")
         week = getCurrentWeek()
+        week = 5
         for spread in spreads_data:
             game_id = spread.pop('GameId', None)  # save before popping
             spread['Week'] = week
@@ -89,6 +91,27 @@ def importSpreadsAndFinalScores(event, context):
                 fbpLog("fbpadmin@my-fbp.com", "ImportSpreads", f"Unexpected error while processing spread data for game: {spread['homeTeam']} vs {spread['awayTeam']}. Error: {str(e)}", "ERROR")
         logger.info(f"Finished processing spreads data from {csvKey} and updating DynamoDB")
         fbpLog("fbpadmin@my-fbp.com", "ImportSpreads", f"Finished processing spreads data from {csvKey} and updating DynamoDB", "INFO")
+        ##
+        # Move the processed file to an archive folder in S3
+        ##
+        archive_key = f"schedule/2025-Schedule/archive/week{week}-schedule.csv"
+        try:
+            s3.copy_object(Bucket=bucket_name, CopySource={'Bucket': bucket_name, 'Key': csvKey}, Key=archive_key)
+            s3.delete_object(Bucket=bucket_name, Key=csvKey)
+            logger.info(f"Moved processed file from {csvKey} to {archive_key} in bucket: {bucket_name}")
+            fbpLog("fbpadmin@my-fbp.com", "ImportSpreads", 
+                   f"Moved processed file from {csvKey} to {archive_key} in bucket: {bucket_name}", "INFO")
+        except ClientError as e:
+            error_msg = e.response.get('Error', {}).get('Message', str(e))
+            logger.exception(f"Failed to move processed file from {csvKey} to {archive_key} in bucket: {bucket_name}. Error: {error_msg}")
+            fbpLog("fbpadmin@my-fbp.com", "ImportSpreads",
+                   f"Failed to move processed file from {csvKey} to {archive_key} in bucket: {bucket_name}. Error: {error_msg}", "ERROR")
+            return {
+                'statusCode': 202,
+                'body': json.dumps({
+                    'error': f'Spreads and Final Scores loaded, but failed to move processed file from {csvKey} to {archive_key} in bucket: {bucket_name}'
+                })
+            }
         return {
             'statusCode': 200,
             'body': json.dumps({
