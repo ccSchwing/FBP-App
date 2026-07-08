@@ -2,10 +2,10 @@ import json
 from decimal import Decimal
 import os
 from typing import Any, List, Dict
-import boto3
 import logging
 import csv
 import io
+import boto3
 from botocore.exceptions import ClientError
 from fbplib.fbpLog import fbpLog
 from fbplib.getCurrentWeek import getCurrentWeek
