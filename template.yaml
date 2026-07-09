@@ -73,10 +73,6 @@ Parameters:
     Description: Support email address for the company
     Default: fbpadmin@my-fbp.com
   # Parameters for SMS
-  NotifyConfigId:
-      Type: String
-      Description: AWS End User Messaging Notify Configuration ID
-      Default: nc-1234567890abcdef0
   TwilioPhoneNumber:
     Type: String
     Description: Originating Twilio phone number in E.164 format (e.g., +1234567890)
@@ -102,6 +98,14 @@ Resources:
         - python3.12
     Metadata:
       BuildMethod: python3.12
+  TwilioLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      LayerName: twilio-layer
+      Description: Twilio Python SDK
+      ContentUri: twilio-layer/twilio-layer.zip
+      CompatibleRuntimes:
+        - python3.12
   TeamRecord:
     Type: AWS::Serverless::Function
     Properties:
@@ -383,28 +387,6 @@ Resources:
       Action: lambda:InvokeFunction
       Principal: ses.amazonaws.com
       SourceAccount: !Ref AWS::AccountId
-  SendSMS:
-    Type: AWS::Serverless::Function
-    Properties:
-      CodeUri: src/SendSMS/src/
-      Handler: SendSMS.lambda_handler
-      Runtime: python3.12
-      Environment:
-        Variables:
-          NOTIFY_CONFIG_ID: nc-your-actual-config-id
-          DEFAULT_PHONE_NUMBER: +1234567890
-          MY_REGION: us-east-1
-      Layers:
-        - !Ref FBPLibLayer
-      Policies:
-          - Version: '2012-10-17'
-            Statement:
-              - Effect: Allow
-                Action:
-                - sms-voice:SendNotifyTextMessage
-                - sms-voice:DescribeNotifyTemplates
-                - sms-voice:DescribeNotifyConfiguration
-                Resource: '*'
   AdvancedSMSServiceRole:
     Type: AWS::IAM::Role
     Properties:
@@ -448,6 +430,7 @@ Resources:
       Tracing: Active
       Layers:
         - !Ref FBPLibLayer
+        - !Ref TwilioLayer
       Events:
         AdvancedSMSServicePost:
           Type: HttpApi

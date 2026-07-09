@@ -36,7 +36,7 @@ class AdvancedSMSService:
     def _get_secrets(self) -> dict:
         client = boto3.client('secretsmanager')
         # Twilio Secret has the account SID, auth token, and phone number stored as a JSON string
-        response = client.get_secret_value(SecretId=os.environ['TWILIO_SECRET'])
+        response = client.get_secret_value(SecretId=os.environ['TWILIO_CREDENTIALS_SECRET_ARN'])
         return json.loads(response['SecretString']) 
     
 
@@ -63,6 +63,8 @@ class AdvancedSMSService:
         
         Hi {user_name},
         Your account has been successfully created.
+        Visit {self.fbpHomeUrl} to get started.
+        FAQ and support: {self.fbpHomeUrl}/faq.html
         Best regards,
         The {self.company_name} Team
         """
@@ -80,6 +82,7 @@ class AdvancedSMSService:
         text_content = f"""
         Hi {user_name},
         FBP is now open for picks.  See: {self.fbpHomeUrl}
+        FAQ and support: {self.fbpHomeUrl}/faq.html
         Best regards,
         The {self.company_name} Team
         """
@@ -117,6 +120,7 @@ class AdvancedSMSService:
                 "sms_type": sms_type
             })
             
+            # amazonq-ignore-next-line
             metrics.add_metric(name="SMSErrors", unit=MetricUnit.Count, value=1)
             metrics.add_metadata(key="sms_type", value=sms_type)
             metrics.add_metadata(key="error_message", value=str(e))
@@ -129,7 +133,9 @@ sms_service = AdvancedSMSService()
 @logger.inject_lambda_context
 @tracer.capture_lambda_handler
 @metrics.log_metrics
+# amazonq-ignore-next-line
 def lambda_handler(event: Dict[str, Any], context) -> Dict[str, Any]:
+    # amazonq-ignore-next-line
     """Lambda handler for SMS sending"""
     
     try:
