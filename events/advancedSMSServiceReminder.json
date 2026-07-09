@@ -6,7 +6,7 @@
   "headers": {
     "content-type": "application/json"
   },
-  "body": "{\"sms_type\":\"reminder\",\"recipient\":\"+16099155867\", \"data\": {\"user_name\": \"Bee\"}}",
+  "body": "{\"sms_type\":\"reminder\",\"recipient\":\"+19086017802\", \"data\": {\"user_name\": \"David\"}}",
   "requestContext": {
     "http": {
       "method": "POST",
