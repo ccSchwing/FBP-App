@@ -252,6 +252,15 @@ manifest_hash = ""
 packagetype = "Zip"
 functions = ["AdvancedSMSService"]
 
+[function_build_definitions.4a295fb4-d41f-4e21-9cda-c51803f1352b]
+codeuri = "/Users/ccs/projects/FBP/src/TeamRecord/src"
+runtime = "python3.12"
+architecture = "x86_64"
+handler = "TeamRecord.lambda_handler"
+manifest_hash = ""
+packagetype = "Zip"
+functions = ["TeamRecord"]
+
 [layer_build_definitions.c020c0c2-a411-414b-8fed-0bfd4c531f8d]
 layer_name = "FBPLibLayer"
 codeuri = "/Users/ccs/projects/FBP/src/FBPLib-Layer"

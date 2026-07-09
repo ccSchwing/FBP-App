@@ -103,7 +103,83 @@ def openPool(event, context):
     # Green light.  Let's do this thing.  : -)
     # The calcWeeklyResults calculates the NFL Game Results and sets the winner for each game.
     ##
+
+
+    ##
+    # You need to import the results for the week that just ended before you can calculate the weekly results, so call the ImportResults Lambda first.
+    # This will import the spreads and final scores for the week that just ended, which are needed to calculate the weekly results.
+    ##
+    ##
+    # Call the ImportSpreadsAndFinalScores Lambda to import the spreads and final scores for the new week.
+    # This will allow the spreads and final scores to be in place by the time the users
+    # start making their picks for the new week.
+    ##
+    powertools_event = {
+        "version": "2.0",
+        "routeKey": "GET /importSpreadsAndFinalScores",
+        "rawPath": "/importSpreadsAndFinalScores",
+        "rawQueryString": "",
+        "headers": {"content-type": "application/json"},
+        "body": "" ,
+        "requestContext": {
+            "routeKey": "GET /importSpreadsAndFinalScores",
+            "stage": "$default",
+            "requestId": "local-request-id",
+            "apiId": "local",
+            "http": {
+                "method": "GET",
+                "path": "/importSpreadsAndFinalScores",
+                "protocol": "HTTP/1.1",
+                "sourceIp": "127.0.0.1",
+                "userAgent": "sam-local"
+            }
+        },
+        "isBase64Encoded": False
+    }
+
     lambda_client = boto3.client("lambda")
+
+    importSpreadsAndFinalScoresFunction = os.environ.get("ImportSpreadsAndFinalScores", "ImportSpreadsAndFinalScores")
+    response = lambda_client.invoke(
+        FunctionName=importSpreadsAndFinalScoresFunction,
+        InvocationType="RequestResponse",
+        Payload=json.dumps(powertools_event),
+    )
+    if response.get("StatusCode") == 200:
+        logging.info(
+            f"ImportSpreadsAndFinalScores succeeded, pool is now open for the new week: {response.get('Week')}."
+        )
+        fbpLog(
+            "fbpadmin@my-fbp.com",
+            "openPool",
+            f"ImportSpreadsAndFinalScores succeeded, pool is now open for the new week: {response.get('Week')}.",
+            "INFO",
+        )
+    else:
+        logging.error(
+            f"ImportSpreadsAndFinalScores failed with status code: {response.get('StatusCode')}"
+        )
+        fbpLog(
+            "fbpadmin@my-fbp.com",
+            "openPool",
+            f"ImportSpreadsAndFinalScores failed with status code: {response.get('StatusCode')}.",
+            "ERROR",
+        )
+        return {
+            "statusCode": 500,
+            "body": json.dumps(
+                {
+                    "status": "error",
+                    "message": f"ImportSpreadsAndFinalScores failed with status code: {response.get('StatusCode')}",
+                    "details": (
+                        response.get("Payload").read().decode("utf-8")
+                        if response.get("Payload")
+                        else {}
+                    ),
+                }
+            ),
+        }
+
     powertools_event = {
         "version": "2.0",
         "routeKey": "GET /calcWeeklyResults",
@@ -327,6 +403,12 @@ def openPool(event, context):
     logging.info(f"SendEmail Response: {response}")
     fbpLog("fbpadmin@my-fbp.com", "openPool", f"SendEmail Response: {response}", "INFO")
 
+        ##
+        # Call the ImportSpreadsAndFinalScores Lambda to import the spreads and final scores for the new week.
+        # This will allow the spreads and final scores to be in place by the time the users
+        # start making their picks for the new week.
+        ##
+
     setPoolOpenFunction = os.environ.get("SetPoolStatusOpen", "SetPoolStatusOpen")
     powertools_event = {
         "version": "2.0",
@@ -357,12 +439,12 @@ def openPool(event, context):
     )
     if response.get("StatusCode") == 200:
         logging.info(
-            f"SetPoolStatusOpen succeeded, pool is now open for the new week: {response.get('week')}."
+            f"SetPoolStatusOpen succeeded, pool is now open for the new week: {response.get('Week')}."
         )
         fbpLog(
             "fbpadmin@my-fbp.com",
             "openPool",
-            f"SetPoolStatusOpen succeeded, pool is now open for the new week: {response.get('week')}.",
+            f"SetPoolStatusOpen succeeded, pool is now open for the new week: {response.get('Week')}.",
             "INFO",
         )
     else:
@@ -383,6 +465,84 @@ def openPool(event, context):
                 }
             ),
         }
+        ##
+    ##
+    # You need to import the results for the week that just ended before you can calculate the weekly results, so call the ImportResults Lambda first.
+    # This will import the spreads and final scores for the week that just ended, which are needed to calculate the weekly results.
+    ##
+    ##
+    # Call the ImportSpreadsAndFinalScores Lambda to import the spreads and final scores for the new week.
+    # This will allow the spreads and final scores to be in place by the time the users
+    # start making their picks for the new week.
+    ##
+    powertools_event = {
+        "version": "2.0",
+        "routeKey": "GET /importSpreadsAndFinalScores",
+        "rawPath": "/importSpreadsAndFinalScores",
+        "rawQueryString": "",
+        "headers": {"content-type": "application/json"},
+        "body": "" ,
+        "requestContext": {
+            "routeKey": "GET /importSpreadsAndFinalScores",
+            "stage": "$default",
+            "requestId": "local-request-id",
+            "apiId": "local",
+            "http": {
+                "method": "GET",
+                "path": "/importSpreadsAndFinalScores",
+                "protocol": "HTTP/1.1",
+                "sourceIp": "127.0.0.1",
+                "userAgent": "sam-local"
+            }
+        },
+        "isBase64Encoded": False
+    }
+
+    ##
+    # Now, import the Spreads for the new week.
+    # This will allow the spreads to be in place by the time the users start making their picks for the new week.
+    ##
+    importSpreadsAndFinalScoresFunction = os.environ.get("ImportSpreadsAndFinalScores", "ImportSpreadsAndFinalScores")
+    response = lambda_client.invoke(
+        FunctionName=importSpreadsAndFinalScoresFunction,
+        InvocationType="RequestResponse",
+        Payload=json.dumps(powertools_event),
+    )
+    if response.get("StatusCode") == 200:
+        logging.info(
+            f"ImportSpreadsAndFinalScores succeeded, pool is now open for the new week: {response.get('Week')}."
+        )
+        fbpLog(
+            "fbpadmin@my-fbp.com",
+            "openPool",
+            f"ImportSpreadsAndFinalScores succeeded, pool is now open for the new week: {response.get('Week')}.",
+            "INFO",
+        )
+    else:
+        logging.error(
+            f"ImportSpreadsAndFinalScores failed with status code: {response.get('StatusCode')}"
+        )
+        fbpLog(
+            "fbpadmin@my-fbp.com",
+            "openPool",
+            f"ImportSpreadsAndFinalScores failed with status code: {response.get('StatusCode')}.",
+            "ERROR",
+        )
+        return {
+            "statusCode": 500,
+            "body": json.dumps(
+                {
+                    "status": "error",
+                    "message": f"ImportSpreadsAndFinalScores failed with status code: {response.get('StatusCode')}",
+                    "details": (
+                        response.get("Payload").read().decode("utf-8")
+                        if response.get("Payload")
+                        else {}
+                    ),
+                }
+            ),
+        }
+
     return {
         "statusCode": 200,
         "body": json.dumps(

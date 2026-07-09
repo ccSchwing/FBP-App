@@ -53,6 +53,40 @@
       ]
     },
     {
+      "name": "Python: Local Invoke and Debug TeamRecord",
+      "type": "debugpy",
+      "request": "attach",
+      "connect": {
+        "host": "localhost",
+        "port": 5678
+      },
+      "preLaunchTask": "Debug TeamRecord",
+      "postDebugTask": "Cleanup",
+      "pathMappings": [
+        {
+          "localRoot": "${workspaceFolder}/src/TeamRecord/src",
+          "remoteRoot": "/var/task"
+        }
+      ]
+    },
+    {
+      "name": "Python: Local Invoke and Debug GetTeamRecords",
+      "type": "debugpy",
+      "request": "attach",
+      "connect": {
+        "host": "localhost",
+        "port": 5678
+      },
+      "preLaunchTask": "Debug GetTeamRecords",
+      "postDebugTask": "Cleanup",
+      "pathMappings": [
+        {
+          "localRoot": "${workspaceFolder}/src/GetTeamRecords/src",
+          "remoteRoot": "/var/task"
+        }
+      ]
+    },
+    {
       "name": "Python: Attach to ImportSpreadsAndFinalScores",
       "type": "debugpy",
       "request": "attach",
@@ -354,6 +388,23 @@
       "pathMappings": [
         {
           "localRoot": "${workspaceFolder}/src/AdvancedEmailService/src",
+          "remoteRoot": "/var/task"
+        }
+      ]
+    },
+    {
+      "name": "Python: Attach to AdvancedSMSService",
+      "type": "debugpy",
+      "request": "attach",
+      "connect": {
+        "host": "localhost",
+        "port": 5678
+      },
+      "preLaunchTask": "Attach to AdvancedSMSService",
+      "postDebugTask": "Cleanup",
+      "pathMappings": [
+        {
+          "localRoot": "${workspaceFolder}/src/AdvancedSMSService/src",
           "remoteRoot": "/var/task"
         }
       ]

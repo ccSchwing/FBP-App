@@ -35,6 +35,9 @@ Parameters:
   FBPWeeklyResults2025TableName:
     Type: String
     Default: FBP-Weekly-Results-2025
+  FBPTeamRecordsTableName:
+    Type: String
+    Default: 2025-Record
   FBPPayoutLedgerTableName:
     Type: String
     Default: FBP-Payout-Ledger
@@ -70,10 +73,6 @@ Parameters:
     Description: Support email address for the company
     Default: fbpadmin@my-fbp.com
   # Parameters for SMS
-  NotifyConfigId:
-      Type: String
-      Description: AWS End User Messaging Notify Configuration ID
-      Default: nc-1234567890abcdef0
   TwilioPhoneNumber:
     Type: String
     Description: Originating Twilio phone number in E.164 format (e.g., +1234567890)
@@ -99,6 +98,89 @@ Resources:
         - python3.12
     Metadata:
       BuildMethod: python3.12
+  TwilioLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      LayerName: twilio-layer
+      Description: Twilio Python SDK
+      ContentUri: twilio-layer/twilio-layer.zip
+      CompatibleRuntimes:
+        - python3.12
+  TeamRecord:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-team-record"
+      CodeUri: src/TeamRecord/src/
+      Handler: TeamRecord.lambda_handler
+      Runtime: python3.12
+      Layers:
+        - !Ref FBPLibLayer
+      Environment:
+        Variables:
+          FBPConfigTableName: !Ref FBPConfigTableName
+          FBPLogsTableName: !Ref FBPLogsTableName
+          FBPTeamRecordsTableName: !Ref FBPTeamRecordsTableName
+          FBPScheduleTableName: !Ref FBPScheduleTableName
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref FBPConfigTableName
+        - DynamoDBCrudPolicy:
+            TableName: !Ref FBPLogsTableName
+        - DynamoDBReadPolicy:
+            TableName: !Ref FBPScheduleTableName
+        - DynamoDBCrudPolicy:
+            TableName: !Ref FBPTeamRecordsTableName
+      Events:
+        TeamRecordGetApi:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref MyHttpApi
+            Path: /getTeamRecord
+            Method: get
+            PayloadFormatVersion: '2.0'
+        TeamRecordOptionsApi:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref MyHttpApi
+            Path: /getTeamRecord
+            Method: OPTIONS
+            PayloadFormatVersion: '2.0'
+  GetTeamRecords:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-get-team-records"
+      CodeUri: src/GetTeamRecords/src/
+      Handler: GetTeamRecords.lambda_handler
+      Runtime: python3.12
+      Layers:
+        - !Ref FBPLibLayer
+      Environment:
+        Variables:
+          FBPConfigTableName: !Ref FBPConfigTableName
+          FBPLogsTableName: !Ref FBPLogsTableName
+          FBPTeamRecordsTableName: !Ref FBPTeamRecordsTableName
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref FBPConfigTableName
+        - DynamoDBCrudPolicy:
+            TableName: !Ref FBPLogsTableName
+        - DynamoDBCrudPolicy:
+            TableName: !Ref FBPTeamRecordsTableName
+      Events:
+        GetTeamRecordsApi:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref MyHttpApi
+            Path: /getTeamRecords
+            Method: get
+            PayloadFormatVersion: '2.0'
+        GetTeamRecordsOptionsApi:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref MyHttpApi
+            Path: /getTeamRecords
+            Method: OPTIONS
+            PayloadFormatVersion: '2.0'
   FBPPayoutLedger:
     Type: AWS::Serverless::Function
     Properties:
@@ -195,7 +277,8 @@ Resources:
           FBPLogsTableName: !Ref FBPLogsTableName
           SetPoolStatusOpen: !Ref SetPoolStatusOpen     # Open pool for new week.
           CalcWeeklyResults: !Ref CalcWeeklyResults     # Calc NFL Game Results for the week just ended.
-          UpdateWeeklyResults: !Ref UpdateWeeklyResults
+          UpdateWeeklyResults: !Ref UpdateWeeklyResults # Update User results.
+          ImportSpreadsAndFinalScores: !Ref ImportSpreadsAndFinalScores # Import spreads and final scores for the week.
           SendEmail: !Ref SendEmail
       Policies:
         - Version: '2012-10-17'
@@ -206,6 +289,7 @@ Resources:
               Resource:
                 - !GetAtt CalcWeeklyResults.Arn
                 - !GetAtt UpdateWeeklyResults.Arn
+                - !GetAtt ImportSpreadsAndFinalScores.Arn
                 - !GetAtt SendEmail.Arn
                 - !GetAtt SetPoolStatusOpen.Arn
         - DynamoDBCrudPolicy:
@@ -229,7 +313,7 @@ Resources:
           SetPoolStatusClosed: !Ref SetPoolStatusClosed     # Close pool for the week. This is the last thing done.
           SaveFBPPicks: !Ref SaveFBPPicks                   # Validate user picks
           SendEmail: !Ref SendEmail                         # Send email for PickSheet and GridSheet.
-          ImportSpreadsAndFinalScores: !Ref ImportSpreadsAndFinalScores
+          ImportSpreadsAndFinalScores: !Ref ImportSpreadsAndFinalScores # Import spreads and final scores for the week.
       Policies:
         - Version: '2012-10-17'
           Statement:
@@ -303,28 +387,6 @@ Resources:
       Action: lambda:InvokeFunction
       Principal: ses.amazonaws.com
       SourceAccount: !Ref AWS::AccountId
-  SendSMS:
-    Type: AWS::Serverless::Function
-    Properties:
-      CodeUri: src/SendSMS/src/
-      Handler: SendSMS.lambda_handler
-      Runtime: python3.12
-      Environment:
-        Variables:
-          NOTIFY_CONFIG_ID: nc-your-actual-config-id
-          DEFAULT_PHONE_NUMBER: +1234567890
-          MY_REGION: us-east-1
-      Layers:
-        - !Ref FBPLibLayer
-      Policies:
-          - Version: '2012-10-17'
-            Statement:
-              - Effect: Allow
-                Action:
-                - sms-voice:SendNotifyTextMessage
-                - sms-voice:DescribeNotifyTemplates
-                - sms-voice:DescribeNotifyConfiguration
-                Resource: '*'
   AdvancedSMSServiceRole:
     Type: AWS::IAM::Role
     Properties:
@@ -368,6 +430,7 @@ Resources:
       Tracing: Active
       Layers:
         - !Ref FBPLibLayer
+        - !Ref TwilioLayer
       Events:
         AdvancedSMSServicePost:
           Type: HttpApi
@@ -1444,6 +1507,11 @@ Resources:
             Path: /getAllFBPPicks
             Method: OPTIONS
 
+# Outputs policy:
+# - Keep only values actively consumed by frontend config, scripts, or other stacks.
+# - Prefer endpoint URLs, IDs, and function names; avoid ARN outputs unless required.
+# - If an output has Export.Name, verify no stack imports it before renaming/removing.
+# - Keep this section under 60 entries to stay within CloudFormation limits.
 Outputs:
   HttpAPiUrl:
     Description: URL of the HTTP API gateway
@@ -1455,11 +1523,6 @@ Outputs:
     Value: !Ref MyHttpApi
     Export:
       Name: !Sub ${AWS::StackName}-HttpApiId
-  AdvancedSMSServiceFunctionArn:
-    Description: ARN of the AdvancedSMSService Lambda function
-    Value: !GetAtt AdvancedSMSService.Arn
-    Export:
-      Name: !Sub "${AWS::StackName}-AdvancedSMSServiceFunctionArn"
   AdvancedSMSServiceFunctionName:
     Description: Name of the AdvancedSMSService Lambda function
     Value: !Ref AdvancedSMSService
@@ -1470,11 +1533,6 @@ Outputs:
     Value: !Sub "https://${MyHttpApi}.execute-api.${AWS::Region}.amazonaws.com/advancedSMSService"
     Export:
       Name: !Sub "${AWS::StackName}-AdvancedSMSEndpoint"
-  SMSVerificationFunctionArn:
-    Description: ARN of the SMSValidationUtils Lambda function
-    Value: !GetAtt SMSValidationUtils.Arn
-    Export:
-      Name: !Sub "${AWS::StackName}-SMSVerificationCodeFunctionArn"
   SMSVerificationFunctionName:
     Description: Name of the SMSValidationUtils Lambda function
     Value: !Ref SMSValidationUtils
@@ -1495,11 +1553,11 @@ Outputs:
     Value: !Sub "https://${MyHttpApi}.execute-api.${AWS::Region}.amazonaws.com/updateSMSVerification"
     Export:
       Name: !Sub "${AWS::StackName}-SMSUpdateVerificationCodeEndpoint"
-  FBPPayoutLedgerFunctionArn:
-    Description: ARN of the FBP Payout Ledger Lambda function
-    Value: !GetAtt FBPPayoutLedger.Arn
+  GetTeamRecordsEndpoint:
+    Description: Endpoint for the GetTeamRecords API
+    Value: !Sub "https://${MyHttpApi}.execute-api.${AWS::Region}.amazonaws.com/getTeamRecords"
     Export:
-      Name: !Sub "${AWS::StackName}-FBPPayoutLedgerFunctionArn"
+      Name: !Sub "${AWS::StackName}-GetTeamRecordsEndpoint"
   FBPPayoutLedgerFunctionName:
     Description: Name of the FBP Payout Ledger Lambda function
     Value: !Ref FBPPayoutLedger
@@ -1524,11 +1582,6 @@ Outputs:
   FBPLedgerPayoutEndpoint:
     Description: POST endpoint for payouts
     Value: !Sub "https://${MyHttpApi}.execute-api.${AWS::Region}.amazonaws.com/payout"
-  GetUserStatusFunctionArn:
-    Description: ARN of the GetUserStatus Lambda function
-    Value: !GetAtt GetUserStatus.Arn
-    Export:
-      Name: !Sub "${AWS::StackName}-GetUserStatusFunctionArn"
   GetUserStatusFunctionName:
     Description: Name of the GetUserStatus Lambda function
     Value: !Ref GetUserStatus
@@ -1539,11 +1592,6 @@ Outputs:
     Value: !Sub https://${MyHttpApi}.execute-api.${AWS::Region}.amazonaws.com/prod/getUserStatus
     Export:
       Name: !Sub ${AWS::StackName}-GetUserStatusApi
-  GetScheduleFunctionArn:
-    Description: ARN of the GetSchedule Lambda function
-    Value: !GetAtt GetSchedule.Arn
-    Export:
-      Name: !Sub "${AWS::StackName}-GetScheduleFunctionArn"
   GetScheduleFunctionName:
     Description: Name of the GetSchedule Lambda function
     Value: !Ref GetSchedule
@@ -1554,11 +1602,6 @@ Outputs:
     Value: !Sub https://${MyHttpApi}.execute-api.${AWS::Region}.amazonaws.com/prod/getschedule
     Export:
       Name: !Sub ${AWS::StackName}-GetScheduleApi
-  QueryFBPLogsFunctionArn:
-    Description: ARN of the QueryFBPLogs Lambda function
-    Value: !GetAtt QueryFBPLogs.Arn
-    Export:
-      Name: !Sub "${AWS::StackName}-QueryFBPLogsFunctionArn"
   QueryFBPLogsFunctionName:
     Description: Name of the QueryFBPLogs Lambda function
     Value: !Ref QueryFBPLogs
@@ -1569,21 +1612,11 @@ Outputs:
     Value: !Sub https://${MyHttpApi}.execute-api.${AWS::Region}.amazonaws.com/prod/queryFBPLogs
     Export:
       Name: !Sub ${AWS::StackName}-QueryFBPLogsApi
-  EmailForwardingArn:
-    Description: ARN of the email forwarding Lambda function
-    Value: !GetAtt EmailForwarding.Arn
-    Export:
-      Name: !Sub "${AWS::StackName}-EmailForwardingArn"
   EmailForwardingName:
     Description: Name of the email forwarding Lambda function
     Value: !Ref EmailForwarding
     Export:
       Name: !Sub "${AWS::StackName}-EmailForwardingName"
-  AdvancedEmailServiceArn:
-    Description: ARN of the Advanced Email Service Lambda function
-    Value: !GetAtt AdvancedEmailService.Arn
-    Export:
-      Name: !Sub "${AWS::StackName}-AdvancedEmailServiceArn"
   AdvancedEmailServiceName:
     Description: Name of the Advanced Email Service Lambda function
     Value: !Ref AdvancedEmailService
@@ -1594,74 +1627,47 @@ Outputs:
     Value: !Sub https://${MyHttpApi}.execute-api.${AWS::Region}.amazonaws.com/prod/advancedEmailService
     Export:
       Name: !Sub ${AWS::StackName}-AdvancedEmailServiceApi
-  SendEmailFunction:
-    Description: SendEmail Lambda Function ARN
-    Value: !GetAtt SendEmail.Arn
   SendEmailApi:
     Description: SendEmail API Endpoint
     Value: !Sub https://${MyHttpApi}.execute-api.${AWS::Region}.amazonaws.com/prod/sendEmail
     Export:
       Name: !Sub ${AWS::StackName}-SendEmailApi
 
-  GetStandingsFunction:
-    Description: GetStandings Lambda Function ARN
-    Value: !GetAtt GetStandings.Arn
   GetStandingsApi:
     Description: GetStandings API Endpoint
     Value: !Sub https://${MyHttpApi}.execute-api.${AWS::Region}.amazonaws.com/prod/getStandings
     Export:
       Name: !Sub ${AWS::StackName}-GetStandingsApi
-  GetListForEmailFunction:
-    Description: GetListOfEmails Lambda Function ARN
-    Value: !GetAtt GetListForEmail.Arn
   GetListForEmailApi:
     Description: GetListOfEmails API Endpoint
     Value: !Sub https://${MyHttpApi}.execute-api.${AWS::Region}.amazonaws.com/prod/getListForEmail
     Export:
       Name: !Sub ${AWS::StackName}-GetListForEmailApi
-  GetAllFBPEmailAndDisplayNameFunction:
-    Description: GetAllFBPEmailAndDisplayName Lambda Function ARN
-    Value: !GetAtt GetAllFBPEmailAndDisplayName.Arn
   GetAllFBPEmailAndDisplayNameApi:
     Description: GetAllFBPEmailAndDisplayName API Endpoint
     Value: !Sub https://${MyHttpApi}.execute-api.${AWS::Region}.amazonaws.com/prod/getAllFBPUserEmailAndDisplayName
     Export:
       Name: !Sub ${AWS::StackName}-GetAllFBPEmailAndDisplayNameApi
-  GetFBPEmailAndDisplayNameFunction:
-    Description: GetFBPEmailAndDisplayName Lambda Function ARN
-    Value: !GetAtt GetFBPEmailAndDisplayName.Arn
   GetFBPEmailAndDisplayNameApi:
     Description: GetFBPEmailAndDisplayName API Endpoint
     Value: !Sub https://${MyHttpApi}.execute-api.${AWS::Region}.amazonaws.com/prod/getFBPUserEmailAndDisplayName
     Export:
       Name: !Sub ${AWS::StackName}-GetFBPEmailAndDisplayNameApi
-  GetWeeklyResultsFunction:
-    Description: GetWeeklyResults Lambda Function ARN
-    Value: !GetAtt GetWeeklyResults.Arn
   GetWeeklyResultsApi:
     Description: GetWeeklyResults API Endpoint
     Value: !Sub https://${MyHttpApi}.execute-api.${AWS::Region}.amazonaws.com/prod/getWeeklyResults
     Export:
       Name: !Sub ${AWS::StackName}-GetWeeklyResultsApi
-  CalcWeeklyResultsFunction:
-    Description: CalcWeeklyResultsLambda Function ARN
-    Value: !GetAtt CalcWeeklyResults.Arn
   CalcWeeklyResultsApi:
     Description: CalcWeeklyResults API Endpoint
     Value: !Sub https://${MyHttpApi}.execute-api.${AWS::Region}.amazonaws.com/prod/calcWeeklyResults
     Export:
       Name: !Sub ${AWS::StackName}-CalcWeeklyResultsApi
-  SaveFBPPicksFunction:
-    Description: SaveFBPPicks Lambda Function ARN
-    Value: !GetAtt SaveFBPPicks.Arn
   SaveFBPPicksApi:
     Description: SaveFBPPicks API Endpoint
     Value: !Sub https://${MyHttpApi}.execute-api.${AWS::Region}.amazonaws.com/prod/saveFBPPicks
     Export:
       Name: !Sub ${AWS::StackName}-SaveFBPPicksApi
-  GetPickSheetFunction:
-    Description: GetPickSheet Lambda Function ARN
-    Value: !GetAtt GetPickSheet.Arn
   GetPickSheetApi:
     Description: GetPickSheet API Endpoint
     Value: !Sub https://${MyHttpApi}.execute-api.${AWS::Region}.amazonaws.com/prod/getPickSheetPython
@@ -1672,26 +1678,17 @@ Outputs:
     Value: !Sub https://${MyHttpApi}.execute-api.${AWS::Region}.amazonaws.com/prod/getFBPPicksPython
     Export:
       Name: !Sub ${AWS::StackName}-GetFBPPicksApi
-  GetPoolOpenFunction:
-    Description: GetPoolOpen Lambda Function ARN
+  GetPoolOpenApi:
+    Description: GetPoolOpen API Endpoint
     Value: !Sub https://${MyHttpApi}.execute-api.${AWS::Region}.amazonaws.com/prod/getPoolOpen
     Export:
-      Name: !Sub "${AWS::StackName}-GetPoolOpenFunctionArn"
+      Name: !Sub "${AWS::StackName}-GetPoolOpenApi"
 
-  GetPoolConfigFunction:
-    Description: GetPoolConfig Lambda Function ARN
-    Value: !GetAtt GetPoolConfig.Arn
-  SetPoolStatusOpenFunction:
-    Description: SetPoolStatusOpen Lambda Function ARN
-    Value: !GetAtt SetPoolStatusOpen.Arn
   SetPoolStatusOpenApi:
     Description: SetPoolStatusOpen API Endpoint
     Value: !Sub https://${MyHttpApi}.execute-api.${AWS::Region}.amazonaws.com/prod/setPoolStatusOpen
     Export:
       Name: !Sub ${AWS::StackName}-SetPoolStatusApi
-  SetPoolStatusClosedFunction:
-    Description: SetPoolStatusClosed Lambda Function ARN
-    Value: !GetAtt SetPoolStatusClosed.Arn
   SetPoolStatusClosedApi:
     Description: SetPoolStatusClosed API Endpoint
     Value: !Sub https://${MyHttpApi}.execute-api.${AWS::Region}.amazonaws.com/prod/setPoolStatusClosed
