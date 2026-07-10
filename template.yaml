@@ -38,6 +38,9 @@ Parameters:
   FBPTeamRecordsTableName:
     Type: String
     Default: 2025-Record
+  TwilioOptOutTableName:
+    Type: String
+    Default: FBP-SMS-Opt-Outs
   FBPPayoutLedgerTableName:
     Type: String
     Default: FBP-Payout-Ledger
@@ -106,6 +109,40 @@ Resources:
       ContentUri: twilio-layer/twilio-layer.zip
       CompatibleRuntimes:
         - python3.12
+  TwilioWebHook:
+     Type: AWS::Serverless::Function
+     Properties:
+      FunctionName: !Sub "${AWS::StackName}-twilio-webhook"
+      CodeUri: src/TwilioWebHook/src/
+      Handler: TwilioWebHook.lambda_handler
+      Runtime: python3.12
+      Layers:
+         - !Ref FBPLibLayer
+         - !Ref TwilioLayer
+      Environment:
+         Variables:
+           TwilioOptOutTableName: !Ref TwilioOptOutTableName
+           FBPLogsTableName: !Ref FBPLogsTableName
+      Policies:
+         - DynamoDBCrudPolicy:
+             TableName: !Ref TwilioOptOutTableName
+         - DynamoDBCrudPolicy:
+             TableName: !Ref FBPLogsTableName
+      Events:
+        TwilioWebHookPost:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref MyHttpApi
+            Path: /twilio-webhook
+            Method: post
+            PayloadFormatVersion: '2.0'
+        TwilioWebHookOptionsApi:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref MyHttpApi
+            Path: /twilio-webhook
+            Method: OPTIONS
+            PayloadFormatVersion: '2.0'
   TeamRecord:
     Type: AWS::Serverless::Function
     Properties:
@@ -456,6 +493,7 @@ Resources:
           SUPPORT_EMAIL: !Ref SupportEmail
           FBPUSERS_TABLE_NAME: !Ref FBPUsersTableName
           FBPLOGS_TABLE_NAME: !Ref FBPLogsTableName
+          TWILIO_OPT_OUT_TABLE_NAME: !Ref TwilioOptOutTableName
           TWILIO_CREDENTIALS_SECRET_ARN: !Ref TwilioCredentialsSecretArn
           # Powertools configuration
           POWERTOOLS_SERVICE_NAME: email-service
@@ -1533,6 +1571,16 @@ Outputs:
     Value: !Sub "https://${MyHttpApi}.execute-api.${AWS::Region}.amazonaws.com/advancedSMSService"
     Export:
       Name: !Sub "${AWS::StackName}-AdvancedSMSEndpoint"
+  # TwilioWebhookFunctionName:
+  #   Description: Name of the TwilioWebhook Lambda function
+  #   Value: !Ref TwilioWebHook
+  #   Export:
+  #     Name: !Sub "${AWS::StackName}-twilio-webhook"
+  TwilioWebhookEndpoint:
+    Description: Endpoint for the TwilioWebhook API
+    Value: !Sub "https://${MyHttpApi}.execute-api.${AWS::Region}.amazonaws.com/twilio-webhook"
+    Export:
+      Name: !Sub "${AWS::StackName}-twilio-webhook-endpoint"
   SMSVerificationFunctionName:
     Description: Name of the SMSValidationUtils Lambda function
     Value: !Ref SMSValidationUtils
