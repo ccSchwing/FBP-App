@@ -218,62 +218,62 @@ def closePool():
             ),
         }
 
-    ##
-    # Send PickSheet and GridSheet to users who have opted in.
-    ##
-    powertools_event = {
-        "version": "2.0",
-        "routeKey": "POST /sendEmail",
-        "rawPath": "/sendEmail",
-        "rawQueryString": "",
-        "headers": {"content-type": "application/json"},
-        "body": '{"templateName": "PickSheetTemplate"}',
-        "requestContext": {
-            "http": {
-                "method": "POST",
-                "path": "/sendEmail",
-                "protocol": "HTTP/1.1",
-                "sourceIp": "127.0.0.1",
-                "userAgent": "sam-local",
-            },
-            "routeKey": "POST /sendEmail",
-            "stage": "$default",
-        },
-        "isBase64Encoded": False,
-    }
+    # ##
+    # # Send PickSheet and GridSheet to users who have opted in.
+    # ##
+    # powertools_event = {
+    #     "version": "2.0",
+    #     "routeKey": "POST /sendEmail",
+    #     "rawPath": "/sendEmail",
+    #     "rawQueryString": "",
+    #     "headers": {"content-type": "application/json"},
+    #     "body": '{"templateName": "PickSheetTemplate"}',
+    #     "requestContext": {
+    #         "http": {
+    #             "method": "POST",
+    #             "path": "/sendEmail",
+    #             "protocol": "HTTP/1.1",
+    #             "sourceIp": "127.0.0.1",
+    #             "userAgent": "sam-local",
+    #         },
+    #         "routeKey": "POST /sendEmail",
+    #         "stage": "$default",
+    #     },
+    #     "isBase64Encoded": False,
+    # }
 
-    sendEmailFunction = os.environ.get("SendEmail", "SendEmail")
-    response = lambda_client.invoke(
-        FunctionName=sendEmailFunction,
-        InvocationType="RequestResponse",
-        Payload=json.dumps(powertools_event),
-    )
-    logging.info(f"SendEmail Response: {response}")
-    result = json.loads(response["Payload"].read())
-    logging.info(f"SendEmail Result: {result}")
-    if result.get("statusCode") == 200:
-        body = result.get("body")
-        logging.info(f"SendEmail Body: {body}")
-        if isinstance(body, str):
-            body = json.loads(body)
-        if result.get("statusCode") == 200:
-            logging.info(f"SendEmail Body: {body}")
-            logging.info("SendEmail succeeded, proceeding to next steps.")
-            # Here you would add the logic to invoke the next Lambda functions for emailing users, updating pool status, etc.
-    else:
-        logging.error(f"SendEmail failed with status code: {result.get('statusCode')}")
-        return {
-            "statusCode": 500,
-            "body": json.dumps(
-                {
-                    "status": "error",
-                    "message": f"SendEmail failed with status code: {result.get('statusCode')}",
-                    "details": result.get("body", {}),
-                }
-            ),
-        }
+    # sendEmailFunction = os.environ.get("SendEmail", "SendEmail")
+    # response = lambda_client.invoke(
+    #     FunctionName=sendEmailFunction,
+    #     InvocationType="RequestResponse",
+    #     Payload=json.dumps(powertools_event),
+    # )
+    # logging.info(f"SendEmail Response: {response}")
+    # result = json.loads(response["Payload"].read())
+    # logging.info(f"SendEmail Result: {result}")
+    # if result.get("statusCode") == 200:
+    #     body = result.get("body")
+    #     logging.info(f"SendEmail Body: {body}")
+    #     if isinstance(body, str):
+    #         body = json.loads(body)
+    #     if result.get("statusCode") == 200:
+    #         logging.info(f"SendEmail Body: {body}")
+    #         logging.info("SendEmail succeeded, proceeding to next steps.")
+    #         # Here you would add the logic to invoke the next Lambda functions for emailing users, updating pool status, etc.
+    # else:
+    #     logging.error(f"SendEmail failed with status code: {result.get('statusCode')}")
+    #     return {
+    #         "statusCode": 500,
+    #         "body": json.dumps(
+    #             {
+    #                 "status": "error",
+    #                 "message": f"SendEmail failed with status code: {result.get('statusCode')}",
+    #                 "details": result.get("body", {}),
+    #             }
+    #         ),
+    #     }
     ##
-    # Send PickSheet and GridSheet to users who have opted in.
+    # Send GridSheet to users who have opted in.
     ##
     powertools_event = {
         "version": "2.0",

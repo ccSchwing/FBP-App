@@ -1,5 +1,5 @@
 {
-  "email_type": "reminder",
+  "email_type": "picksheet",
   "recipient": "chuckschwing@proton.me", 
   "data": {
     "user_name": "Chuck Schwing",
