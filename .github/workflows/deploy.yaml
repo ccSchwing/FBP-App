@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-      STACK_NAME: fbp-lambda-v1-python
+      STACK_NAME: fbp
       S3_BUCKET: my-fbp.com
       S3_LAMBDA_BUCKET: my-fbp.com-v2
     
