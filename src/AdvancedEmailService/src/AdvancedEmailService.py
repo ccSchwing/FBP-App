@@ -16,6 +16,7 @@ metrics = Metrics()
 class EmailType(Enum):
     WELCOME = "welcome"
     REMINDER = "reminder"
+    PICKSHEET = "picksheet"
     # Add more email types as you migrate from templates...
 
 @dataclass
@@ -35,6 +36,17 @@ class EmailService:
         self.company_name = os.environ.get('COMPANY_NAME', 'FBP')
         self.base_url = os.environ.get('BASE_URL', 'https://my-fbp.com')
         self.support_email = os.environ.get('SUPPORT_EMAIL', 'fbpadmin@my-fbp.com')
+
+    @staticmethod
+    def _is_opted_in(value: Any) -> bool:
+        """Normalize DynamoDB opt-in values that may be stored as bool, number, or string."""
+        if isinstance(value, bool):
+            return value
+        if isinstance(value, (int, float)):
+            return value != 0
+        if isinstance(value, str):
+            return value.strip().lower() in {"true", "1", "yes", "y", "on"}
+        return False
 
     @tracer.capture_method
     def _send_single_email(self, recipient: str, content_generator, data: Dict[str, Any], 
@@ -61,14 +73,18 @@ class EmailService:
         )
 
     @tracer.capture_method
-    def send_email(self, email_type: str, recipient: str, data: Dict[str, Any], 
+    def send_email(self, email_type: str, recipient: Optional[str], data: Dict[str, Any], 
                    reply_to: Optional[str] = None, 
                    tags: Optional[Dict[str, str]] = None) -> EmailResponse:
         """Main entry point for sending emails"""
 
         try:
             # Validate inputs
-            if not recipient or '@' not in recipient:
+            if email_type == EmailType.WELCOME.value and (not recipient or '@' not in recipient):
+                raise ValueError("Valid recipient email is required")
+            if email_type != EmailType.REMINDER.value and (not recipient or '@' not in recipient):
+                raise ValueError("Valid recipient email is required")
+            if email_type != EmailType.PICKSHEET.value and (not recipient or '@' not in recipient):
                 raise ValueError("Valid recipient email is required")
 
             if not data:
@@ -86,11 +102,13 @@ class EmailService:
             match email_type:
                 case EmailType.WELCOME.value:
                     # Handle welcome email - single recipient
+                    if not recipient:
+                        raise ValueError("Recipient email is required for welcome emails")
                     return self._send_single_email(recipient, content_generator, data, reply_to, tags, email_type)
                 case EmailType.REMINDER.value:
                     # Reminder emails are normally sent to opted-in users from DynamoDB.
                     # For local testing (or missing table config), fall back to provided recipient.
-                    reminder_users = []
+                    reminder_users = {}
                     users_table_name = os.environ.get('FBPUSERS_TABLE_NAME')
 
                     if users_table_name:
@@ -99,10 +117,11 @@ class EmailService:
                             email_addrs = users_table.scan(
                                 ProjectionExpression='email, firstName, emailReminders'
                             ).get("Items", [])
-                            reminder_users = [
-                                user for user in email_addrs
-                                if user.get('emailReminders') is True and user.get('email')
-                            ]
+                            reminder_users = {
+                                (user["email"], user.get("firstName")): user
+                                for user in email_addrs
+                                if self._is_opted_in(user.get('emailReminders')) and user.get('email')
+                            }
                         except Exception as scan_error:
                             logger.warning(
                                 "Failed to query reminder users from DynamoDB; using fallback recipient",
@@ -122,7 +141,7 @@ class EmailService:
                             "No reminder users found -- This could be the case if no users have opted in for reminders"
                         )
 
-                    for user in reminder_users:
+                    for (user_email, user_first_name), user in reminder_users.items():
                         user_data = dict(data)
                         user_data["user_name"] = user.get("firstName") or user.get("email")
                         self._send_single_email(
@@ -139,6 +158,62 @@ class EmailService:
                         message_id=f"bulk:{len(reminder_users)}",
                         email_type=email_type,
                         recipient=recipient
+                    )
+                case EmailType.PICKSHEET.value:
+                        # Picksheet emails are normally sent to opted-in users from DynamoDB.
+                        # For local testing (or missing table config), fall back to provided recipient.
+                        picksheet_users = {}
+                        users_table_name = os.environ.get('FBPUSERS_TABLE_NAME')
+
+                        if users_table_name:
+                            try:
+                                users_table = boto3.resource('dynamodb').Table(users_table_name)
+                                email_addrs = users_table.scan(
+                                    ProjectionExpression='email, firstName, emailPickSheet'
+                                ).get("Items", [])
+                             
+
+                                picksheet_users = {
+                                (user["email"], user.get("firstName")): user
+                                for user in email_addrs
+                                if self._is_opted_in(user.get('emailPickSheet')) and user.get('email')
+                            }
+                            except Exception as scan_error:
+                                logger.warning(
+                                    "Failed to query picksheet users from DynamoDB; using fallback recipient",
+                                    extra={"error": str(scan_error), "table_name": users_table_name}
+                                )
+                        else:
+                            logger.info(
+                                "FBP_USERS_TABLE_NAME is not set; using fallback recipient for picksheet"
+                            )
+
+                        ##
+                        # If no picksheet users are found, fall back to sending to the provided recipient.
+                        # No.
+                        # If you don't find any picksheet users, that's okay.
+                        if not picksheet_users:
+                            logger.info(
+                                "No picksheet users found -- This could be the case if no users have opted in for picksheet emails"
+                            )
+
+                        for (user_email, user_first_name), user in picksheet_users.items():
+                            user_data = dict(data)
+                            user_data["user_name"] = user_first_name or user_email
+                            self._send_single_email(
+                            user_email,
+                            content_generator,
+                            user_data,
+                            reply_to,
+                            tags,
+                            email_type,
+                        )
+
+                        return EmailResponse(
+                            success=True,
+                            message_id=f"bulk:{len(picksheet_users)}",
+                            email_type=email_type,
+                            recipient=recipient
                     )
                 case _:
                     logger.error("Invalid request type")
@@ -170,6 +245,7 @@ class EmailService:
         generators = {
             EmailType.WELCOME: self._generate_welcome_content,
             EmailType.REMINDER: self._generate_reminder_content,
+            EmailType.PICKSHEET: self._generate_picksheet_content,
             # Add more generators as you migrate from templates...
         }
 
@@ -249,6 +325,36 @@ The {self.company_name} Team
 
         return subject, html_content, text_content
 
+    def _generate_picksheet_content(self, data: Dict[str, Any]) -> tuple:
+        """Generate picksheet email content"""
+        user_name = data.get('user_name', 'User')
+
+        subject = f"{self.company_name} Is Open for Picks."
+
+        html_content = f"""
+        <html>
+        <body>
+            <h1>Hi {user_name} from {self.company_name}!</h1>
+            <p>Visit the {self.company_name} Home page to make your picks: <a href="{self.base_url}">{self.company_name} Home</a></p>
+            <p>If you have questions, contact us at <a href="mailto:{self.support_email}"><b>{self.support_email}</b></a></p>
+            <p>See the FAQ at <a href="{self.base_url}/faq.html">FAQ</a></p>
+            <p>Best regards,<br>The {self.company_name} Team</p>
+        </body>
+        </html>
+        """
+
+        text_content = f"""
+Hello {user_name} --\n\nHi {user_name} from {self.company_name}.\n\n
+Visit the {self.company_name} Home page to make your picks: {self.base_url}\n
+If you have questions, contact us at {self.support_email}.\n\n
+See the FAQ at {self.base_url}/faq.html\n\n
+Best regards,\n
+The {self.company_name} Team
+        """
+
+        return subject, html_content, text_content
+
+
     @tracer.capture_method
     def _send_ses_email(self, recipient: str, subject: str, html_content: str, 
                        text_content: str, email_type: str, reply_to: Optional[str] = None,
@@ -308,22 +414,22 @@ def lambda_handler(event: Dict[str, Any], context) -> Dict[str, Any]:
         # Validate required fields
         recipient = payload.get('recipient')
         email_type = payload.get('email_type')
-        
-        if not recipient or not isinstance(recipient, str):
-            raise ValueError("Valid recipient email is required")
         if not email_type or not isinstance(email_type, str):
             raise ValueError("Valid email_type is required")
+        if email_type==EmailType.REMINDER.value and not recipient:
+            # For reminder emails, recipient is optional since it can be determined from DynamoDB.
+            logger.info("Reminder email request without recipient - will attempt to send to opted-in users")
+        ##
+        # if email_type is WELCOME, recipient is required and must be a valid email address.
+        ##
+        if email_type == EmailType.WELCOME.value and (not recipient or not isinstance(recipient, str)):
+            raise ValueError("Recipient email is required for welcome emails")
         
-        # Send email using the event data
-        data = payload.get('data', {})
-        if not isinstance(data, dict):
-            data = {}
-
         result = email_service.send_email(
             email_type=email_type,
             recipient=recipient,
-            data=data,
-            reply_to=payload.get('reply_to') or data.get('reply_to'),
+            data=payload,
+            reply_to=payload.get('reply_to'),
             tags=payload.get('tags')
         )
         

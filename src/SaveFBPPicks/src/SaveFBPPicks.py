@@ -57,6 +57,7 @@ def isValidPickString(s: str) -> bool:
         return False
     return bool(pattern.match(s))
 
+@tracer.capture_method
 @app.post("/saveFBPPicks")
 def saveFBPPicks():
     fbpLog("fbpadmin@my-fbp.com", "SaveFBPPicksPython", "Saving FBP picks", "INFO")
@@ -102,12 +103,11 @@ def saveFBPPicks():
                 tieBreaker = random.randint(21, 63)
 
         logger.info(f"Extracted email from API Gateway event: {email}")
-        logger.info(f"Extracted picks from API Gateway event: {picks}")
         table.update_item(
             Key={'email': email}, 
-            UpdateExpression="SET #picks = :p, #tieBreaker = :t, #week = :w",
-            ExpressionAttributeNames={'#picks': 'picks', '#tieBreaker': 'tieBreaker', '#week': 'week'},
-            ExpressionAttributeValues={':p': picks, ':t': tieBreaker, ':w': week}
+            UpdateExpression="SET #picks = :p, #tieBreaker = :t, #week = :w, #picksMadeBy = :pmb",
+            ExpressionAttributeNames={'#picks': 'picks', '#tieBreaker': 'tieBreaker', '#week': 'week', '#picksMadeBy': 'picksMadeBy'},
+            ExpressionAttributeValues={':p': picks, ':t': tieBreaker, ':w': week, ':pmb': 'user'}
         )
 
         logger.info(f"Successfully saved picks: {picks} and tieBreaker: {tieBreaker} for email: {email} and week: {week}")
@@ -187,11 +187,18 @@ def validateAndFixFBPPicks():
         # for loop here to loop thru all email addrs.
         email=""
         picks=""
+        userPicks=""                    ## Use this to store the original picks from the user so that we can
+                                        ## show know what we changed.  This is only saved when we actually fix the picks.
         tieBreaker=""
         algorithm=""
         displayName=""
         users=usersTable.scan()
-        ##
+        picksFixed = False              ## Use this to set the picksMadeBy attribute in
+                                        ## the Picks table to either User or System depending on whether we
+                                        # had to fix the picks or not.  This will allow us to track how many users made picks
+                                        # and how many had their picks fixed by the system.  This will be used for reporting
+                                        # and user feedback purposes.
+                                        ##
         # Set Winner field to false for all users
         ##
         for user in users.get('Items', []):
@@ -206,6 +213,10 @@ def validateAndFixFBPPicks():
                 picksTable.put_item(Item=picksItem)
         logger.info(f"Resetting winner field for all users for week: {week}")
         fbpLog(email=email, action="method: validateAndFixFBPPicks", details=f"Resetting winner field for all users for week: {week}", level="INFO")
+        ## End of loop to reset winner field for all users for the previous week.
+        # We do this at the beginning of the validateAndFixFBPPicks function because we want to make sure that
+        # the winner field is reset before we start validating and fixing picks for the current week.
+        ##
         for user in users.get('Items', []):
             displayName = user.get('displayName')
             email = user['email']
@@ -237,6 +248,9 @@ def validateAndFixFBPPicks():
             else:
                 picksItem = pickResponse['Items'][0]
                 picks = picksItem.get('picks')
+                userPicks = picks
+                if picks == '':
+                    noPicks=True
                 decimalTieBreaker = picksItem.get('tieBreaker')
             ##
             # Check if the tieBreaker is null or missing.
@@ -271,16 +285,26 @@ def validateAndFixFBPPicks():
                 case "home":
                     if noPicks:
                         picks = "H" * numberOfGames
+                        picksFixed = True
                     else:
                         # Replace all ? with H
+                        # if picks contains ? set picksFixed to true 
+                        # so that we can update the picksMadeBy attribute in the Picks table to System for this user.
+                        if '?' in str(picks):
+                            picksFixed = True
                         picks = str(picks).replace("?", "H")
                 case "away":
+                    picksFixed = False
                     if noPicks:
                         picks = "A" * numberOfGames
+                        picksFixed = True
                     else:
                         # Replace all ? with A
+                        if '?' in str(picks):
+                            picksFixed = True
                         picks = str(picks).replace("?", "A")
                 case "random":
+                    picksFixed = False
                     defaultPicks = ""
                     if noPicks:
                         for _ in range(numberOfGames):
@@ -290,12 +314,15 @@ def validateAndFixFBPPicks():
                             else:
                                 defaultPicks = defaultPicks + "A"
                         picks = "".join(defaultPicks)
+                        picksFixed = True
                     else:
+                        picksFixed = False
                         # Replace all ? with a random pick
                         for i, c in enumerate(str(picks)):
                             if c == "?":
                                 rNumber = random.uniform(0, 1)
                                 defaultPicks = defaultPicks + (rNumber > 0.5 and "H" or "A")
+                                picksFixed = True
                             else:
                                 defaultPicks = defaultPicks + c
                         picks = defaultPicks
@@ -329,6 +356,7 @@ def validateAndFixFBPPicks():
                             elif game.get('Underdog') == "A":
                                 defaultPicks = defaultPicks + "H"
                         picks = defaultPicks
+                        picksFixed = True
                         logger.info(f"Set picks to favorites: {picks}")
                         fbpLog("fbpadmin@my-fbp.com", "method: validateAndFixFBPPicks", f"Set picks to favorites: {picks}", "INFO") 
                     else:
@@ -342,12 +370,14 @@ def validateAndFixFBPPicks():
                                 for game in schedule:
                                     if game.get('Underdog') == "H":
                                         defaultPicks = defaultPicks + "A"
+                                        picksFixed = True
                                     elif game.get('Underdog') == "A":
                                         defaultPicks = defaultPicks + "H"
+                                        picksFixed = True
                         if picksFixed:
                             picks = defaultPicks
                             logger.info(f"Replaced ? with favorites picks: {picks}")
-                        fbpLog(email=email, action="method: validateAndFixFBPPicks", details=f"Replaced ? with favorites picks: {picks}", level="INFO")
+                            fbpLog(email=email, action="method: validateAndFixFBPPicks", details=f"Replaced ? with favorites picks: {picks}", level="INFO")
                 case "underdogs":
                     scheduleTable = dynamodb.Table(FBP_SCHEDULE_TABLE_NAME)
                     # Underdog is defined in the DB as either H or A.
@@ -370,6 +400,7 @@ def validateAndFixFBPPicks():
                             elif game.get('Underdog') == "A":
                                 defaultPicks = defaultPicks + "A"
                         picks = defaultPicks
+                        picksFixed = True
                         logger.info(f"Set picks to underdogs: {picks}")
                         fbpLog(email=email, action="method: validateAndFixFBPPicks", details=f"Set picks to underdogs: {picks}", level="INFO")
                     else:
@@ -383,12 +414,14 @@ def validateAndFixFBPPicks():
                                 for game in schedule:
                                     if game.get('Underdog') == "H":
                                         defaultPicks = defaultPicks + "H"
+                                        picksFixed = True
                                     elif game.get('Underdog') == "A":
                                         defaultPicks = defaultPicks + "A"
+                                        picksFixed = True
                         if picksFixed:
                             picks = defaultPicks
                             logger.info(f"Replaced ? with underdog picks: {picks}")
-                        fbpLog("fbpadmin@my-fbp.com", "method: validateAndFixFBPPicks", f"Replaced ? with underdog picks: {picks}", "INFO")                
+                            fbpLog("fbpadmin@my-fbp.com", "method: validateAndFixFBPPicks", f"Replaced ? with underdog picks: {picks}", "INFO")                
             # End of match statement to apply algorithm to replace ? with the correct pick.
 
             ##
@@ -410,18 +443,32 @@ def validateAndFixFBPPicks():
                     fbpLog(email=email, action="method: validateAndFixFBPPicks", details=f"Extracted default tieBreaker: {defaultTieBreaker} for email: {email}", level="INFO")
             if noTieBreaker:
                 tieBreaker = defaultTieBreaker
-            picksTable.update_item(
-            Key={'email': email}, 
-            UpdateExpression="SET #picks = :p, #tieBreaker = :t, #week = :w, #displayName = :d",
-            ExpressionAttributeNames={'#picks': 'picks', '#tieBreaker': 'tieBreaker', '#week': 'week', '#displayName': 'displayName'},
-            ExpressionAttributeValues={':p': picks, ':t': tieBreaker, ':w': week, ':d': displayName}
+            if picksFixed:
+                pmb='System'
+                picksTable.update_item(
+                    Key={'email': email}, 
+                    UpdateExpression="SET #picks = :p, #tieBreaker = :t, #week = :w, #displayName = :d, #picksMadeBy = :pmb, #userPicks = :up",
+                    ExpressionAttributeNames={'#picks': 'picks', '#tieBreaker': 'tieBreaker', '#week': 'week', '#displayName': 'displayName', '#picksMadeBy': 'picksMadeBy', '#userPicks': 'userPicks'},
+                    ExpressionAttributeValues={':p': picks, ':t': tieBreaker, ':w': week, ':d': displayName, ':pmb': pmb, ':up': userPicks}
             )
+            else:
+                pmb='User'
+                userPicks = ""
+                picksTable.update_item(
+                    Key={'email': email}, 
+                    UpdateExpression="SET #picks = :p, #tieBreaker = :t, #week = :w, #displayName = :d, #picksMadeBy = :pmb, #userPicks = :up",
+                    ExpressionAttributeNames={'#picks': 'picks', '#tieBreaker': 'tieBreaker', '#week': 'week', '#displayName': 'displayName', '#picksMadeBy': 'picksMadeBy', '#userPicks': 'userPicks'},
+                    ExpressionAttributeValues={':p': picks, ':t': tieBreaker, ':w': week, ':d': displayName, ':pmb': pmb, ':up': userPicks}
+            )
+
             ##
             # You need to reset your relevant flags and variables here for the next user in the loop.
             noPicks = False
+            picksFixed = False
             noTieBreaker = False
             email=""
             picks=""
+            userPicks=""
             tieBreaker=""
             algorithm=""
             displayName=""

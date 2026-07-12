@@ -1,10 +1,10 @@
 version = 0.1
 
 [default.deploy.parameters]
-stack_name = "fbp-lambda-v1-python"
+stack_name = "fbp"
 s3_bucket = "my-fbp.com-v2"
 resolve_s3 = false
-s3_prefix = "fbp-lambda-v1-python"
+s3_prefix = "fbp"
 template_file = ".aws-sam/build/template.yaml"
 confirm_changeset = true
 capabilities = "CAPABILITY_IAM"
