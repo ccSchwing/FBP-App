@@ -4,6 +4,7 @@
 # -----------------------
 # SAM build & packaging
 # -----------------------
+twilio-layer/
 .aws-sam/                    # SAM build output
 packaged.yaml                # SAM packaged template
 packaged.yml
