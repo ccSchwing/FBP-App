@@ -6,7 +6,7 @@
   "headers": {
     "content-type": "application/json"
   },
-  "body": "{\"email_type\":\"picksheet\"}",
+  "body": "{\"recipient\":\"chuckschwing@proton.me\",\"email_type\":\"welcome\"}",
   "requestContext": {
     "http": {
       "method": "POST",
