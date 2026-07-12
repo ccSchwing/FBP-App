@@ -38,6 +38,9 @@ Parameters:
   FBPTeamRecordsTableName:
     Type: String
     Default: 2025-Record
+  TwilioOptOutTableName:
+    Type: String
+    Default: FBP-SMS-Opt-Outs
   FBPPayoutLedgerTableName:
     Type: String
     Default: FBP-Payout-Ledger
@@ -73,10 +76,6 @@ Parameters:
     Description: Support email address for the company
     Default: fbpadmin@my-fbp.com
   # Parameters for SMS
-  NotifyConfigId:
-      Type: String
-      Description: AWS End User Messaging Notify Configuration ID
-      Default: nc-1234567890abcdef0
   TwilioPhoneNumber:
     Type: String
     Description: Originating Twilio phone number in E.164 format (e.g., +1234567890)
@@ -102,6 +101,48 @@ Resources:
         - python3.12
     Metadata:
       BuildMethod: python3.12
+  TwilioLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      LayerName: twilio-layer
+      Description: Twilio Python SDK
+      ContentUri: twilio-layer/twilio-layer.zip
+      CompatibleRuntimes:
+        - python3.12
+  TwilioWebHook:
+     Type: AWS::Serverless::Function
+     Properties:
+      FunctionName: !Sub "${AWS::StackName}-twilio-webhook"
+      CodeUri: src/TwilioWebHook/src/
+      Handler: TwilioWebHook.lambda_handler
+      Runtime: python3.12
+      Layers:
+         - !Ref FBPLibLayer
+         - !Ref TwilioLayer
+      Environment:
+         Variables:
+           TwilioOptOutTableName: !Ref TwilioOptOutTableName
+           FBPLogsTableName: !Ref FBPLogsTableName
+      Policies:
+         - DynamoDBCrudPolicy:
+             TableName: !Ref TwilioOptOutTableName
+         - DynamoDBCrudPolicy:
+             TableName: !Ref FBPLogsTableName
+      Events:
+        TwilioWebHookPost:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref MyHttpApi
+            Path: /twilio-webhook
+            Method: post
+            PayloadFormatVersion: '2.0'
+        TwilioWebHookOptionsApi:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref MyHttpApi
+            Path: /twilio-webhook
+            Method: OPTIONS
+            PayloadFormatVersion: '2.0'
   TeamRecord:
     Type: AWS::Serverless::Function
     Properties:
@@ -383,28 +424,102 @@ Resources:
       Action: lambda:InvokeFunction
       Principal: ses.amazonaws.com
       SourceAccount: !Ref AWS::AccountId
-  SendSMS:
-    Type: AWS::Serverless::Function
+  AdvancedMessagingServiceRole:
+    Type: AWS::IAM::Role
     Properties:
-      CodeUri: src/SendSMS/src/
-      Handler: SendSMS.lambda_handler
-      Runtime: python3.12
-      Environment:
-        Variables:
-          NOTIFY_CONFIG_ID: nc-your-actual-config-id
-          DEFAULT_PHONE_NUMBER: +1234567890
-          MY_REGION: us-east-1
-      Layers:
-        - !Ref FBPLibLayer
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
       Policies:
-          - Version: '2012-10-17'
+        - PolicyName: SESPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
             Statement:
               - Effect: Allow
                 Action:
-                - sms-voice:SendNotifyTextMessage
-                - sms-voice:DescribeNotifyTemplates
-                - sms-voice:DescribeNotifyConfiguration
-                Resource: '*'
+                  - ses:SendEmail
+                  - ses:SendRawEmail
+                Resource: "*"
+        - PolicyName: TwilioSMSPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - secretsmanager:GetSecretValue
+                Resource: !Ref TwilioCredentialsSecretArn
+        - PolicyName: DynamoDBPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - dynamodb:Scan
+                  - dynamodb:GetItem
+                Resource:
+                  - !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${FBPUsersTableName}"
+                  - !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${TwilioOptOutTableName}"
+        - PolicyName: XRayPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - xray:PutTraceSegments
+                  - xray:PutTelemetryRecords
+                Resource: "*"
+
+  AdvancedMessagingService:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-advanced-messaging-service"
+      CodeUri: src/AdvancedMessagingService/src/
+      Handler: AdvancedMessagingService.lambda_handler
+      Runtime: python3.12
+      Timeout: 30
+      MemorySize: 256
+      Role: !GetAtt AdvancedMessagingServiceRole.Arn
+      Tracing: Active
+      Layers:
+        - !Ref FBPLibLayer
+        - !Ref TwilioLayer
+      Events:
+        AdvancedMessagingServicePost:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref MyHttpApi
+            Path: /advanced-messaging
+            Method: POST
+            PayloadFormatVersion: '2.0'
+        AdvancedMessagingServiceOptions:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref MyHttpApi
+            Path: /advanced-messaging
+            Method: OPTIONS
+            PayloadFormatVersion: '2.0'
+      Environment:
+        Variables:
+          FROM_EMAIL: !Ref FromEmail
+          COMPANY_NAME: !Ref CompanyName
+          BASE_URL: !Ref BaseUrl
+          SUPPORT_EMAIL: !Ref SupportEmail
+          FBPUSERS_TABLE_NAME: !Ref FBPUsersTableName
+          FBPLOGS_TABLE_NAME: !Ref FBPLogsTableName
+          TWILIO_OPT_OUT_TABLE_NAME: !Ref TwilioOptOutTableName
+          TWILIO_CREDENTIALS_SECRET_ARN: !Ref TwilioCredentialsSecretArn
+          POWERTOOLS_SERVICE_NAME: messaging-service
+          POWERTOOLS_LOG_LEVEL: INFO
+          POWERTOOLS_METRICS_NAMESPACE: MessagingService
+          POWERTOOLS_TRACER_CAPTURE_RESPONSE: true
+          POWERTOOLS_TRACER_CAPTURE_ERROR: true
+
   AdvancedSMSServiceRole:
     Type: AWS::IAM::Role
     Properties:
@@ -448,6 +563,7 @@ Resources:
       Tracing: Active
       Layers:
         - !Ref FBPLibLayer
+        - !Ref TwilioLayer
       Events:
         AdvancedSMSServicePost:
           Type: HttpApi
@@ -473,6 +589,7 @@ Resources:
           SUPPORT_EMAIL: !Ref SupportEmail
           FBPUSERS_TABLE_NAME: !Ref FBPUsersTableName
           FBPLOGS_TABLE_NAME: !Ref FBPLogsTableName
+          TWILIO_OPT_OUT_TABLE_NAME: !Ref TwilioOptOutTableName
           TWILIO_CREDENTIALS_SECRET_ARN: !Ref TwilioCredentialsSecretArn
           # Powertools configuration
           POWERTOOLS_SERVICE_NAME: email-service
@@ -1540,16 +1657,36 @@ Outputs:
     Value: !Ref MyHttpApi
     Export:
       Name: !Sub ${AWS::StackName}-HttpApiId
+  AdvancedMessagingServiceFunctionName:
+    Description: Name of the AdvancedMessagingService Lambda function
+    Value: !Ref AdvancedMessagingService
+    Export:
+      Name: !Sub "${AWS::StackName}-AdvancedMessagingService"
+  AdvancedMessagingServiceEndpoint:
+    Description: Endpoint for the AdvancedMessagingService API
+    Value: !Sub "https://${MyHttpApi}.execute-api.${AWS::Region}.amazonaws.com/advanced-messaging"
+    Export:
+      Name: !Sub "${AWS::StackName}-AdvancedMessagingEndpoint"
   AdvancedSMSServiceFunctionName:
-    Description: Name of the AdvancedSMSService Lambda function
+    Description: Name of the AdvancedSMSService Lambda function (retained until AdvancedMessagingService is verified)
     Value: !Ref AdvancedSMSService
     Export:
       Name: !Sub "${AWS::StackName}-AdvancedSMSService"
   AdvancedSMSServiceEndpoint:
-    Description: Endpoint for the AdvancedSMSService API
+    Description: Endpoint for the AdvancedSMSService API (retained until AdvancedMessagingService is verified)
     Value: !Sub "https://${MyHttpApi}.execute-api.${AWS::Region}.amazonaws.com/advancedSMSService"
     Export:
       Name: !Sub "${AWS::StackName}-AdvancedSMSEndpoint"
+  # TwilioWebhookFunctionName:
+  #   Description: Name of the TwilioWebhook Lambda function
+  #   Value: !Ref TwilioWebHook
+  #   Export:
+  #     Name: !Sub "${AWS::StackName}-twilio-webhook"
+  TwilioWebhookEndpoint:
+    Description: Endpoint for the TwilioWebhook API
+    Value: !Sub "https://${MyHttpApi}.execute-api.${AWS::Region}.amazonaws.com/twilio-webhook"
+    Export:
+      Name: !Sub "${AWS::StackName}-twilio-webhook-endpoint"
   SMSVerificationFunctionName:
     Description: Name of the SMSValidationUtils Lambda function
     Value: !Ref SMSValidationUtils
@@ -1635,12 +1772,12 @@ Outputs:
     Export:
       Name: !Sub "${AWS::StackName}-EmailForwardingName"
   AdvancedEmailServiceName:
-    Description: Name of the Advanced Email Service Lambda function
+    Description: Name of the Advanced Email Service Lambda function (retained until AdvancedMessagingService is verified)
     Value: !Ref AdvancedEmailService
     Export:
       Name: !Sub "${AWS::StackName}-AdvancedEmailService"
   AdvancedEmailServiceApi:
-    Description: URL of the Advanced Email Service API endpoint
+    Description: URL of the Advanced Email Service API endpoint (retained until AdvancedMessagingService is verified)
     Value: !Sub https://${MyHttpApi}.execute-api.${AWS::Region}.amazonaws.com/prod/advancedEmailService
     Export:
       Name: !Sub ${AWS::StackName}-AdvancedEmailServiceApi

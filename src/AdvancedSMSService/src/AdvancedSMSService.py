@@ -8,6 +8,7 @@ from enum import Enum
 from dataclasses import dataclass
 from aws_lambda_powertools import Logger, Tracer, Metrics
 from aws_lambda_powertools.metrics import MetricUnit
+from botocore.exceptions import ClientError
 
 logger = Logger()
 tracer = Tracer()
@@ -36,7 +37,7 @@ class AdvancedSMSService:
     def _get_secrets(self) -> dict:
         client = boto3.client('secretsmanager')
         # Twilio Secret has the account SID, auth token, and phone number stored as a JSON string
-        response = client.get_secret_value(SecretId=os.environ['TWILIO_SECRET'])
+        response = client.get_secret_value(SecretId=os.environ['TWILIO_CREDENTIALS_SECRET_ARN'])
         return json.loads(response['SecretString']) 
     
 
@@ -63,6 +64,8 @@ class AdvancedSMSService:
         
         Hi {user_name},
         Your account has been successfully created.
+        Visit {self.fbpHomeUrl} to get started.
+        FAQ and support: {self.fbpHomeUrl}/faq.html
         Best regards,
         The {self.company_name} Team
         """
@@ -80,6 +83,7 @@ class AdvancedSMSService:
         text_content = f"""
         Hi {user_name},
         FBP is now open for picks.  See: {self.fbpHomeUrl}
+        FAQ and support: {self.fbpHomeUrl}/faq.html
         Best regards,
         The {self.company_name} Team
         """
@@ -89,9 +93,50 @@ class AdvancedSMSService:
             text_content=text_content,
             sms_type="reminder"
         )
+    ##
+    # Check to see if user has opted out before sending any SMS.  If they have, skip sending and log it.
+    ##
+    def check_opt_out_status(self, phone_number):
+        dynamodb = boto3.resource('dynamodb')
+        opt_out_table = dynamodb.Table(os.environ['TWILIO_OPT_OUT_TABLE_NAME'])
+        try:
+            normalized_phone = self.normalize_phone_number(phone_number)
+            
+            response = opt_out_table.get_item(
+                Key={'phone_number': normalized_phone}
+            )
+            
+            # If item exists and opted_out is True, they're opted out
+            if 'Item' in response:
+                return response['Item'].get('opted_out', False)
+            
+            # No record means they haven't opted out
+            return False
+        
+        except ClientError as e:
+            # Log error but don't block sending (fail open for availability)
+            print(f"Error checking opt-out status for {phone_number}: {e}")
+            return False
+
+    def normalize_phone_number(self, phone):
+        """Normalize phone number to E.164 format"""
+        digits_only = ''.join(filter(str.isdigit, phone))
+        
+        if len(digits_only) == 10:
+            return f"+1{digits_only}"
+        elif len(digits_only) == 11 and digits_only.startswith('1'):
+            return f"+{digits_only}"
+        else:
+            return f"+{digits_only}"
 
     @tracer.capture_method
     def _send_sms(self, recipient: str, text_content: str, sms_type: str) -> str:
+        if self.check_opt_out_status(recipient):
+            logger.info(f"Skipping SMS to {recipient} as they have opted out", extra={"sms_type": sms_type})
+            # amazonq-ignore-next-line
+            metrics.add_metric(name="OptedOutSMS", unit=MetricUnit.Count, value=1)
+            metrics.add_metadata(key="sms_type", value=sms_type)
+            return f"Recipient {recipient} has opted out of SMS"
         try:
             message = self.sms_client.messages.create(
                 body=text_content,
@@ -117,6 +162,7 @@ class AdvancedSMSService:
                 "sms_type": sms_type
             })
             
+            # amazonq-ignore-next-line
             metrics.add_metric(name="SMSErrors", unit=MetricUnit.Count, value=1)
             metrics.add_metadata(key="sms_type", value=sms_type)
             metrics.add_metadata(key="error_message", value=str(e))
@@ -129,7 +175,9 @@ sms_service = AdvancedSMSService()
 @logger.inject_lambda_context
 @tracer.capture_lambda_handler
 @metrics.log_metrics
+# amazonq-ignore-next-line
 def lambda_handler(event: Dict[str, Any], context) -> Dict[str, Any]:
+    # amazonq-ignore-next-line
     """Lambda handler for SMS sending"""
     
     try:
