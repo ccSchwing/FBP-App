@@ -393,18 +393,18 @@
       ]
     },
     {
-      "name": "Python: Attach to AdvancedEmailService",
+      "name": "Python: Attach to AdvancedMessagingService Welcome",
       "type": "debugpy",
       "request": "attach",
       "connect": {
         "host": "localhost",
         "port": 5678
       },
-      "preLaunchTask": "Attach to AdvancedEmailService",
+      "preLaunchTask": "Attach to AdvancedMessagingService Welcome",
       "postDebugTask": "Cleanup",
       "pathMappings": [
         {
-          "localRoot": "${workspaceFolder}/src/AdvancedEmailService/src",
+          "localRoot": "${workspaceFolder}/src/AdvancedMessagingService/src",
           "remoteRoot": "/var/task"
         }
       ]
