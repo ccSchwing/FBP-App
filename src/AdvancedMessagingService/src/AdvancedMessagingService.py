@@ -20,6 +20,7 @@ class MessageType(Enum):
     WELCOME = "welcome"
     REMINDER = "reminder"
     PICKSHEET = "picksheet"
+    GRIDSHEET = "gridsheet"
 
 
 @dataclass
@@ -94,6 +95,19 @@ class EmailService:
                         self._send_one(user["email"], content_generator, user_data, reply_to, tags, message_type)
                     return MessagingResponse(success=True, channel="email", message_type=message_type,
                                             recipient=recipient, message_id=f"bulk:{len(users)}")
+
+                case MessageType.GRIDSHEET:
+                    users = self._get_bulk_users('emailGridSheet')
+                    if not users:
+                        logger.info("No gridsheet users found")
+                    for user in users:
+                        user_data = {**data, "user_name": user.get("firstName") or user["email"]}
+                        self._send_one(user["email"], content_generator, user_data, reply_to, tags, message_type)
+                    return MessagingResponse(success=True, channel="email", message_type=message_type,
+                                            recipient=recipient, message_id=f"bulk:{len(users)}")
+
+                case _:
+                    raise ValueError(f"Unsupported message type: {message_type}")
 
         except Exception as e:
             logger.error("Failed to send email", extra={"error": str(e), "message_type": message_type})
@@ -261,7 +275,7 @@ class SMSService:
                     return MessagingResponse(success=True, channel="sms", message_type=message_type,
                                             recipient=recipient, message_id=msg_id)
 
-                case MessageType.REMINDER | MessageType.PICKSHEET:
+                case MessageType.REMINDER | MessageType.PICKSHEET | MessageType.GRIDSHEET:
                     users = self._get_bulk_users(msg_enum)
                     if not users:
                         logger.info(f"No SMS users found for {message_type}")
@@ -270,6 +284,9 @@ class SMSService:
                         self._send_one(user["mobile_number"], content_generator, user_data, message_type)
                     return MessagingResponse(success=True, channel="sms", message_type=message_type,
                                             recipient=recipient, message_id=f"bulk:{len(users)}")
+
+                case _:
+                    raise ValueError(f"Unsupported message type: {message_type}")
 
         except Exception as e:
             logger.error("Failed to send SMS", extra={"error": str(e), "message_type": message_type})
@@ -298,6 +315,7 @@ class SMSService:
         opt_in_field_map = {
             MessageType.REMINDER: 'smsReminders',
             MessageType.PICKSHEET: 'smsPickSheet',
+            MessageType.GRIDSHEET: 'smsGridSheet',
         }
         opt_in_field = opt_in_field_map.get(msg_type)
         users_table_name = os.environ.get('FBPUSERS_TABLE_NAME')
@@ -359,6 +377,7 @@ class SMSService:
             MessageType.WELCOME: self._welcome_content,
             MessageType.REMINDER: self._reminder_content,
             MessageType.PICKSHEET: self._picksheet_content,
+            MessageType.GRIDSHEET: self._gridsheet_content,
         }
         generator = generators.get(msg_type)
         if not generator:
@@ -380,10 +399,15 @@ class SMSService:
 
     def _picksheet_content(self, data: Dict[str, Any]) -> str:
         user_name = data.get('user_name', 'User')
-        return (f"Hi {user_name}, {self.company_name} is open for picks!\n"
+        return (f"Hi {user_name}, {self.company_name} Pool is open. Make your picks!\n"
                 f"Visit {self.base_url}\n"
                 f"FAQ: {self.base_url}/faq.html")
 
+    def _gridsheet_content(self, data: Dict[str, Any]) -> str:
+        user_name = data.get('user_name', 'User')
+        return (f"Hi {user_name}, {self.company_name} is closed for picks. Grid sheet is live!\n"
+                f"Visit {self.base_url}\n"
+                f"FAQ: {self.base_url}/faq.html")
 
 # ---------------------------------------------------------------------------
 # Lambda Handler
