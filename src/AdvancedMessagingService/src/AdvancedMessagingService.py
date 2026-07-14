@@ -1,6 +1,8 @@
 import json
+from mailbox import Message
 import os
 import boto3
+from botocore import response
 from twilio.rest import Client
 from twilio.base.exceptions import TwilioRestException
 from typing import Dict, Any, Optional
@@ -10,6 +12,7 @@ from botocore.exceptions import ClientError
 from aws_lambda_powertools import Logger, Tracer, Metrics
 from aws_lambda_powertools.metrics import MetricUnit
 from fbplib.fbpLog import fbpLog
+from fbplib.getCurrentWeek import getCurrentWeek
 
 logger = Logger()
 tracer = Tracer()
@@ -21,6 +24,7 @@ class MessageType(Enum):
     REMINDER = "reminder"
     PICKSHEET = "picksheet"
     GRIDSHEET = "gridsheet"
+    WEEKLYWINNER = "weeklywinner"
 
 
 @dataclass
@@ -106,6 +110,21 @@ class EmailService:
                     return MessagingResponse(success=True, channel="email", message_type=message_type,
                                             recipient=recipient, message_id=f"bulk:{len(users)}")
 
+                case MessageType.WEEKLYWINNER:
+                    winner_email=self._get_winner()
+                    winner_display_name = self._get_user_display_name(winner_email) if winner_email else None
+                    data["display_name"] = winner_display_name
+                    if winner_email:
+                        fbpLog(winner_email, "WeeklyWinner", "Weekly Winner Announcement Sent", "INFO")
+                    else:
+                        logger.info("No weekly winner found")
+                    users=self._get_all_users()
+                    if not users:
+                        logger.info("No users found for weekly winner announcement")
+                    for user in users:
+                        self._send_one(user["email"], content_generator, data, reply_to, tags, message_type)
+                    return MessagingResponse(success=True, channel="email", message_type=message_type,
+                                            recipient=recipient, message_id=f"bulk:{len(users)}")
                 case _:
                     raise ValueError(f"Unsupported message type: {message_type}")
 
@@ -125,6 +144,61 @@ class EmailService:
         except Exception as e:
             logger.warning("Failed to get user firstName", extra={"error": str(e), "email": email})
             return None
+
+    def _get_user_display_name(self, email: str) -> Optional[str]:
+        users_table_name = os.environ.get('FBPUSERS_TABLE_NAME')
+        if not users_table_name:
+            return None
+        try:
+            table = boto3.resource('dynamodb').Table(users_table_name)
+            response = table.get_item(Key={'email': email}, ProjectionExpression='displayName')
+            return response.get('Item', {}).get('displayName')
+        except Exception as e:
+            logger.warning("Failed to get user displayName", extra={"error": str(e), "email": email})
+            return None
+        
+    
+    def _get_winner(self) -> Optional[str]:
+        """Get the weekly winner's name for the current week."""
+        current_week = getCurrentWeek()
+        winners_table_name = os.environ.get('FBPWeeklyResults2025TableName')
+        if not winners_table_name:
+            logger.info("FBPWeeklyResults2025TableName not set; cannot get winner")
+            return None
+        try:
+            table = boto3.resource('dynamodb').Table(winners_table_name)
+            ##
+            # get the winner where week = current_week and winner is true
+            ##
+            response = table.query(
+                IndexName=os.environ.get('FBPWeeklyResults2025WeekIndexName', 'WeekIndex'),
+                KeyConditionExpression='#wk = :wk',
+                FilterExpression='#win = :w',
+                ExpressionAttributeNames={'#wk': 'week', '#win': 'winner'},
+                ExpressionAttributeValues={':wk': current_week, ':w': True},
+                ProjectionExpression='email'
+            )
+            winner_email = response.get('Items', [{}])[0].get('email')
+
+            return winner_email
+        except Exception as e:
+            logger.warning("Failed to get weekly winner", extra={"error": str(e), "week": current_week})
+            return None
+
+    def _get_all_users(self) -> list:
+        """Scan DynamoDB for all users (used for weekly winner announcements)."""
+        users_table_name = os.environ.get('FBPUSERS_TABLE_NAME')
+        if not users_table_name:
+            logger.info("FBPUSERS_TABLE_NAME not set; no users found")
+            return []
+        try:
+            table = boto3.resource('dynamodb').Table(users_table_name)
+            items = table.scan(ProjectionExpression='email, firstName').get("Items", [])
+            return [u for u in items if u.get('email') and u.get('firstName')]
+        except Exception as e:
+            logger.warning("DynamoDB scan failed", extra={"error": str(e)})
+            return []
+        
 
     def _get_bulk_users(self, opt_in_field: str) -> list:
         """Scan DynamoDB for users opted in to the given field."""
@@ -174,6 +248,8 @@ class EmailService:
             MessageType.WELCOME: self._welcome_content,
             MessageType.REMINDER: self._reminder_content,
             MessageType.PICKSHEET: self._picksheet_content,
+            MessageType.GRIDSHEET: self._gridsheet_content,
+            MessageType.WEEKLYWINNER: self._weeklywinner_content,
         }
         generator = generators.get(msg_type)
         if not generator:
@@ -235,6 +311,41 @@ class EmailService:
         </body></html>
         """
         text = (f"Hello {user_name} --\n\n{self.company_name} is open for picks.\n"
+                f"Visit: {self.base_url}\nFAQ: {self.base_url}/faq.html\n\n"
+                f"Questions? {self.support_email}\n\nBest regards,\nThe {self.company_name} Team")
+        return subject, html, text
+    def _gridsheet_content(self, data: Dict[str, Any]) -> tuple:
+        user_name = data.get('user_name', 'User')
+        subject = f"{self.company_name} Grid Sheet is Live!"
+        html = f"""
+        <html><body>
+            <h1>Hi {user_name} from {self.company_name}!</h1>
+            <p>The grid sheet is now live for this week.</p>
+            <p>Visit: <a href="{self.base_url}">{self.company_name} Home</a> to view the grid sheet.</p>
+            <p>FAQ: <a href="{self.base_url}/faq.html">FAQ</a></p>
+            <p>Questions? <a href="mailto:{self.support_email}"><b>{self.support_email}</b></a></p>
+            <p>Best regards,<br>The {self.company_name} Team</p>
+        </body></html>
+        """
+        text = (f"Hello {user_name} --\n\nThe grid sheet is now live for this week.\n"
+                f"Visit: {self.base_url}\nFAQ: {self.base_url}/faq.html\n\n"
+                f"Questions? {self.support_email}\n\nBest regards,\nThe {self.company_name} Team")
+        return subject, html, text
+    def _weeklywinner_content(self, data: Dict[str, Any]) -> tuple:
+        display_name = data.get('display_name', 'the winner')
+        subject = f"Congratulations to {display_name} -- This Week's {self.company_name} Winner!"
+        html = f"""
+        <html><body>
+            <h1>Congratulations to {display_name}!</h1>
+            <p>{display_name} is this week's {self.company_name} winner. Great job!</p>
+            <p>Visit: <a href="{self.base_url}">{self.company_name} Home</a> to view the results.</p>
+            <p>FAQ: <a href="{self.base_url}/faq.html">FAQ</a></p>
+            <p>Questions? <a href="mailto:{self.support_email}"><b>{self.support_email}</b></a></p>
+            <p>Best regards,<br>The {self.company_name} Team</p>
+        </body></html>
+        """
+        text = (f"Congratulations to {display_name}!\n\n"
+                f"{display_name} is this week's {self.company_name} winner. Great job!\n\n"
                 f"Visit: {self.base_url}\nFAQ: {self.base_url}/faq.html\n\n"
                 f"Questions? {self.support_email}\n\nBest regards,\nThe {self.company_name} Team")
         return subject, html, text
