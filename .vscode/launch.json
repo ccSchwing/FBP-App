@@ -393,6 +393,23 @@
       ]
     },
     {
+      "name": "Python: Attach to AdvancedMessagingService Winner",
+      "type": "debugpy",
+      "request": "attach",
+      "connect": {
+        "host": "localhost",
+        "port": 5678
+      },
+          "preLaunchTask": "Attach to AdvancedMessagingService Winner",
+          "postDebugTask": "Cleanup",
+      "pathMappings": [
+        {
+          "localRoot": "${workspaceFolder}/src/AdvancedMessagingService/src",
+          "remoteRoot": "/var/task"
+        }
+      ]
+    },
+    {
       "name": "Python: Attach to AdvancedMessagingService Welcome",
       "type": "debugpy",
       "request": "attach",

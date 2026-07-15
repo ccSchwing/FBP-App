@@ -316,7 +316,9 @@ Resources:
           CalcWeeklyResults: !Ref CalcWeeklyResults     # Calc NFL Game Results for the week just ended.
           UpdateWeeklyResults: !Ref UpdateWeeklyResults # Update User results.
           ImportSpreadsAndFinalScores: !Ref ImportSpreadsAndFinalScores # Import spreads and final scores for the week.
+          AdvancedMessagingService: !Ref AdvancedMessagingService # Send messages to users about new week and weekly results.
           SendEmail: !Ref SendEmail
+          FBPWeeklyResults2025TableName: !Ref FBPWeeklyResults2025TableName
       Policies:
         - Version: '2012-10-17'
           Statement:
@@ -327,12 +329,15 @@ Resources:
                 - !GetAtt CalcWeeklyResults.Arn
                 - !GetAtt UpdateWeeklyResults.Arn
                 - !GetAtt ImportSpreadsAndFinalScores.Arn
+                - !GetAtt AdvancedMessagingService.Arn
                 - !GetAtt SendEmail.Arn
                 - !GetAtt SetPoolStatusOpen.Arn
         - DynamoDBCrudPolicy:
             TableName: !Ref FBPConfigTableName
         - DynamoDBCrudPolicy:
             TableName: !Ref FBPLogsTableName
+        - DynamoDBReadPolicy:
+            TableName: !Ref FBPWeeklyResults2025TableName
 
   ClosePool:
     Type: AWS::Serverless::Function
@@ -351,6 +356,7 @@ Resources:
           SaveFBPPicks: !Ref SaveFBPPicks                   # Validate user picks
           SendEmail: !Ref SendEmail                         # Send email for PickSheet and GridSheet.
           ImportSpreadsAndFinalScores: !Ref ImportSpreadsAndFinalScores # Import spreads and final scores for the week.
+          AdvancedMessagingService: !Ref AdvancedMessagingService # Send messages to users about new week and weekly results.
       Policies:
         - Version: '2012-10-17'
           Statement:
@@ -362,6 +368,7 @@ Resources:
                 - !GetAtt SendEmail.Arn             # Send email with results to users.
                 - !GetAtt SetPoolStatusClosed.Arn   # Close pool for new week.
                 - !GetAtt ImportSpreadsAndFinalScores.Arn # Import spreads and final scores for the week.
+                - !GetAtt AdvancedMessagingService.Arn # Send messages to users about new week and weekly results.
         - DynamoDBCrudPolicy:
             TableName: !Ref FBPConfigTableName
         - DynamoDBCrudPolicy:

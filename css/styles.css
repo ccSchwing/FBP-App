@@ -395,6 +395,37 @@
   box-shadow: none;
 }
 
+.phone-verification-card input[type="button"],
+#updateProfileBtn {
+  padding: 0.65rem 1rem;
+  border: 1px solid #1f8f3a;
+  border-radius: 10px;
+  background: #f2fbf5;
+  color: #1c6b40;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease,
+    transform 0.2s ease;
+}
+
+#updateProfileBtn {
+  margin-top: 1rem;
+}
+
+.phone-verification-card input[type="button"]:hover,
+#updateProfileBtn:hover {
+  background: #e7f7ed;
+  box-shadow: 0 0 0 2px rgba(31, 143, 58, 0.12);
+  transform: translateY(-1px);
+}
+
+.phone-verification-card input[type="button"]:focus-visible,
+#updateProfileBtn:focus-visible {
+  outline: 2px solid #1f8f3a;
+  outline-offset: 2px;
+}
+
 /* Base styles inspired by shadcn/ui */
 :root {
   /* Color system */
