@@ -318,6 +318,7 @@ Resources:
           ImportSpreadsAndFinalScores: !Ref ImportSpreadsAndFinalScores # Import spreads and final scores for the week.
           AdvancedMessagingService: !Ref AdvancedMessagingService # Send messages to users about new week and weekly results.
           SendEmail: !Ref SendEmail
+          FBPWeeklyResults2025TableName: !Ref FBPWeeklyResults2025TableName
       Policies:
         - Version: '2012-10-17'
           Statement:
@@ -335,6 +336,8 @@ Resources:
             TableName: !Ref FBPConfigTableName
         - DynamoDBCrudPolicy:
             TableName: !Ref FBPLogsTableName
+        - DynamoDBReadPolicy:
+            TableName: !Ref FBPWeeklyResults2025TableName
 
   ClosePool:
     Type: AWS::Serverless::Function

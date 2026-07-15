@@ -48,6 +48,57 @@ def _is_opted_in(value: Any) -> bool:
     return False
 
 
+def _get_winner() -> Optional[str]:
+    """Get the weekly winner's email for the current week."""
+    current_week = getCurrentWeek()
+    winners_table_name = os.environ.get('FBPWeeklyResults2025TableName', default='FBP-Weekly-Results-2025')
+    if not winners_table_name:
+        logger.info("FBPWeeklyResults2025TableName not set; cannot get winner")
+        return None
+    try:
+        table = boto3.resource('dynamodb').Table(winners_table_name)
+        response = table.query(
+            IndexName=os.environ.get('FBPWeeklyResults2025WeekIndexName', 'WeekIndex'),
+            KeyConditionExpression='#wk = :wk',
+            FilterExpression='#win = :w',
+            ExpressionAttributeNames={'#wk': 'week', '#win': 'winner'},
+            ExpressionAttributeValues={':wk': current_week, ':w': True},
+            ProjectionExpression='email'
+        )
+        return response.get('Items', [{}])[0].get('email')
+    except Exception as e:
+        logger.warning("Failed to get weekly winner", extra={"error": str(e), "week": current_week})
+        return None
+
+
+def _get_user_display_name(email: str) -> Optional[str]:
+    users_table_name = os.environ.get('FBPUSERS_TABLE_NAME')
+    if not users_table_name:
+        return None
+    try:
+        table = boto3.resource('dynamodb').Table(users_table_name)
+        response = table.get_item(Key={'email': email}, ProjectionExpression='displayName')
+        return response.get('Item', {}).get('displayName')
+    except Exception as e:
+        logger.warning("Failed to get user displayName", extra={"error": str(e), "email": email})
+        return None
+
+
+def _get_all_users() -> list:
+    """Scan DynamoDB for all users (used for weekly winner announcements)."""
+    users_table_name = os.environ.get('FBPUSERS_TABLE_NAME')
+    if not users_table_name:
+        logger.info("FBPUSERS_TABLE_NAME not set; no users found")
+        return []
+    try:
+        table = boto3.resource('dynamodb').Table(users_table_name)
+        items = table.scan(ProjectionExpression='email, firstName, mobile_number').get("Items", [])
+        return [u for u in items if u.get('email') and u.get('firstName') and u.get('mobile_number')]
+    except Exception as e:
+        logger.warning("DynamoDB scan failed", extra={"error": str(e)})
+        return []
+
+
 # ---------------------------------------------------------------------------
 # Email Service
 # ---------------------------------------------------------------------------
@@ -111,14 +162,14 @@ class EmailService:
                                             recipient=recipient, message_id=f"bulk:{len(users)}")
 
                 case MessageType.WEEKLYWINNER:
-                    winner_email=self._get_winner()
-                    winner_display_name = self._get_user_display_name(winner_email) if winner_email else None
+                    winner_email = _get_winner()
+                    winner_display_name = _get_user_display_name(winner_email) if winner_email else None
                     data["display_name"] = winner_display_name
                     if winner_email:
                         fbpLog(winner_email, "WeeklyWinner", "Weekly Winner Announcement Sent", "INFO")
                     else:
                         logger.info("No weekly winner found")
-                    users=self._get_all_users()
+                    users = _get_all_users()
                     if not users:
                         logger.info("No users found for weekly winner announcement")
                     for user in users:
@@ -144,61 +195,6 @@ class EmailService:
         except Exception as e:
             logger.warning("Failed to get user firstName", extra={"error": str(e), "email": email})
             return None
-
-    def _get_user_display_name(self, email: str) -> Optional[str]:
-        users_table_name = os.environ.get('FBPUSERS_TABLE_NAME')
-        if not users_table_name:
-            return None
-        try:
-            table = boto3.resource('dynamodb').Table(users_table_name)
-            response = table.get_item(Key={'email': email}, ProjectionExpression='displayName')
-            return response.get('Item', {}).get('displayName')
-        except Exception as e:
-            logger.warning("Failed to get user displayName", extra={"error": str(e), "email": email})
-            return None
-        
-    
-    def _get_winner(self) -> Optional[str]:
-        """Get the weekly winner's name for the current week."""
-        current_week = getCurrentWeek()
-        winners_table_name = os.environ.get('FBPWeeklyResults2025TableName')
-        if not winners_table_name:
-            logger.info("FBPWeeklyResults2025TableName not set; cannot get winner")
-            return None
-        try:
-            table = boto3.resource('dynamodb').Table(winners_table_name)
-            ##
-            # get the winner where week = current_week and winner is true
-            ##
-            response = table.query(
-                IndexName=os.environ.get('FBPWeeklyResults2025WeekIndexName', 'WeekIndex'),
-                KeyConditionExpression='#wk = :wk',
-                FilterExpression='#win = :w',
-                ExpressionAttributeNames={'#wk': 'week', '#win': 'winner'},
-                ExpressionAttributeValues={':wk': current_week, ':w': True},
-                ProjectionExpression='email'
-            )
-            winner_email = response.get('Items', [{}])[0].get('email')
-
-            return winner_email
-        except Exception as e:
-            logger.warning("Failed to get weekly winner", extra={"error": str(e), "week": current_week})
-            return None
-
-    def _get_all_users(self) -> list:
-        """Scan DynamoDB for all users (used for weekly winner announcements)."""
-        users_table_name = os.environ.get('FBPUSERS_TABLE_NAME')
-        if not users_table_name:
-            logger.info("FBPUSERS_TABLE_NAME not set; no users found")
-            return []
-        try:
-            table = boto3.resource('dynamodb').Table(users_table_name)
-            items = table.scan(ProjectionExpression='email, firstName').get("Items", [])
-            return [u for u in items if u.get('email') and u.get('firstName')]
-        except Exception as e:
-            logger.warning("DynamoDB scan failed", extra={"error": str(e)})
-            return []
-        
 
     def _get_bulk_users(self, opt_in_field: str) -> list:
         """Scan DynamoDB for users opted in to the given field."""
@@ -395,7 +391,26 @@ class SMSService:
                         self._send_one(user["mobile_number"], content_generator, user_data, message_type)
                     return MessagingResponse(success=True, channel="sms", message_type=message_type,
                                             recipient=recipient, message_id=f"bulk:{len(users)}")
-
+                case MessageType.WEEKLYWINNER:
+                    winner_email = _get_winner()
+                    winner_display_name = _get_user_display_name(winner_email) if winner_email else None
+                    data["display_name"] = winner_display_name
+                    if winner_email:
+                        fbpLog(winner_email, "WeeklyWinner", "Weekly Winner Announcement Sent", "INFO")
+                    else:
+                        logger.info("No weekly winner found")
+                    users = _get_all_users()
+                    if not users:
+                        logger.info("No users found for weekly winner announcement")
+                    for user in users:
+                        ##
+                        # get the mobile_number for each user.  If None, skip
+                        ##
+                        if not user.get("mobile_number"):
+                            continue
+                        self._send_one(user["mobile_number"], content_generator, data, message_type)
+                    return MessagingResponse(success=True, channel="sms", message_type=message_type,
+                                            recipient=recipient, message_id=f"bulk:{len(users)}")
                 case _:
                     raise ValueError(f"Unsupported message type: {message_type}")
 
@@ -489,6 +504,7 @@ class SMSService:
             MessageType.REMINDER: self._reminder_content,
             MessageType.PICKSHEET: self._picksheet_content,
             MessageType.GRIDSHEET: self._gridsheet_content,
+            MessageType.WEEKLYWINNER: self._weekly_winner_content,
         }
         generator = generators.get(msg_type)
         if not generator:
@@ -518,6 +534,13 @@ class SMSService:
         user_name = data.get('user_name', 'User')
         return (f"Hi {user_name}, {self.company_name} is closed for picks. Grid sheet is live!\n"
                 f"Visit {self.base_url}\n"
+                f"FAQ: {self.base_url}/faq.html")
+    
+    def _weekly_winner_content(self, data: Dict[str, Any]) -> str:
+        display_name = data.get('display_name', 'the winner')
+        return (f"Congratulations to {display_name}!\n"
+                f"{display_name} is this week's {self.company_name} winner. Great job!\n"
+                f"Visit {self.base_url} to view results.\n"
                 f"FAQ: {self.base_url}/faq.html")
 
 # ---------------------------------------------------------------------------

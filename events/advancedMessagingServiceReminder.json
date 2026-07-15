@@ -6,7 +6,7 @@
   "headers": {
     "content-type": "application/json"
   },
-  "body": "{\"recipient\":\"chuckschwing@proton.me\",\"message_type\":\"picksheet\", \"channel\":\"sms\"}",
+  "body": "{\"message_type\":\"weeklywinner\", \"channel\":\"email\"}",
   "requestContext": {
     "http": {
       "method": "POST",
