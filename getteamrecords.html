@@ -44,14 +44,14 @@
             const list = parsed.items ?? parsed;
             console.log("Parsed team records data:", parsed);
             console.log("Parsed list of records data:", list);
-            return list;
+            return list.sort((a, b) => a.TeamName.localeCompare(b.TeamName)); // Sort by team name
         }
 
         function createTeamRecordsTable(teamRecordsData) {
             if (!teamRecordsData || teamRecordsData.length === 0) {
                 return "<p>No team records data available.</p>";
             }
-            let tableHTML = `<table>
+            let tableHTML = `<table id="teamRecordsTable">
                 <thead>
                     <tr>
                         <th>Team</th>
@@ -87,14 +87,35 @@
             }
         });
     </script>
+    <style>
+        #teamRecordsTable {
+            border-collapse: collapse;
+            border: 2px solid black;
+            margin-top: 5px;
+        }
+        #teamRecordsTable th,
+        #teamRecordsTable td {
+            border: 1px solid black;
+            padding: 8px 12px;
+            text-align: left;
+        }
+        #teamRecordsTable th {
+            background-color: #4caf50;
+            color: white;
+            font-weight: bold;
+        }
+        #teamRecordsTable tbody tr:nth-child(odd)  { background-color: #f9f9f9; }
+        #teamRecordsTable tbody tr:nth-child(even) { background-color: #ffffff; }
+        #teamRecordsTable tbody tr:hover           { background-color: #f5f5f5; }
+    </style>
     <title>Get Team Records</title>
 </head>
 
 <body class="fbp-home">
-    <div class="container">
-        <header>
-            <h1>Load PickSheet</h1>
-        </header>
+    <header>
+        <h1 class="page-title">NFL Team Records</h1>
+    </header>
+    <div class="container" style="display:flex; gap:2rem; align-items:flex-start; margin:0; max-width:100%;">
         <script type="module">
             import { initNav } from "/js-lib/nav.js";
             await initNav();
@@ -102,9 +123,10 @@
         <aside class="nav-choices">
             <!-- populated by nav.js -->
         </aside>
+        <main class="results-main">
+            <div id="team-records-table-container"></div>
+        </main>
     </div>
-    <!-- display team records data in table -->
-    <div id="team-records-table-container"></div>
     <footer>
         <p>
             Questions? Contact us at <a href="mailto:fbpadmin@my-fbp.com">fbpadmin@my-fbp.com</a>
