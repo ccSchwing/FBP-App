@@ -2,16 +2,10 @@ import { wireHamburger } from "./uiUtils.js";
 import { auth } from "/js/auth.js";
 
 const adminLinks = `
-  <li><a href="/fbp-home.html"> -- FBP Home</a></li>
-  <li><a href="/fbp-admin/admin.html"> -- Admin Home</a></li>
-  <li><a href="/fbp-admin/signup.html"> -- Create FBP Account</a></li>
-  <li><a href="/fbp-admin/manageuserprofiles.html"> -- Manage User Profiles</a></li>
-  <li><a href="/fbp-admin/setpoolstatus.html" title="Open will increment the week and set pool_open to true.  Close will set pool_open to false, and will make all missing user picks."> -- Open (Tuesday) or Close (Thursday) Pool</a></li>
-  <li><a href="/fbp-admin/calculateweeklyresults.html" title="Will calculate weekly game and user results on Tuesday."> -- Tuesday - Mandatory! Calculate Weekly Game and User Results</a></li>
-  <li><a href="/getpicksheet.html"> -- Show Pick Sheet</a></li>
-  <li><a href="/getgridsheet.html"> -- Show Grid Sheet</a></li>
-  <li><a href="/fbp-admin/dashboard.html"> -- Admin Dashboard</a></li>
-  <li><a href="/auth-health.html"> -- OIDC Auth Health Check</a></li>
+  <li><a href="/fbp-home.html">FBP Home</a></li>
+  <li><a href="/fbp-admin/signup.html">Create FBP Account</a></li>
+  <li><a href="/fbp-admin/manageuserprofiles.html">Manage User Profiles</a></li>
+  <li><a href="/fbp-admin/dashboard.html">Admin Dashboard</a></li>
 `;
 
 export async function initAdminNav() {
