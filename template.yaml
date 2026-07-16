@@ -297,6 +297,14 @@ Resources:
               Resource: !Sub "arn:aws:s3:::${S3BucketName}/*"
             - Effect: Allow
               Action:
+                - s3:PutObject
+              Resource: !Sub "arn:aws:s3:::${S3BucketName}/*"
+            - Effect: Allow
+              Action:
+                - s3:DeleteObject
+              Resource: !Sub "arn:aws:s3:::${S3BucketName}/*"
+            - Effect: Allow
+              Action:
                 - s3:ListBucket
               Resource: !Sub "arn:aws:s3:::${S3BucketName}"
   OpenPool:
@@ -1664,6 +1672,16 @@ Outputs:
     Value: !Ref MyHttpApi
     Export:
       Name: !Sub ${AWS::StackName}-HttpApiId
+  ImportSpreadsAndFinalScoresFunctionName:
+    Description: Name of the ImportSpreadsAndFinalScores Lambda function
+    Value: !Ref ImportSpreadsAndFinalScores
+    Export:
+      Name: !Sub "${AWS::StackName}-ImportSpreadsAndFinalScores"
+  ImportSpreadsAndFinalScoresEndpoint:
+    Description: Endpoint for the ImportSpreadsAndFinalScores API
+    Value: !Sub "https://${MyHttpApi}.execute-api.${AWS::Region}.amazonaws.com/importSpreadsAndFinalScores"
+    Export:
+      Name: !Sub "${AWS::StackName}-ImportSpreadsAndFinalScoresEndpoint"
   AdvancedMessagingServiceFunctionName:
     Description: Name of the AdvancedMessagingService Lambda function
     Value: !Ref AdvancedMessagingService

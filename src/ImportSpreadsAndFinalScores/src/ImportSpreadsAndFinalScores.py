@@ -28,7 +28,6 @@ def importSpreadsAndFinalScores(event, context):
     bucket_name = os.environ.get('S3BucketName', 'my-fbp.com')
     logger.info(f"Using S3 bucket: {bucket_name}")  # Log the bucket name being used
     week=getCurrentWeek()
-    week=5
     if week is None:
         logger.error("Failed to determine current week. Aborting import process.")
         fbpLog("fbpadmin@my-fbp.com", "ImportSpreads", "Failed to determine current week. Aborting import process.", "ERROR")
@@ -58,7 +57,6 @@ def importSpreadsAndFinalScores(event, context):
 
         logger.info(f"Retrieved {len(spreads_data)} objects from bucket: {bucket_name}")
         week = getCurrentWeek()
-        week = 5
         for spread in spreads_data:
             game_id = spread.pop('GameId', None)  # save before popping
             spread['Week'] = week
