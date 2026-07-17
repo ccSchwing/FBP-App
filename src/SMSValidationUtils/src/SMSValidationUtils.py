@@ -5,6 +5,8 @@ import re
 import boto3
 import logging
 import hashlib
+from twilio.rest import Client
+from twilio.base.exceptions import TwilioRestException
 from botocore.exceptions import ClientError
 from boto3.dynamodb.conditions import Attr, Key
 from aws_lambda_powertools.event_handler import APIGatewayHttpResolver
@@ -24,6 +26,51 @@ cors_config = CORSConfig(
 )
 
 app=APIGatewayHttpResolver(cors=cors_config)
+
+
+def normalize_phone_number(phone_number):
+    digits_only = re.sub(r"\D", "", str(phone_number or ""))
+    if len(digits_only) == 10:
+        return f"+1{digits_only}"
+    if len(digits_only) == 11 and digits_only.startswith("1"):
+        return f"+{digits_only}"
+    return f"+{digits_only}"
+
+
+def get_twilio_client_and_sender():
+    secret_arn = os.environ.get("TWILIO_CREDENTIALS_SECRET_ARN")
+    if not secret_arn:
+        raise ValueError("TWILIO_CREDENTIALS_SECRET_ARN is not configured")
+
+    secrets_client = boto3.client("secretsmanager")
+    response = secrets_client.get_secret_value(SecretId=secret_arn)
+    secret_payload = json.loads(response["SecretString"])
+
+    account_sid = secret_payload.get("TWILIO_ACCOUNT_SID")
+    auth_token = secret_payload.get("TWILIO_AUTH_TOKEN")
+    sender_number = secret_payload.get("TWILIO_PHONE_NUMBER")
+
+    if not account_sid or not auth_token or not sender_number:
+        raise ValueError("Twilio secret is missing one or more required keys")
+
+    return Client(account_sid, auth_token), sender_number
+
+
+def send_verification_sms(mobile_number, verification_code):
+    sms_client, sender_number = get_twilio_client_and_sender()
+    recipient = normalize_phone_number(mobile_number)
+
+    sms_body = (
+        f"Your FBP verification code is {verification_code}. "
+        "This code expires when you request a new one."
+    )
+
+    message = sms_client.messages.create(
+        body=sms_body,
+        from_=sender_number,
+        to=recipient,
+    )
+    logger.info(f"Verification SMS sent. SID: {message.sid}, To: {recipient}")
 
 @app.post("/storeSMSVerificationCode")
 def storeVerificationCode():
@@ -58,7 +105,7 @@ def storeVerificationCode():
     ##
 
     verification_code = random.randint(100000, 999999)
-    print(f"Generated verification code: {verification_code}")
+    logger.info("Generated SMS verification code")
     ##
     # Convert verification_code to string
     ##
@@ -69,7 +116,7 @@ def storeVerificationCode():
     ##
 
     verification_code_hash = hashlib.sha256(verification_code.encode()).hexdigest()
-    print(f"Generated verification code hash: {verification_code_hash}")
+    logger.info("Generated SMS verification code hash")
 
     ##
     # Store pending mobile number and verification code hash in DynamoDB
@@ -88,9 +135,18 @@ def storeVerificationCode():
                 ':sms_verification_status': 'PENDING'
             }
         )
+
+        send_verification_sms(mobile_number, verification_code)
+
         return {
             'statusCode': 200,
             'body': json.dumps({'verification_code_hash': verification_code_hash}),
+        }
+    except (TwilioRestException, ValueError, ClientError) as e:
+        logger.error(f"Failed to send SMS verification code: {e}")
+        return {
+            'statusCode': 500,
+            'body': json.dumps({'message': 'Could not send verification code', 'error': str(e)}),
         }
     except Exception as e:
 

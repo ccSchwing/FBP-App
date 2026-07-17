@@ -746,12 +746,19 @@ Resources:
             TableName: !Ref FBPUsersTableName
         - DynamoDBCrudPolicy:
             TableName: !Ref FBPLogsTableName
+        - Statement:
+            - Effect: Allow
+              Action:
+                - secretsmanager:GetSecretValue
+              Resource: !Ref TwilioCredentialsSecretArn
       Environment:
         Variables:
           FBPUsersTableName: !Ref FBPUsersTableName
           FBPLogsTableName: !Ref FBPLogsTableName
+          TWILIO_CREDENTIALS_SECRET_ARN: !Ref TwilioCredentialsSecretArn
       Layers:
         - !Ref FBPLibLayer
+        - !Ref TwilioLayer
       Events:
         StoreSMSVerificationCodePost:
           Type: HttpApi

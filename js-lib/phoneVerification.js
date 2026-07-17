@@ -294,18 +294,42 @@ export function initPhoneVerification({ resolveUserEmail } = {}) {
     }
 
     const { mobileInput, sendButton, verifyButton } = getElements();
-    if (!mobileInput || !sendButton || !verifyButton) {
-      return;
+    let boundAny = false;
+
+    if (mobileInput) {
+      mobileInput.addEventListener("input", (event) => {
+        event.target.value = formatPhoneNumber(event.target.value);
+        updateStateForInput(event.target.value);
+      });
+      boundAny = true;
+    } else {
+      console.warn("Phone verification: mobile input not found.");
     }
 
-    mobileInput.addEventListener("input", (event) => {
-      event.target.value = formatPhoneNumber(event.target.value);
-      updateStateForInput(event.target.value);
-    });
+    if (sendButton) {
+      sendButton.addEventListener("click", (event) => {
+        event.preventDefault();
+        void sendVerificationCode();
+      });
+      boundAny = true;
+    } else {
+      console.warn("Phone verification: send verification button not found.");
+    }
 
-    sendButton.addEventListener("click", sendVerificationCode);
-    verifyButton.addEventListener("click", verifyMobileNumber);
-    listenersBound = true;
+    if (verifyButton) {
+      verifyButton.addEventListener("click", (event) => {
+        event.preventDefault();
+        void verifyMobileNumber();
+      });
+      boundAny = true;
+    } else {
+      console.warn("Phone verification: verify button not found.");
+    }
+
+    listenersBound = boundAny;
+    if (listenersBound) {
+      console.info("Phone verification listeners bound.");
+    }
   }
 
   function applyCurrentProfile() {

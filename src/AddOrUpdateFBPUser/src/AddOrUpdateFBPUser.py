@@ -106,6 +106,7 @@ def updateFBPUser():
         response_data = {
             'email': item.get('email'),
             'defaultAlgorithm': item.get('defaultAlgorithm'),
+            'defaultTieBreaker': item.get('defaultTieBreaker'),
             'displayName': item.get('displayName'),
             'paymentMethod': item.get('paymentMethod'),
             'emailGridSheet': item.get('emailGridSheet'),
@@ -255,6 +256,7 @@ def addFBPUserData(request_body):
             Item={
                 'email': request_body.get('email'),
                 'defaultAlgorithm': request_body.get('defaultAlgorithm'),
+                'defaultTieBreaker': request_body.get('defaultTieBreaker'),
                 'displayName': request_body.get('displayName'),
                 # paymentMethod is only available when the user is updated.
                 # That's why it's not included here.  Admin creates the account.
@@ -293,7 +295,7 @@ def addFBPUserData(request_body):
                 'displayName': request_body.get('displayName'),
                 'week': week,
                 'picks': "",
-                'tieBreaker': 49        # Default tieBreaker value, can be updated later by the user
+                'tieBreaker': request_body.get('defaultTieBreaker'),
             }
         )
         return Response(
@@ -301,6 +303,7 @@ def addFBPUserData(request_body):
             body=json.dumps({
                 'email': request_body.get('email'),
                 'defaultAlgorithm': request_body.get('defaultAlgorithm'),
+                'defaultTieBreaker': request_body.get('defaultTieBreaker'),
                 'displayName': request_body.get('displayName'),
                 'emailGridSheet': request_body.get('emailGridSheet'),
                 'emailPickSheet': request_body.get('emailPickSheet'),

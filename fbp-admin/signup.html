@@ -98,6 +98,7 @@
       const firstName = document.getElementById("firstName").value.trim();
       const lastName = document.getElementById("lastName").value.trim();
       const displayName = document.getElementById("displayName").value.trim();
+      const defaultTieBreaker = document.getElementById("defaultTieBreaker").value.trim();
       if (firstName === "") {
         errorMessages.push("First Name cannot be empty.");
       }
@@ -106,6 +107,12 @@
       }
       if (displayName === "") {
         errorMessages.push("Display Name cannot be empty.");
+      }
+      if (defaultTieBreaker === "") {
+        errorMessages.push("Default Tie Breaker cannot be empty.");
+      }
+      if (isNaN(defaultTieBreaker)) {
+        errorMessages.push("Default Tie Breaker must be a number.");
       }
       const defaultAlgorithm = document.querySelector(
         'input[name="defaultAlgorithm"]:checked',
@@ -148,6 +155,7 @@
             defaultAlgorithm:
               document.querySelector('input[name="defaultAlgorithm"]:checked')
                 ?.value || "random",
+            defaultTieBreaker: formData.get("defaultTieBreaker"),
           }),
         });
         const data = await response.text();
@@ -312,6 +320,12 @@
             <span class="custom-radio"><label style="display: flex; align-items: center"><input type="radio"
                   value="random" name="defaultAlgorithm" id="alg-random" checked /><span class="checkmark"></span>
                 <span style="font-weight: 400; margin-left: 0.5em">Random</span></label></span>
+            <div>
+            </div>
+            <div>
+              <label for="defaultTieBreaker">Default Tie Breaker:</label>
+              <input type="text" maxlength="2" name="defaultTieBreaker" id="defaultTieBreaker" />
+            </div>
           </div>
         </form>
         <button onclick="AddNewUser()">Register</button>
