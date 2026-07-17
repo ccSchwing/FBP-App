@@ -235,6 +235,10 @@ def validateAndFixFBPPicks():
                     KeyConditionExpression=Key('email').eq(email)
                 )
                 defaultTieBreaker = usersData['Items'][0].get('defaultTieBreaker')
+                if defaultTieBreaker is None:
+                    logger.warning(f"No default tieBreaker found for email: {email}, setting to random number between 21 and 63")
+                    fbpLog(email=email, action="method: validateAndFixFBPPicks", details=f"No default tieBreaker found for email: {email}, setting to random number between 21 and 63", level="WARNING")
+                    defaultTieBreaker = random.randint(a=21, b=63)
                 # convert defaultTieBreaker to a int
                 defaultTieBreaker = decimal.Decimal(defaultTieBreaker)
                 if defaultTieBreaker is not None:
