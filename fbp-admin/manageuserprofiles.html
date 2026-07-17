@@ -186,7 +186,7 @@
         responseBody.emailReminders || false;
       document.getElementById("emailGridSheet").checked =
         responseBody.emailGridSheet || false;
-      const defaultTieBreaker = responseBody.defaultTieBreaker || "wtf!";
+      const defaultTieBreaker = responseBody.defaultTieBreaker;
       document.getElementById("defaultTieBreaker").value = defaultTieBreaker;
       const defaultAlgorithm = responseBody.defaultAlgorithm || "";
       const radioButtons = document.querySelectorAll(
