@@ -2,6 +2,7 @@
 
 set -o errexit
 set -o pipefail
+
 if [ $# -ne 1 ]
 then
 	echo "Usage: $(basename $0) path to file -- e.g. schedule/2025-Schedule/week3-schedule.json"

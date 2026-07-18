@@ -1,6 +1,7 @@
 #!/bin/bash
 
 set -e
+
 # Create the zip file
 zip -r twilio-layer.zip python/
 
