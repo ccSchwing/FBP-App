@@ -211,6 +211,13 @@ def validateAndFixFBPPicks():
                 picksItem = picksResponse['Items'][0]
                 picksItem['Winner'] = False
                 picksTable.put_item(Item=picksItem)
+            ##
+            # Update the user record in FBP-Picks for this email.
+            ##
+            else:
+                user['Winner'] = False
+                usersTable.put_item(Item=user)
+            
         logger.info(f"Resetting winner field for all users for week: {week}")
         fbpLog(email=email, action="method: validateAndFixFBPPicks", details=f"Resetting winner field for all users for week: {week}", level="INFO")
         ## End of loop to reset winner field for all users for the previous week.
