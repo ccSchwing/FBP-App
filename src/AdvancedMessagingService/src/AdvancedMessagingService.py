@@ -9,6 +9,7 @@ from typing import Dict, Any, Optional
 from enum import Enum
 from dataclasses import dataclass, asdict
 from botocore.exceptions import ClientError
+import decimal
 from aws_lambda_powertools import Logger, Tracer, Metrics
 from aws_lambda_powertools.metrics import MetricUnit
 from fbplib.fbpLog import fbpLog
@@ -280,23 +281,25 @@ class EmailService:
 
     def _reminder_content(self, data: Dict[str, Any]) -> tuple:
         user_name = data.get('user_name', 'User')
+        week=getCurrentWeek()
         subject = f"Reminder from {self.company_name}"
         html = f"""
         <html><body>
             <h1>Reminder from {self.company_name}, {user_name}!</h1>
-            <p>You still have time to make your {self.company_name} picks for the week.</p>
+            <p>You still have time to make your {self.company_name} picks for week {week}.</p>
             <p>Visit: <a href="{self.base_url}">{self.company_name} Home</a></p>
             <p>Questions? <a href="mailto:{self.support_email}"><b>{self.support_email}</b></a></p>
             <p>Best regards,<br>The {self.company_name} Team</p>
         </body></html>
         """
-        text = (f"Hello {user_name} --\n\nYou still have time to make your {self.company_name} picks for the week.\n"
+        text = (f"Hello {user_name} --\n\nYou still have time to make your {self.company_name} picks for week {week}.\n"
                 f"Visit: {self.base_url}\n\nQuestions? {self.support_email}\n\nBest regards,\nThe {self.company_name} Team")
         return subject, html, text
 
     def _picksheet_content(self, data: Dict[str, Any]) -> tuple:
         user_name = data.get('user_name', 'User')
-        subject = f"{self.company_name} Is Open for Picks."
+        week=getCurrentWeek()
+        subject = f"{self.company_name} Is Open for Picks for week {week}."
         html = f"""
         <html><body>
             <h1>Hi {user_name} from {self.company_name}!</h1>
@@ -306,34 +309,38 @@ class EmailService:
             <p>Best regards,<br>The {self.company_name} Team</p>
         </body></html>
         """
-        text = (f"Hello {user_name} --\n\n{self.company_name} is open for picks.\n"
+        text = (f"Hello {user_name} --\n\n{self.company_name} is open for picks for week {week}.\n"
                 f"Visit: {self.base_url}\nFAQ: {self.base_url}/faq.html\n\n"
                 f"Questions? {self.support_email}\n\nBest regards,\nThe {self.company_name} Team")
         return subject, html, text
     def _gridsheet_content(self, data: Dict[str, Any]) -> tuple:
         user_name = data.get('user_name', 'User')
-        subject = f"{self.company_name} Grid Sheet is Live!"
+        week=getCurrentWeek()
+        subject = f"{self.company_name} Grid Sheet is Live for week {week}!"
         html = f"""
         <html><body>
             <h1>Hi {user_name} from {self.company_name}!</h1>
-            <p>The grid sheet is now live for this week.</p>
+            <p>The grid sheet is now live for week {week}.</p>
             <p>Visit: <a href="{self.base_url}">{self.company_name} Home</a> to view the grid sheet.</p>
             <p>FAQ: <a href="{self.base_url}/faq.html">FAQ</a></p>
             <p>Questions? <a href="mailto:{self.support_email}"><b>{self.support_email}</b></a></p>
             <p>Best regards,<br>The {self.company_name} Team</p>
         </body></html>
         """
-        text = (f"Hello {user_name} --\n\nThe grid sheet is now live for this week.\n"
+        text = (f"Hello {user_name} --\n\nThe grid sheet is now live for week {week}.\n"
                 f"Visit: {self.base_url}\nFAQ: {self.base_url}/faq.html\n\n"
                 f"Questions? {self.support_email}\n\nBest regards,\nThe {self.company_name} Team")
         return subject, html, text
     def _weeklywinner_content(self, data: Dict[str, Any]) -> tuple:
         display_name = data.get('display_name', 'the winner')
-        subject = f"Congratulations to {display_name} -- This Week's {self.company_name} Winner!"
+        week=getCurrentWeek()
+        if week is not None:
+            week=decimal.Decimal(week-1)
+        subject = f"Congratulations to {display_name} -- Week {week}'s {self.company_name} Winner!"
         html = f"""
         <html><body>
             <h1>Congratulations to {display_name}!</h1>
-            <p>{display_name} is this week's {self.company_name} winner. Great job!</p>
+            <p>{display_name} is week's {week} {self.company_name} winner. Great job!</p>
             <p>Visit: <a href="{self.base_url}">{self.company_name} Home</a> to view the results.</p>
             <p>FAQ: <a href="{self.base_url}/faq.html">FAQ</a></p>
             <p>Questions? <a href="mailto:{self.support_email}"><b>{self.support_email}</b></a></p>
@@ -341,7 +348,7 @@ class EmailService:
         </body></html>
         """
         text = (f"Congratulations to {display_name}!\n\n"
-                f"{display_name} is this week's {self.company_name} winner. Great job!\n\n"
+                f"{display_name} is week {week}'s {self.company_name} winner. Great job!\n\n"
                 f"Visit: {self.base_url}\nFAQ: {self.base_url}/faq.html\n\n"
                 f"Questions? {self.support_email}\n\nBest regards,\nThe {self.company_name} Team")
         return subject, html, text
@@ -439,7 +446,7 @@ class SMSService:
     def _get_bulk_users(self, msg_type: MessageType) -> list:
         """Scan DynamoDB for users opted in to SMS for the given message type."""
         opt_in_field_map = {
-            MessageType.REMINDER: 'smsReminders',
+            MessageType.REMINDER: 'smsReminder',
             MessageType.PICKSHEET: 'smsPickSheet',
             MessageType.GRIDSHEET: 'smsGridSheet',
         }
@@ -520,26 +527,30 @@ class SMSService:
 
     def _reminder_content(self, data: Dict[str, Any]) -> str:
         user_name = data.get('user_name', 'User')
-        return (f"Hi {user_name}, {self.company_name} picks is still open!\n"
-                f"Visit {self.base_url}\n"
+        week=getCurrentWeek()
+        return (f"Hi {user_name}, this is a reminder to make your picks for week {week}.\n"
+                f"Visit {self.base_url} to make your picks.\n"
                 f"FAQ: {self.base_url}/faq.html")
 
     def _picksheet_content(self, data: Dict[str, Any]) -> str:
         user_name = data.get('user_name', 'User')
-        return (f"Hi {user_name}, {self.company_name} Pool is open. Make your picks!\n"
+        week=getCurrentWeek()
+        return (f"Hi {user_name}, {self.company_name} Pool is open for week {week}. Make your picks!\n"
                 f"Visit {self.base_url}\n"
                 f"FAQ: {self.base_url}/faq.html")
 
     def _gridsheet_content(self, data: Dict[str, Any]) -> str:
         user_name = data.get('user_name', 'User')
-        return (f"Hi {user_name}, {self.company_name} is closed for picks. Grid sheet is live!\n"
+        week=getCurrentWeek()
+        return (f"Hi {user_name}, {self.company_name} is closed for picks for week {week}. Grid sheet is live!\n"
                 f"Visit {self.base_url}\n"
                 f"FAQ: {self.base_url}/faq.html")
     
     def _weekly_winner_content(self, data: Dict[str, Any]) -> str:
         display_name = data.get('display_name', 'the winner')
+        week=getCurrentWeek()
         return (f"Congratulations to {display_name}!\n"
-                f"{display_name} is this week's {self.company_name} winner. Great job!\n"
+                f"{display_name} is this week's {self.company_name} winner for week {week}. Great job!\n"
                 f"Visit {self.base_url} to view results.\n"
                 f"FAQ: {self.base_url}/faq.html")
 

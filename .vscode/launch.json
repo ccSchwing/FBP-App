@@ -427,6 +427,23 @@
       ]
     },
     {
+      "name": "Python: Attach to AdvancedMessagingService Reminder",
+      "type": "debugpy",
+      "request": "attach",
+      "connect": {
+        "host": "localhost",
+        "port": 5678
+      },
+      "preLaunchTask": "Attach to AdvancedMessagingService Reminder",
+      "postDebugTask": "Cleanup",
+      "pathMappings": [
+        {
+          "localRoot": "${workspaceFolder}/src/AdvancedMessagingService/src",
+          "remoteRoot": "/var/task"
+        }
+      ]
+    },
+    {
       "name": "Python: Attach to AdvancedSMSService",
       "type": "debugpy",
       "request": "attach",
