@@ -279,6 +279,15 @@ manifest_hash = ""
 packagetype = "Zip"
 functions = ["AdvancedMessagingService"]
 
+[function_build_definitions.c2eb65b4-ed6e-4fcc-95da-8e8117ca18ef]
+codeuri = "/Users/ccs/projects/FBP/src/ChatBot/src"
+runtime = "python3.12"
+architecture = "x86_64"
+handler = "ChatBot.chatboti"
+manifest_hash = ""
+packagetype = "Zip"
+functions = ["ChatBot"]
+
 [layer_build_definitions.6ab25c37-c42c-4a0e-97e3-70cd5b9a311c]
 layer_name = "FBPLibLayer"
 codeuri = "/Users/ccs/projects/FBP/src/FBPLib-Layer"
