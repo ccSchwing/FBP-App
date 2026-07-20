@@ -33,3 +33,4 @@ getSMSVerificationCode:https://75ocw0wrsd.execute-api.us-east-1.amazonaws.com/pr
 updateSMSVerification:https://75ocw0wrsd.execute-api.us-east-1.amazonaws.com/prod/updateSMSVerification
 advancedEmail:https://75ocw0wrsd.execute-api.us-east-1.amazonaws.com/prod/advanced-email
 getTeamRecords:https://75ocw0wrsd.execute-api.us-east-1.amazonaws.com/prod/getTeamRecords
+chatbot:https://75ocw0wrsd.execute-api.us-east-1.amazonaws.com/prod/chatbot

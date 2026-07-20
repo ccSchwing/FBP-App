@@ -1,0 +1,63 @@
+<!-- Simple chat widget -->
+<div id="chat-widget">
+    <div id="chat-messages"></div>
+    <input type="text" id="chat-input" placeholder="Ask about your Football app...">
+    <button onclick="sendMessage()">Send</button>
+</div>
+
+<script>
+async function sendMessage() {
+    const input = document.getElementById('chat-input');
+    const question = input.value.trim();
+    
+    if (!question) return;
+    
+    // Add user message to chat
+    addMessage('user', question);
+    input.value = '';
+    
+    try {
+        // Call your Lambda function via API Gateway
+        const response = await fetch('YOUR_API_GATEWAY_ENDPOINT', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                question: question,
+                sessionId: getSessionId()
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+            addMessage('bot', data.answer);
+        } else {
+            addMessage('bot', 'Sorry, I encountered an error. Please try again.');
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        addMessage('bot', 'Sorry, I could not connect to the server.');
+    }
+}
+
+function addMessage(sender, message) {
+    const messagesDiv = document.getElementById('chat-messages');
+    const messageDiv = document.createElement('div');
+    messageDiv.className = sender;
+    messageDiv.textContent = message;
+    messagesDiv.appendChild(messageDiv);
+    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+}
+
+function getSessionId() {
+    // Simple session management
+    let sessionId = localStorage.getItem('fbp-chat-session');
+    if (!sessionId) {
+        sessionId = 'session-' + Date.now();
+        localStorage.setItem('fbp-chat-session', sessionId);
+    }
+    return sessionId;
+}
+</script>
