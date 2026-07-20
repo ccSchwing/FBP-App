@@ -90,6 +90,10 @@ Parameters:
     Type: String
     Description: JSON string containing Twilio credentials (Account SID and Auth Token and Twilio Phone number).
     Default: 'Twilio-Secret'
+  KnowledgeBaseId:
+    Type: String
+    Description: ID of the Bedrock Knowledge Base
+    Default: FLBWAWSNBG
 Resources:
   FBPLibLayer:
     Type: AWS::Serverless::LayerVersion
@@ -141,6 +145,48 @@ Resources:
           Properties:
             ApiId: !Ref MyHttpApi
             Path: /twilio-webhook
+            Method: OPTIONS
+            PayloadFormatVersion: '2.0'
+  ChatBot:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-chatbot"
+      CodeUri: src/ChatBot/src/
+      Handler: ChatBot.chatboti
+      Runtime: python3.12
+      Layers:
+        - !Ref FBPLibLayer
+      Environment:
+        Variables:
+          KnowledgeBaseId: !Ref KnowledgeBaseId
+      Policies:
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - bedrock:RetrieveAndGenerate
+                - bedrock:Retrieve
+                - bedrock:AgenticRetrieveStream
+              Resource: "*"
+            - Effect: Allow
+              Action:
+                - logs:CreateLogGroup
+                - logs:CreateLogStream
+                - logs:PutLogEvents
+              Resource: "arn:aws:logs:*:*:*"
+      Events:
+        ChatBotPostApi:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref MyHttpApi
+            Path: /chatbot
+            Method: post
+            PayloadFormatVersion: '2.0'
+        ChatBotOptionsApi:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref MyHttpApi
+            Path: /chatbot
             Method: OPTIONS
             PayloadFormatVersion: '2.0'
   TeamRecord:
@@ -1679,6 +1725,16 @@ Outputs:
     Value: !Ref MyHttpApi
     Export:
       Name: !Sub ${AWS::StackName}-HttpApiId
+  ChatBotFunctionName:
+    Description: Name of the ChatBot Lambda function
+    Value: !Ref ChatBot
+    Export:
+      Name: !Sub "${AWS::StackName}-ChatBot"
+  ChatBotEndpoint:
+    Description: Endpoint for the ChatBot API
+    Value: !Sub "https://${MyHttpApi}.execute-api.${AWS::Region}.amazonaws.com/chatbot"
+    Export:
+      Name: !Sub "${AWS::StackName}-ChatBotEndpoint"
   ImportSpreadsAndFinalScoresFunctionName:
     Description: Name of the ImportSpreadsAndFinalScores Lambda function
     Value: !Ref ImportSpreadsAndFinalScores
