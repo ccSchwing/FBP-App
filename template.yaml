@@ -94,6 +94,10 @@ Parameters:
     Type: String
     Description: ID of the Bedrock Knowledge Base
     Default: FLBWAWSNBG
+  DataSourceId:
+    Type: String
+    Description: ID of the Bedrock data source
+    Default: LULFE6CQPM
 Resources:
   FBPLibLayer:
     Type: AWS::Serverless::LayerVersion
@@ -159,6 +163,8 @@ Resources:
       Environment:
         Variables:
           KnowledgeBaseId: !Ref KnowledgeBaseId
+          DataSourceId: !Ref DataSourceId
+          S3BucketName: !Ref S3BucketName
       Policies:
         - Version: '2012-10-17'
           Statement:
@@ -174,6 +180,11 @@ Resources:
                 - logs:CreateLogStream
                 - logs:PutLogEvents
               Resource: "arn:aws:logs:*:*:*"
+            - Effect: Allow
+              Action:
+                - s3:PutObject
+                - s3:GetObject
+              Resource: !Sub "arn:aws:s3:::${S3BucketName}/*"
       Events:
         ChatBotPostApi:
           Type: HttpApi

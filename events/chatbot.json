@@ -6,7 +6,7 @@
   "headers": {
     "content-type": "application/json"
   },
-  "body": "{\"question\": \"How much does FBP cost?\"}",
+  "body": "{\"question\": \"Cheifs\"}",
   
   "requestContext": {
     "routeKey": "POST /chatbot",
