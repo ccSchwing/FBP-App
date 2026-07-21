@@ -118,7 +118,7 @@ def export_tables_to_csv():
         {
             'table_name': '2025-Schedule', 
             'filename': '2025-Schedule',
-            'privacy_level': 'public'
+            'privacy_level': 'private'
         }
     ]
     
@@ -171,8 +171,7 @@ def export_tables_to_csv():
                         logger.info(f"Created metadata file: {metadata_filename}")
                     case 'FBP-Users':
                         # Private tables: exclude sensitive fields
-                        sensitive_fields = ['email', 'beta', 'mobile_number', 'verification_code', 'verification_code_hash']
-                        #content_fields = ['displayName', 'totalCorectPicks', 'totalIncorrectPicks', 'totalWins']
+                        sensitive_fields = ['email', 'firstName', 'lastName', 'beta', 'Winner', 'mobile_number', 'verification_code', 'verification_code_hash']
                         content_fields = ['displayName']
                         include_fields = [field for field in df.columns if field not in sensitive_fields]
                         metadata_filename = create_metadata_file(
