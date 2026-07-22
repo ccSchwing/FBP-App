@@ -52,6 +52,11 @@ def _is_opted_in(value: Any) -> bool:
 def _get_winner() -> Optional[str]:
     """Get the weekly winner's email for the current week."""
     current_week = getCurrentWeek()
+    if current_week is None:
+        logger.info("Current week is None; cannot get winner")
+        return None
+    else:
+        current_week = current_week - 1  # Adjust to get the previous week
     winners_table_name = os.environ.get('FBPWeeklyResults2025TableName', default='FBP-Weekly-Results-2025')
     if not winners_table_name:
         logger.info("FBPWeeklyResults2025TableName not set; cannot get winner")
@@ -85,19 +90,30 @@ def _get_user_display_name(email: str) -> Optional[str]:
         return None
 
 
-def _get_all_users() -> list:
+def _get_all_users(channel):
     """Scan DynamoDB for all users (used for weekly winner announcements)."""
     users_table_name = os.environ.get('FBPUSERS_TABLE_NAME')
     if not users_table_name:
         logger.info("FBPUSERS_TABLE_NAME not set; no users found")
-        return []
-    try:
-        table = boto3.resource('dynamodb').Table(users_table_name)
-        items = table.scan(ProjectionExpression='email, firstName, mobile_number').get("Items", [])
-        return [u for u in items if u.get('email') and u.get('firstName') and u.get('mobile_number')]
-    except Exception as e:
-        logger.warning("DynamoDB scan failed", extra={"error": str(e)})
-        return []
+        return [] 
+    if channel == "sms":
+        logger.info("Fetching all users for SMS channel")
+        try:
+            table = boto3.resource('dynamodb').Table(users_table_name)
+            items = table.scan(ProjectionExpression='email, firstName, mobile_number').get("Items", [])
+            return [u for u in items if u.get('email') and u.get('firstName') and u.get('mobile_number')]
+        except Exception as e:
+            logger.warning("DynamoDB scan failed", extra={"error": str(e)})
+            return []
+    if channel == "email":
+        logger.info("Fetching all users for Email channel")
+        try:
+            table = boto3.resource('dynamodb').Table(users_table_name)
+            items = table.scan(ProjectionExpression='email, firstName').get("Items", [])
+            return [u for u in items if u.get('email') and u.get('firstName')]
+        except Exception as e:
+            logger.warning("DynamoDB scan failed", extra={"error": str(e)})
+            return []
 
 
 # ---------------------------------------------------------------------------
@@ -115,7 +131,7 @@ class EmailService:
         self.support_email = os.environ.get('SUPPORT_EMAIL', 'fbpadmin@my-fbp.com')
 
     @tracer.capture_method
-    def send(self, message_type: str, recipient: Optional[str],
+    def send(self, message_type: str, channel: str, recipient: Optional[str],
              data: Dict[str, Any], reply_to: Optional[str] = None,
              tags: Optional[Dict[str, str]] = None) -> MessagingResponse:
 
@@ -133,7 +149,7 @@ class EmailService:
                                             recipient=recipient, message_id=msg_id)
 
                 case MessageType.REMINDER:
-                    users = self._get_bulk_users('emailReminders')
+                    users = self._get_bulk_users('emailReminders', channel="email")
                     if not users:
                         logger.info("No reminder users found")
                     for user in users:
@@ -143,7 +159,7 @@ class EmailService:
                                             recipient=recipient, message_id=f"bulk:{len(users)}")
 
                 case MessageType.PICKSHEET:
-                    users = self._get_bulk_users('emailPickSheet')
+                    users = self._get_bulk_users('emailPickSheet', channel="email")
                     if not users:
                         logger.info("No picksheet users found")
                     for user in users:
@@ -153,7 +169,7 @@ class EmailService:
                                             recipient=recipient, message_id=f"bulk:{len(users)}")
 
                 case MessageType.GRIDSHEET:
-                    users = self._get_bulk_users('emailGridSheet')
+                    users = self._get_bulk_users('emailGridSheet', channel="email")
                     if not users:
                         logger.info("No gridsheet users found")
                     for user in users:
@@ -170,7 +186,7 @@ class EmailService:
                         fbpLog(winner_email, "WeeklyWinner", "Weekly Winner Announcement Sent", "INFO")
                     else:
                         logger.info("No weekly winner found")
-                    users = _get_all_users()
+                    users = _get_all_users(channel="email") or []
                     if not users:
                         logger.info("No users found for weekly winner announcement")
                     for user in users:
@@ -197,22 +213,36 @@ class EmailService:
             logger.warning("Failed to get user firstName", extra={"error": str(e), "email": email})
             return None
 
-    def _get_bulk_users(self, opt_in_field: str) -> list:
+    def _get_bulk_users(self, opt_in_field: str, channel: str) -> list:
         """Scan DynamoDB for users opted in to the given field."""
         users_table_name = os.environ.get('FBPUSERS_TABLE_NAME')
         if not users_table_name:
             logger.info("FBPUSERS_TABLE_NAME not set; no bulk recipients")
             return []
-        try:
-            table = boto3.resource('dynamodb').Table(users_table_name)
-            items = table.scan(
-                ProjectionExpression=f'email, firstName, {opt_in_field}'
-            ).get("Items", [])
-            return [u for u in items if _is_opted_in(u.get(opt_in_field)) 
-                    and u.get('email') and u.get('firstName') ]
-        except Exception as e:
-            logger.warning("DynamoDB scan failed", extra={"error": str(e), "field": opt_in_field})
-            return []
+        if channel == "email":
+            try:
+                table = boto3.resource('dynamodb').Table(users_table_name)
+                items = table.scan(
+                    ProjectionExpression=f'email, firstName, {opt_in_field}'
+                ).get("Items", [])
+                return [u for u in items if _is_opted_in(u.get(opt_in_field)) 
+                        and u.get('email') and u.get('firstName') ]
+            except Exception as e:
+                logger.warning("DynamoDB scan failed", extra={"error": str(e), "field": opt_in_field})
+                return []
+        if channel == "sms":
+            try:
+                table = boto3.resource('dynamodb').Table(users_table_name)
+                items = table.scan(
+                    ProjectionExpression=f'mobile_number, firstName, {opt_in_field}'
+                ).get("Items", [])
+                return [u for u in items if _is_opted_in(u.get(opt_in_field)) 
+                        and u.get('mobile_number') and u.get('firstName') ]
+            except Exception as e:
+                logger.warning("DynamoDB scan failed", extra={"error": str(e), "field": opt_in_field})
+                return []
+        logger.info("Unsupported channel; no bulk recipients")
+        return []
 
     def _send_one(self, recipient: str, content_generator, data: Dict[str, Any],
                   reply_to: Optional[str], tags: Optional[Dict[str, str]], message_type: str) -> str:
@@ -374,7 +404,7 @@ class SMSService:
         return json.loads(response['SecretString'])
 
     @tracer.capture_method
-    def send(self, message_type: str, recipient: Optional[str],
+    def send(self, message_type: str, channel: str, recipient: Optional[str],
              data: Dict[str, Any]) -> MessagingResponse:
         try:
             msg_enum = MessageType(message_type)
@@ -383,14 +413,25 @@ class SMSService:
             match msg_enum:
                 case MessageType.WELCOME:
                     if not recipient:
-                        raise ValueError("Recipient phone number is required for welcome SMS")
-                    data['user_name'] = self._get_user_first_name(recipient) or recipient
-                    msg_id = self._send_one(recipient, content_generator, data, message_type)
-                    return MessagingResponse(success=True, channel="sms", message_type=message_type,
-                                            recipient=recipient, message_id=msg_id)
+                        raise ValueError(
+                            "Recipient phone number is required for welcome SMS"
+                        )
+                    data["user_name"] = (
+                        self._get_user_first_name(recipient) or recipient
+                    )
+                    msg_id = self._send_one(
+                        recipient, content_generator, data, message_type
+                    )
+                    return MessagingResponse(
+                        success=True,
+                        channel="sms",
+                        message_type=message_type,
+                        recipient=recipient,
+                        message_id=msg_id,
+                    )
 
                 case MessageType.REMINDER | MessageType.PICKSHEET | MessageType.GRIDSHEET:
-                    users = self._get_bulk_users(msg_enum)
+                    users = self._get_bulk_users(msg_enum, channel="sms")
                     if not users:
                         logger.info(f"No SMS users found for {message_type}")
                     for user in users:
@@ -406,7 +447,7 @@ class SMSService:
                         fbpLog(winner_email, "WeeklyWinner", "Weekly Winner Announcement Sent", "INFO")
                     else:
                         logger.info("No weekly winner found")
-                    users = _get_all_users()
+                    users = _get_all_users(channel="sms") or []
                     if not users:
                         logger.info("No users found for weekly winner announcement")
                     for user in users:
@@ -433,9 +474,9 @@ class SMSService:
         try:
             table = boto3.resource('dynamodb').Table(users_table_name)
             response = table.scan(
-                FilterExpression='mobile_number = :mn',
-                ExpressionAttributeValues={':mn': self._normalize_phone(mobile_number)},
-                ProjectionExpression='firstName'
+                FilterExpression="mobile_number = :mn",
+                ExpressionAttributeValues={":mn": self._normalize_phone(mobile_number)},
+                ProjectionExpression="firstName",
             )
             items = response.get('Items', [])
             return items[0].get('firstName') if items else None
@@ -443,7 +484,7 @@ class SMSService:
             logger.warning("Failed to get user firstName", extra={"error": str(e), "mobile_number": mobile_number})
             return None
 
-    def _get_bulk_users(self, msg_type: MessageType) -> list:
+    def _get_bulk_users(self, msg_type: MessageType, channel: str) -> list:
         """Scan DynamoDB for users opted in to SMS for the given message type."""
         opt_in_field_map = {
             MessageType.REMINDER: 'smsReminder',
@@ -545,7 +586,7 @@ class SMSService:
         return (f"Hi {user_name}, {self.company_name} is closed for picks for week {week}. Grid sheet is live!\n"
                 f"Visit {self.base_url}\n"
                 f"FAQ: {self.base_url}/faq.html")
-    
+
     def _weekly_winner_content(self, data: Dict[str, Any]) -> str:
         display_name = data.get('display_name', 'the winner')
         week=getCurrentWeek()
@@ -586,12 +627,15 @@ def lambda_handler(event: Dict[str, Any], context) -> Dict[str, Any]:
                 recipient=recipient,
                 data=payload,
                 reply_to=payload.get('reply_to'),
+                channel=channel,
                 tags=payload.get('tags')
+            
             )
         else:
             result = sms_service.send(
                 message_type=message_type,
                 recipient=recipient,
+                channel=channel,
                 data=payload
             )
 
