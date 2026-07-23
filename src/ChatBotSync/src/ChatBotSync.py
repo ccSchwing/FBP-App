@@ -20,7 +20,7 @@ def clean_dynamodb_dataframe(df):
                 return float(val)
         return val
     
-    return df.applymap(convert_value)
+    return df.apply(convert_value)
 
 def export_dynamodb_to_kb(event, context):
     """
@@ -144,6 +144,8 @@ def export_tables_to_csv():
                 # Handle Decimal types (DynamoDB specific)
                 df = clean_dynamodb_dataframe(df)
                 
+                # Drop any NaN column names (caused by inconsistent keys across DynamoDB items)
+                df = df[[col for col in df.columns if isinstance(col, str)]]
                 
                 csv_filename = f"/tmp/{filename}.csv"
                 metadata_filename = None
@@ -153,8 +155,8 @@ def export_tables_to_csv():
                         # Public tables: include all fields
                         metadata_filename = create_metadata_file(
                             csv_filename=csv_filename,
-                            content_fields=df.columns.tolist(),
-                            include_fields=df.columns.tolist(),
+                            content_fields=list(df.columns),
+                            include_fields=list(df.columns),
                             exclude_fields=[]
                         )
                         logger.info(f"Created metadata file: {metadata_filename}")
@@ -164,7 +166,7 @@ def export_tables_to_csv():
                         include_fields = [field for field in df.columns if field not in sensitive_fields]
                         metadata_filename = create_metadata_file(
                             csv_filename=csv_filename,
-                            content_fields=df.columns.tolist(),
+                            content_fields=list(df.columns),
                             include_fields=include_fields,
                             exclude_fields=sensitive_fields
                         )
@@ -187,7 +189,7 @@ def export_tables_to_csv():
                         include_fields = [field for field in df.columns if field not in sensitive_fields]
                         metadata_filename = create_metadata_file(
                             csv_filename=csv_filename,
-                            content_fields=df.columns.tolist(),
+                            content_fields=list(df.columns),
                             include_fields=include_fields,
                             exclude_fields=sensitive_fields
                         )
@@ -198,7 +200,7 @@ def export_tables_to_csv():
                         metadata_filename = create_metadata_file(
                             csv_filename=csv_filename,
                             content_fields=['Week', 'Home', 'Away'],
-                            include_fields=df.columns.tolist(),
+                            include_fields=list(df.columns),
                             exclude_fields=sensitive_fields
                         )
                         logger.info(f"Created metadata file: {metadata_filename}")
