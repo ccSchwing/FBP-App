@@ -444,6 +444,23 @@
       ]
     },
     {
+      "name": "Python: Attach to ChatBotSync",
+      "type": "debugpy",
+      "request": "attach",
+      "connect": {
+        "host": "localhost",
+        "port": 5678
+      },
+      "preLaunchTask": "Attach to ChatBotSync",
+      "postDebugTask": "Cleanup",
+      "pathMappings": [
+        {
+          "localRoot": "${workspaceFolder}/src/ChatBotSync/src",
+          "remoteRoot": "/var/task"
+        }
+      ]
+    },
+    {
       "name": "Python: Attach to AdvancedMessagingService Reminder",
       "type": "debugpy",
       "request": "attach",

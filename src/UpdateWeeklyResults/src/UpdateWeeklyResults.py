@@ -288,6 +288,7 @@ def updateWeeklyUserResults(allUserPicks: List[Dict[str, Any]], resultsTable, us
                     'week': Decimal(week),
                     'correctpicks': correctpicks,
                     'incorrectpicks': incorrectpicks,
+                    'displayName': displayName
                 }
         )
 
