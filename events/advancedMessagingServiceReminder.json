@@ -6,7 +6,7 @@
   "headers": {
     "content-type": "application/json"
   },
-  "body": "{\"message_type\":\"reminder\", \"channel\":\"sms\"}",
+  "body": "{\"message_type\":\"weeklywinner\", \"channel\":\"email\"}",
   "requestContext": {
     "http": {
       "method": "POST",

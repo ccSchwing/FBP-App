@@ -612,9 +612,16 @@ Resources:
                 Action:
                   - dynamodb:Scan
                   - dynamodb:GetItem
+                  - dynamodb:Query
+                  - dynamodb:PutItem
                 Resource:
                   - !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${FBPUsersTableName}"
+                  - !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${FBPLogsTableName}"
                   - !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${TwilioOptOutTableName}"
+                  - !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${FBPConfigTableName}"
+                  - !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${FBPWeeklyResults2025TableName}"
+                  - !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${FBPWeeklyResults2025TableName}/index/${FBPWeeklyResults2025WeekIndexName}"
+                  
         - PolicyName: XRayPolicy
           PolicyDocument:
             Version: '2012-10-17'
