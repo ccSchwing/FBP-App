@@ -164,6 +164,7 @@ def export_tables_to_csv():
                         # Private tables: exclude sensitive fields
                         sensitive_fields = ['email', 'tieBreaker','Winner']
                         include_fields = [field for field in df.columns if field not in sensitive_fields]
+                        df=df[include_fields]
                         metadata_filename = create_metadata_file(
                             csv_filename=csv_filename,
                             content_fields=list(df.columns),
@@ -176,6 +177,7 @@ def export_tables_to_csv():
                         sensitive_fields = ['email', 'firstName', 'lastName', 'beta', 'Winner', 'mobile_number', 'verification_code', 'verification_code_hash']
                         content_fields = ['displayName']
                         include_fields = [field for field in df.columns if field not in sensitive_fields]
+                        df=df[include_fields]
                         metadata_filename = create_metadata_file(
                             csv_filename=csv_filename,
                             content_fields=content_fields,
@@ -187,6 +189,7 @@ def export_tables_to_csv():
                         # Private tables: exclude sensitive fields
                         sensitive_fields = ['email']
                         include_fields = [field for field in df.columns if field not in sensitive_fields]
+                        df=df[include_fields]
                         metadata_filename = create_metadata_file(
                             csv_filename=csv_filename,
                             content_fields=list(df.columns),
@@ -197,6 +200,8 @@ def export_tables_to_csv():
                     case '2025-Schedule':
                         # Public tables: include all fields
                         sensitive_fields = ['FinalWithSpread', 'GameId']
+                        include_fields = [field for field in df.columns if field not in sensitive_fields]
+                        df=df[include_fields]
                         metadata_filename = create_metadata_file(
                             csv_filename=csv_filename,
                             content_fields=['Week', 'Home', 'Away'],

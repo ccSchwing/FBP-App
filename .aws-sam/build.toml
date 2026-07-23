@@ -288,6 +288,15 @@ manifest_hash = ""
 packagetype = "Zip"
 functions = ["ChatBot"]
 
+[function_build_definitions.2e94b8fb-f1eb-453a-b3a6-a84a84a1faa1]
+codeuri = "/Users/ccs/projects/FBP/src/ChatBotSync/src"
+runtime = "python3.12"
+architecture = "x86_64"
+handler = "ChatBotSync.export_dynamodb_to_kb"
+manifest_hash = ""
+packagetype = "Zip"
+functions = ["ChatBotSync"]
+
 [layer_build_definitions.6ab25c37-c42c-4a0e-97e3-70cd5b9a311c]
 layer_name = "FBPLibLayer"
 codeuri = "/Users/ccs/projects/FBP/src/FBPLib-Layer"

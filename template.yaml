@@ -236,10 +236,21 @@ Resources:
           Statement:
             - Effect: Allow
               Action:
+                - dynamodb:Scan
+                - dynamodb:GetItem
+              Resource: "*"
+            - Effect: Allow
+              Action:
                 - bedrock:RetrieveAndGenerate
                 - bedrock:Retrieve
                 - bedrock:AgenticRetrieveStream
-              Resource: "*"
+                - bedrock:StartIngestionJob
+                - bedrock:DescribeIngestionJob
+                - bedrock:ListIngestionJobs
+                - bedrock:GetIngestionJob
+              Resource:
+                - !Sub "arn:aws:bedrock:${AWS::Region}:${AWS::AccountId}:knowledge-base/${KnowledgeBaseId}"
+                - !Sub "arn:aws:bedrock:${AWS::Region}:${AWS::AccountId}:data-source/${DataSourceId}"
             - Effect: Allow
               Action:
                 - logs:CreateLogGroup
