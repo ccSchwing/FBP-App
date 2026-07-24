@@ -1413,7 +1413,7 @@ Resources:
             TableName: !Ref FBPLogsTableName
         - DynamoDBCrudPolicy:
             TableName: !Ref FBPPicksTableName
-        - DynamoDBReadPolicy:
+        - DynamoDBCrudPolicy:
             TableName: !Ref FBPUsersTableName
         - DynamoDBReadPolicy:
             TableName: !Ref FBPConfigTableName
