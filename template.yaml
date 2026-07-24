@@ -1309,6 +1309,20 @@ Resources:
             Path: /updateWeeklyResults
             Method: OPTIONS
             PayloadFormatVersion: '2.0'
+        UpdateTotalCorrectAndIncorrectPicksGET:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref MyHttpApi
+            Path: /updateTotalCorrectAndIncorrectPicks
+            Method: GET
+            PayloadFormatVersion: '2.0'
+        UpdateTotalCorrectAndIncorrectPicksOptions:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref MyHttpApi
+            Path: /updateTotalCorrectAndIncorrectPicks
+            Method: OPTIONS
+            PayloadFormatVersion: '2.0'
 
   CalcWeeklyResults:
     Type: AWS::Serverless::Function

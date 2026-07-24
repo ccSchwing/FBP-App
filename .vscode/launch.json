@@ -681,7 +681,24 @@
         }
       ]
     },
+ 
     {
+      "name": "Python: Attach to UpdateWeeklyResults(UpdateTotalCorrectAndIncorrectPicks)",
+      "type": "debugpy",
+      "request": "attach",
+      "connect": {
+        "host": "localhost",
+        "port": 5678
+      },
+      "preLaunchTask": "Attach to UpdateTotalCorrectAndIncorrectPicks",
+      "postDebugTask": "Cleanup",
+      "pathMappings": [
+        {
+          "localRoot": "${workspaceFolder}/src/UpdateWeeklyResults/src",
+          "remoteRoot": "/var/task"
+        }
+      ]
+    },    {
       "name": "Python: Local Invoke and Debug SendEmail",
       "type": "debugpy",
       "request": "attach",

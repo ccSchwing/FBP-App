@@ -42,6 +42,44 @@ cors_config = CORSConfig(
 
 app = APIGatewayHttpResolver(cors=cors_config)
 
+@app.get("/updateTotalCorrectAndIncorrectPicks")
+def updateTotalCorrectAndIncorrectPicks():
+    # Loop through the FBP_WEEKLY_RESULTS_TABLE and update
+    # the FBP_USERS_TABLE with the total correct and incorrect
+    # picks for each user for the season.
+    FBP_USERS_TABLE_NAME = os.environ.get('FBPUsersTableName', 'FBP-Users')
+    logger.info(f"Using FBP Users DynamoDB table: {FBP_USERS_TABLE_NAME}")
+    dynamodb = boto3.resource('dynamodb')
+    usersTable = dynamodb.Table(FBP_USERS_TABLE_NAME)
+    FBP_WEEKLY_RESULTS_TABLE = os.environ.get('FBPWeeklyResults2025Table', 'FBP-Weekly-Results-2025')
+    logger.info(f"Using DynamoDB table: {FBP_WEEKLY_RESULTS_TABLE}")
+    resultsTable = dynamodb.Table(FBP_WEEKLY_RESULTS_TABLE)
+
+    users=usersTable.scan().get('Items', [])
+    for user in users:
+        email = user.get('email')
+        totalCorrectPicks = 0
+        totalIncorrectPicks = 0
+        response = resultsTable.scan(
+            FilterExpression=boto3.dynamodb.conditions.Attr('email').eq(email)
+        )
+        weeklyResults = response.get('Items', [])
+        for result in weeklyResults:
+            totalCorrectPicks += result.get('correctpicks', 0)
+            totalIncorrectPicks += result.get('incorrectpicks', 0)
+        usersTable.update_item(
+            Key={'email': email},
+            UpdateExpression="SET totalCorrectPicks = :totalCorrectPicks, totalIncorrectPicks = :totalIncorrectPicks",
+            ExpressionAttributeValues={
+                ':totalCorrectPicks': totalCorrectPicks,
+                ':totalIncorrectPicks': totalIncorrectPicks
+            }
+        )
+    return Response(
+        status_code=200,
+        content_type="application/json",
+        body=json.dumps({'message': 'Updated total correct and incorrect picks for all users'}),
+    )
 
 @app.get("/updateWeeklyResults")
 def updateWeeklyResults():
@@ -298,17 +336,7 @@ def updateWeeklyUserResults(allUserPicks: List[Dict[str, Any]], resultsTable, us
             logger.exception(f"DynamoDB Error: {e}")
             fbpLog("fbpadmin@my-fbp.com", "UpdateWeeklyResults", f"DynamoDB Error: {e}", "ERROR")
             return Response(status_code=500, content_type="application/json", body=json.dumps({'error': f'DynamoDB error saving results for {email}'})) 
-        '''
-        Update the FBP_USERS_TABLE with the Total Correct and Incorrect Picks for the user for the Season.
-        '''
-        try:
-            usersTable.update_item(
-                Key={'email': email},
-                UpdateExpression="SET #totalCorrectPicks = if_not_exists(#totalCorrectPicks, :zero) + :c, #totalIncorrectPicks = if_not_exists(#totalIncorrectPicks, :zero) + :i",
-                ExpressionAttributeNames={'#totalCorrectPicks': 'totalCorrectPicks', '#totalIncorrectPicks': 'totalIncorrectPicks'},
-                ExpressionAttributeValues={':zero': 0, ':c': correctpicks, ':i': incorrectpicks}
-        )
- 
+
         except ClientError as e:
             logger.exception(f"DynamoDB Error: {e}")
             fbpLog("fbpadmin@my-fbp.com", "UpdateWeeklyResults", f"DynamoDB Error: {e}", "ERROR")
@@ -325,6 +353,9 @@ def updateWeeklyUserResults(allUserPicks: List[Dict[str, Any]], resultsTable, us
         }
         gameResultsJSON.append(weeklyResult)
         # End of for loop for each user's picks for the week.
+    # Now, call updateTotalCorrectAndIncorrectPicks to update the FBP_USERS_TABLE with the
+    # total correct and incorrect picks for each user for the season.
+    updateTotalCorrectAndIncorrectPicks()
     # now you can set the Winner field for each user in the
     # FBP_WEEKLY_RESULTS_TABLE based on the number of correct picks for the week.
     ##
