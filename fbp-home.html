@@ -70,7 +70,16 @@
     <aside class="nav-choices">
       <!-- populated by nav.js -->
     </aside>
+    <div id="chat-widget">
+      <div id="chat-messages"></div>
+      <input type="text" id="chat-input" placeholder="Ask me about FBP...">
+      <button onclick="window.sendChatBotMessage()">Send</button>
+    </div>
   </div>
+  <script type="module">
+    import { sendChatBotMessage } from "/js-lib/chatbot.js";
+    window.sendChatBotMessage = sendChatBotMessage;
+  </script>
   <footer>
     <p>
       Questions? Contact us at <a href="mailto:fbpadmin@my-fbp.com">fbpadmin@my-fbp.com</a>

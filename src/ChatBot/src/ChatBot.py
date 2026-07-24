@@ -3,25 +3,14 @@ import boto3
 import os
 import logging
 from botocore.exceptions import ClientError
-from aws_lambda_powertools.event_handler.api_gateway import CORSConfig, APIGatewayHttpResolver
 
 # Set up logging
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
-cors_config = CORSConfig(
-    allow_origin="*",  # Or specify your domain like "https://yourdomain.com"
-    allow_headers=["Content-Type", "X-Amz-Date", "Authorization", "X-Api-Key", "X-Amz-Security-Token"],
-    max_age=86400,  # Cache preflight for 24 hours
-    allow_credentials=False
-)
-
-app = APIGatewayHttpResolver(cors=cors_config)
-
 bedrock_agent_runtime = boto3.client('bedrock-agent-runtime')
 
-app.post("/chatbot")
-def chatboti(event, context):
+def chatbot(event, context):
     """
     Lambda function to handle Football app chatbot queries using Bedrock Knowledge Base
     """
@@ -34,6 +23,7 @@ def chatboti(event, context):
             body = event
             
         user_question = body.get('question', '')
+        session_id = body.get('sessionId', '')
         
         if not user_question:
             return create_response(400, {'error': 'Question is required'})
@@ -175,7 +165,4 @@ def create_response(status_code, body):
 # Initialize Bedrock client
 
 def lambda_handler(event, context):
-    """
-    Lambda handler to route requests through the APIGatewayHttpResolver
-    """
-    return app.resolve(event, context)
+    return chatbot(event, context)
