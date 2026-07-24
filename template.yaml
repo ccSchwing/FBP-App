@@ -156,7 +156,7 @@ Resources:
     Properties:
       FunctionName: !Sub "${AWS::StackName}-chatbot"
       CodeUri: src/ChatBot/src/
-      Handler: ChatBot.chatboti
+      Handler: ChatBot.chatbot
       Runtime: python3.12
       Layers:
         - !Ref FBPLibLayer
@@ -192,13 +192,6 @@ Resources:
             ApiId: !Ref MyHttpApi
             Path: /chatbot
             Method: post
-            PayloadFormatVersion: '2.0'
-        ChatBotOptionsApi:
-          Type: HttpApi
-          Properties:
-            ApiId: !Ref MyHttpApi
-            Path: /chatbot
-            Method: OPTIONS
             PayloadFormatVersion: '2.0'
   ChatBotSync:
     Type: AWS::Serverless::Function
@@ -1420,7 +1413,7 @@ Resources:
             TableName: !Ref FBPLogsTableName
         - DynamoDBCrudPolicy:
             TableName: !Ref FBPPicksTableName
-        - DynamoDBReadPolicy:
+        - DynamoDBCrudPolicy:
             TableName: !Ref FBPUsersTableName
         - DynamoDBReadPolicy:
             TableName: !Ref FBPConfigTableName
