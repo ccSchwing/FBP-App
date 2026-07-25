@@ -427,7 +427,8 @@
           <input type="text" name="displayName" id="displayName" />
         </div>
         <div id="paymentMethod" style="margin-bottom: 1.25rem;">
-          <label for="paymentMethod" style="margin-bottom:0.25em; font-weight:500; display:block;">Payment Method When You Win</label>
+          <label for="paymentMethod" style="margin-bottom:0.25em; font-weight:500; display:block;">Payment Method When
+            You Win</label>
           <div class="payment-options">
             <label class="payment-option" for="PayPal">
               <input type="radio" value="PayPal" name="paymentMethod" id="PayPal">
@@ -475,17 +476,20 @@
         </div>
         <section id="smsOptin" class="phone-verification-card" aria-labelledby="mobileVerificationTitle">
           <div class="phone-verification-header">
-            <label id="mobileVerificationTitle" class="phone-verification-title" for="MobileNumber">Mobile Number</label>
+            <label id="mobileVerificationTitle" class="phone-verification-title" for="MobileNumber">Mobile
+              Number</label>
             <span id="mobileVerificationState" class="phone-verification-state" data-state="not-set">Not Set</span>
           </div>
-          <p id="mobileVerificationMessage" class="phone-verification-message">Add a mobile number to enable SMS notifications.</p>
+          <p id="mobileVerificationMessage" class="phone-verification-message">Add a mobile number to enable SMS
+            notifications.</p>
           <div class="phone-verification-row">
             <input type="text" name="MobileNumber" id="MobileNumber" maxlength="15" size="15"
               placeholder="(999) 999-9999" pattern="\(\d{3}\) \d{3}-\d{4}" />
           </div>
           <div class="phone-verification-row">
             <label for="sendSMSVerificationCodeBtn">Send Verification Code:</label>
-            <input type="button" name="GenerateCode" id="sendSMSVerificationCodeBtn" value="Text Me A Verification Code" />
+            <input type="button" name="GenerateCode" id="sendSMSVerificationCodeBtn"
+              value="Text Me A Verification Code" />
           </div>
           <div class="phone-verification-row">
             <label for="MobileNumberVerification">Verification Code:</label>
@@ -560,7 +564,8 @@
             </label>
             <div class="payment-option-ui tie-breaker-card">
               <span class="tie-breaker-input-wrap tooltip-wrap">
-                <input class="tie-breaker-input" type="text" name="defaultTieBreaker" id="defaultTieBreaker" maxlength="2" size="2">
+                <input class="tie-breaker-input" type="text" name="defaultTieBreaker" id="defaultTieBreaker"
+                  maxlength="2" size="2">
                 <span class="tooltip">Enter the total points for the Monday Night Game (e.g., 42)</span>
               </span>
               <label class="tie-breaker-label" for="defaultTieBreaker">MNF Tiebreaker</label>
@@ -619,6 +624,24 @@
       <button id="updateProfileBtn" type="button">Update Profile</button>
     </main>
   </div>
+  <div id="chat-widget">
+    <button id="chat-toggle" onclick="document.getElementById('chat-widget').classList.toggle('open')"
+      aria-label="Toggle chat">
+      💬 FBP Assistant
+    </button>
+    <div id="chat-body">
+      <div id="chat-messages"></div>
+      <div id="chat-input-row">
+        <input type="text" id="chat-input" placeholder="Ask me about FBP..." autocomplete="off">
+        <button id="chat-send" onclick="window.sendChatBotMessage()">Send</button>
+      </div>
+    </div>
+  </div>
+  <script type="module">
+    import { sendChatBotMessage } from "/js-lib/chatbot.js";
+    window.sendChatBotMessage = sendChatBotMessage;
+  </script>
+
   <footer>
     <p>
       Questions? Contact us at <a href="mailto:fbpadmin@my-fbp.com">fbpadmin@my-fbp.com</a>

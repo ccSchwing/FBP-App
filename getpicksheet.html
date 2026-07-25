@@ -429,19 +429,19 @@
 
       for (let i = 0; i < gameNames.length; i += 1) {
         const gameId = gameNames[i];
-        if(document.getElementById(`${gameId}-H-spread`)) {
+        if (document.getElementById(`${gameId}-H-spread`)) {
           console.log(`Found favorite cell for home team of game ${gameId}`);
           document.getElementById(`${gameId}A`).checked = true;
           document.getElementById(`${gameId}H`).checked = false;
         }
-        if(document.getElementById(`${gameId}-A-spread`)) {
+        if (document.getElementById(`${gameId}-A-spread`)) {
           console.log(`Found favorite cell for away team of game ${gameId}`);
           document.getElementById(`${gameId}H`).checked = true;
           document.getElementById(`${gameId}A`).checked = false;
         }
-      refreshAllSelectionHighlights();
+        refreshAllSelectionHighlights();
+      }
     }
-  }
     function clearMyPicks() {
       const form = document.getElementById("picksheet");
       if (!form) {
@@ -469,12 +469,12 @@
 
       for (let i = 0; i < gameNames.length; i += 1) {
         const gameId = gameNames[i];
-        if(document.getElementById(`${gameId}-H-spread`)) {
+        if (document.getElementById(`${gameId}-H-spread`)) {
           console.log(`Found underdog cell for home team of game ${gameId}`);
           document.getElementById(`${gameId}A`).checked = false;
           document.getElementById(`${gameId}H`).checked = true;
         }
-        if(document.getElementById(`${gameId}-A-spread`)) {
+        if (document.getElementById(`${gameId}-A-spread`)) {
           console.log(`Found underdog cell for away team of game ${gameId}`);
           document.getElementById(`${gameId}H`).checked = false;
           document.getElementById(`${gameId}A`).checked = true;
@@ -915,6 +915,24 @@ Press Cancel to go back and work on your picks before submitting.",
     });
 
   </script>
+  <div id="chat-widget">
+    <button id="chat-toggle" onclick="document.getElementById('chat-widget').classList.toggle('open')"
+      aria-label="Toggle chat">
+      💬 FBP Assistant
+    </button>
+    <div id="chat-body">
+      <div id="chat-messages"></div>
+      <div id="chat-input-row">
+        <input type="text" id="chat-input" placeholder="Ask me about FBP..." autocomplete="off">
+        <button id="chat-send" onclick="window.sendChatBotMessage()">Send</button>
+      </div>
+    </div>
+  </div>
+  <script type="module">
+    import { sendChatBotMessage } from "/js-lib/chatbot.js";
+    window.sendChatBotMessage = sendChatBotMessage;
+  </script>
+
 </body>
 <style>
   /* Override page-title positioning to not cover menu button */
