@@ -1,35 +1,55 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Admin Home</title>
 
-    <script src="/js-lib/oidc-client-ts.min.js"></script>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin Home</title>
 
-    <link rel="stylesheet" type="text/css" href="/css/styles.css" />
+  <script src="/js-lib/oidc-client-ts.min.js"></script>
 
+  <link rel="stylesheet" type="text/css" href="/css/styles.css" />
+
+  <script type="module">
+    import { auth } from "/js/auth.js";
+    await auth.ensureAuthenticated();
+  </script>
+</head>
+
+<body class="fbp-admin">
+  <header>
+    <h1 style="text-align: center;">Admin Home</h1>
+  </header>
+  <div class="container" style="display:flex; gap:2rem; align-items:flex-start; margin:0; max-width:100%;">
     <script type="module">
-      import { auth } from "/js/auth.js";
-      await auth.ensureAuthenticated();
+      import { initAdminNav } from "/js-lib/adminNav.js";
+      await initAdminNav();
     </script>
-  </head>
-
-  <body class="fbp-admin">
-    <header>
-      <h1 style="text-align: center;">Admin Home</h1>
-    </header>
-    <div class="container" style="display:flex; gap:2rem; align-items:flex-start; margin:0; max-width:100%;">
-      <script type="module">
-        import { initAdminNav } from "/js-lib/adminNav.js";
-        await initAdminNav();
-      </script>
-      <aside class="nav-choices">
-        <!-- populated by adminNav.js -->
-      </aside>
-      <main class="results-main">
-        <p>Welcome to the FBP Admin Dashboard</p>
-      </main>
+    <aside class="nav-choices">
+      <!-- populated by adminNav.js -->
+    </aside>
+    <main class="results-main">
+      <p>Welcome to the FBP Admin Dashboard</p>
+    </main>
+  </div>
+  <div id="chat-widget">
+    <button id="chat-toggle" onclick="document.getElementById('chat-widget').classList.toggle('open')"
+      aria-label="Toggle chat">
+      💬 FBP Assistant
+    </button>
+    <div id="chat-body">
+      <div id="chat-messages"></div>
+      <div id="chat-input-row">
+        <input type="text" id="chat-input" placeholder="Ask me about FBP..." autocomplete="off">
+        <button id="chat-send" onclick="window.sendChatBotMessage()">Send</button>
+      </div>
     </div>
-  </body>
+  </div>
+  <script type="module">
+    import { sendChatBotMessage } from "/js-lib/chatbot.js";
+    window.sendChatBotMessage = sendChatBotMessage;
+  </script>
+
+</body>
+
 </html>

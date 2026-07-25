@@ -887,7 +887,99 @@ footer {
   font-size: 0.875rem;
 }
 
-/* Animations */
+/* Chat widget */
+#chat-widget {
+  position: fixed;
+  bottom: 1.5rem;
+  right: 1.5rem;
+  z-index: 500;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  font-family: inherit;
+}
+#chat-toggle {
+  background: #1f8f3a;
+  color: #fff;
+  border: none;
+  border-radius: 24px;
+  padding: 0.6rem 1.1rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.18);
+  transition: background 0.2s;
+}
+#chat-toggle:hover { background: #176d2c; }
+#chat-body {
+  display: none;
+  flex-direction: column;
+  width: 320px;
+  max-height: 420px;
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+  margin-bottom: 0.5rem;
+  overflow: hidden;
+}
+#chat-widget.open #chat-body { display: flex; }
+#chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  min-height: 200px;
+}
+#chat-messages .msg {
+  max-width: 85%;
+  padding: 0.5rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.875rem;
+  line-height: 1.4;
+  word-wrap: break-word;
+}
+#chat-messages .msg.user {
+  align-self: flex-end;
+  background: #1f8f3a;
+  color: #fff;
+  border-bottom-right-radius: 4px;
+}
+#chat-messages .msg.bot {
+  align-self: flex-start;
+  background: #f0f0f0;
+  color: #222;
+  border-bottom-left-radius: 4px;
+}
+#chat-messages .msg.bot.thinking { color: #888; font-style: italic; }
+#chat-input-row {
+  display: flex;
+  border-top: 1px solid #eee;
+  padding: 0.5rem;
+  gap: 0.4rem;
+}
+#chat-input {
+  flex: 1;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  padding: 0.4rem 0.6rem;
+  font-size: 0.875rem;
+  outline: none;
+}
+#chat-input:focus { border-color: #1f8f3a; }
+#chat-send {
+  background: #1f8f3a;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 0.4rem 0.8rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+#chat-send:hover { background: #176d2c; }
 @keyframes spin {
   to {
     transform: rotate(360deg);
