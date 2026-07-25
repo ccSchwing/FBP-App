@@ -1,1 +1,0 @@
-{"statusCode": 200, "headers": {"Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "Content-Type", "Access-Control-Allow-Methods": "POST, OPTIONS", "Content-Type": "application/xml"}, "body": "<?xml version=\"1.0\" encoding=\"UTF-8\"?><Response><Message>You have been unsubscribed. Reply START to opt back in.</Message></Response>"}
