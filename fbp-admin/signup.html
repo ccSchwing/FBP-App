@@ -148,6 +148,7 @@
             email: formData.get("email"),
             displayName: formData.get("displayName"),
             isAdmin: formData.get("isAdmin") === "on",
+            userType: formData.get("userType"),
             isAccountLocked: formData.get("isAccountLocked") === "on",
             isPaidUser: formData.get("isPaidUser") === "on",
             emailPickSheet: formData.get("emailPickSheet") === "on",
@@ -287,6 +288,12 @@
             <span class="custom-checkbox"><label style="display: flex; align-items: center"><input type="checkbox"
                   name="isAdmin" id="isAdmin" /><span class="checkmark"></span><span style="margin-left: 0.5em">Is
                   Admin</span></label></span>
+            <span class="custom-radio"><label style="display: flex; align-items: center"><input type="radio"
+                  value="system" name="userType" id="system" /><span class="checkmark"></span><span
+                  style="font-weight: 400; margin-left: 0.5em">System User</span></label></span>
+            <span class="custom-radio"><label style="display: flex; align-items: center"><input type="radio"
+                  value="user" name="userType" id="user" checked /><span class="checkmark"></span><span
+                  style="font-weight: 400; margin-left: 0.5em">Player User</span></label></span>
             <span class="custom-checkbox"><label style="display: flex; align-items: center"><input type="checkbox"
                   name="emailPickSheet" id="emailPickSheet" /><span class="checkmark"></span><span
                   style="margin-left: 0.5em">Email PickSheet</span></label></span>

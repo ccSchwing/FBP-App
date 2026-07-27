@@ -267,6 +267,7 @@ def addFBPUserData(request_body):
                 'lastName': request_body.get('lastName'),
                 'isAccountLocked': bool(request_body.get('isAccountLocked')),
                 'isAdmin': bool(request_body.get('isAdmin')),
+                'userType': request_body.get('userType'),
                 'isPaidUser': bool(request_body.get('isPaidUser'))
             }
         )
@@ -312,6 +313,7 @@ def addFBPUserData(request_body):
                 'lastName': request_body.get('lastName'),
                 'isAccountLocked': request_body.get('isAccountLocked'),
                 'isAdmin': request_body.get('isAdmin'),
+                'userType': request_body.get('userType'),
                 'isPaidUser': request_body.get('isPaidUser')
             })
         )
