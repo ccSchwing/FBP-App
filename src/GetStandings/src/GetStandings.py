@@ -65,9 +65,9 @@ def getStandings():
             )
         
         try:
-            logger.info(f"Scanning DynamoDB table {USERS_TABLE_NAME} for current week {week_number}")# Query DynamoDB table
-            response = table.scan(
-                ProjectionExpression="displayName, totalCorrectPicks, totalIncorrectPicks"
+            logger.info(f"Querying DynamoDB table {USERS_TABLE_NAME} for users of type 'user'")
+            response = table.query(
+                KeyConditionExpression=boto3.dynamodb.conditions.Key('UserType').eq('user')
             )
             logger.info(f"Retrieved data from DynamoDB: {response}")
             items = response.get('Items', [])
