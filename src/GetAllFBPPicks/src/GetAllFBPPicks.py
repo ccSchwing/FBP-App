@@ -9,11 +9,14 @@ from aws_lambda_powertools.event_handler.api_gateway import CORSConfig
 from fbplib import getCurrentWeek
 from fbplib import fbpLog
 
+
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
 FBP_PICKS_TABLE_NAME = os.environ.get('FBPPicksTableName', 'FBP-Picks')
 logger.info(f"Using FBP Picks DynamoDB table: {FBP_PICKS_TABLE_NAME}")
+FBP_USERS_TABLE= os.environ.get('FBPUsersTableName', 'FBP-Users')
+logger.info(f"Using FBP Users DynamoDB table: {FBP_USERS_TABLE}")
 
 cors_config = CORSConfig(
     allow_origin="*",  # Or specify your domain like "https://yourdomain.com"
@@ -68,8 +71,21 @@ def getAllPicksForWeek(week):
             )
             items.extend(response.get('Items', []))
 
-        items.sort(key=lambda x: (x.get('displayName') or '').lower())
-        return items
+        ##
+        # Get the userType from FBP_USERS_TABLE for each userId and add it to the items
+        # and if the type is 'user' add it to the picks list.
+        # if not 'user' skip it.
+        user_table = dynamodb.Table(FBP_USERS_TABLE)
+        userPicks = []
+        for item in items:
+            email = item.get('email')
+            if email:
+                user_response = user_table.get_item(Key={'email': email})
+                if 'Item' in user_response and user_response['Item'].get('userType') == 'user':
+                    userPicks.append(item)
+
+        userPicks.sort(key=lambda x: (x.get('displayName') or '').lower())
+        return userPicks
     except ClientError as e:
         fbpLog.fbpLog("fbpadmin@my-fbp.com", "GetAllFBPPicks", f"DynamoDB Error: {e}", "ERROR", week)
         logger.error(f"DynamoDB Error: {e}")

@@ -281,7 +281,6 @@ def updateWeeklyUserResults(allUserPicks: List[Dict[str, Any]], resultsTable, us
     '''
 
     gameResultsJSON = []
-    fbpError = []
 
     for picks in allUserPicks:
         '''
@@ -346,13 +345,32 @@ def updateWeeklyUserResults(allUserPicks: List[Dict[str, Any]], resultsTable, us
         '''
         Create a JSON String with the user's email, correct picks, and incorrect picks for the week.
         '''
-        weeklyResult = {
-            'displayName': displayName,
-            'correctPicks': correctpicks,
-            'incorrectPicks': incorrectpicks
-        }
-        gameResultsJSON.append(weeklyResult)
-        # End of for loop for each user's picks for the week.
+
+        ##
+        # Skip over any system users from FBP_USERS_TABLE.
+        # We only want to include real users in the results.
+        ##
+        try:
+            userResponse = usersTable.get_item(
+                Key={'email': email}
+            )
+            userType = userResponse.get('Item', {}).get('userType', 'unknown')
+            if userType == 'user':
+                # Only include real users in the results
+                weeklyResult = {
+                    'displayName': displayName,
+                    'correctPicks': correctpicks,
+                    'incorrectPicks': incorrectpicks
+                }
+                gameResultsJSON.append(weeklyResult)
+            else:
+                continue  # Skip system users 
+        except ClientError as e:
+            logger.exception(f"DynamoDB Error: {e}")
+            fbpLog("fbpadmin@my-fbp.com", "UpdateWeeklyResults", f"DynamoDB Error: {e}", "ERROR")
+            continue  # Skip this user if there's an error retrieving userType
+
+    # End of for loop for each user's picks for the week.
     # Now, call updateTotalCorrectAndIncorrectPicks to update the FBP_USERS_TABLE with the
     # total correct and incorrect picks for each user for the season.
     updateTotalCorrectAndIncorrectPicks()

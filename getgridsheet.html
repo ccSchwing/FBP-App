@@ -330,6 +330,7 @@
         // ]);
         const scheduleData = await fetchWeeklySchedule();
         const picksData = await fetchAllUserPicks();
+        //
 
         const rows = replacePickCodesWithTeams(scheduleData, picksData);
         // You need to pass the schedule data to function
