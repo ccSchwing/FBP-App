@@ -1,6 +1,6 @@
 #!/bin/bash
 
-RESTORE_DATE=$(date -u -v -5M +"%Y-%m-%dT%H:%M:%SZ")
+RESTORE_DATE=$(date -u -v -120M +"%Y-%m-%dT%H:%M:%SZ")
 
 aws dynamodb restore-table-to-point-in-time \
     --source-table-name FBP-Users-OneWeekAgo \

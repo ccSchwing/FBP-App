@@ -89,15 +89,19 @@ def getWeeklyResults():
                 'body': json.dumps({'message': f'No picks found for week {week}'}),
             }
         # get the displaName from usersTable for each user and add it to the results.
-        for pick in allUserPicks:
-            email = pick['email']
+        userPicks = []
+        for user in allUserPicks:
+            email = user['email']
             userResponse = usersTable.get_item(Key={'email': email})
             userItem = userResponse.get('Item')
-            if userItem:
-                pick['displayName'] = userItem.get('displayName', 'Unknown User')
-            else:
-                pick['displayName'] = 'Unknown User'
-        sortedPicks=sortWeeklyResults(picks=allUserPicks)
+            if userItem['userType'] == 'user':
+                if userItem:
+                    user['displayName'] = userItem.get('displayName', 'Unknown User')
+                else:
+                    user['displayName'] = 'Unknown User'
+                userPicks.append(user)
+            # Skip of userType is not 'user'
+        sortedPicks=sortWeeklyResults(picks=userPicks)
         return {
             'statusCode': 200,
             'body': json.dumps(sortedPicks, default=decimal_default),
