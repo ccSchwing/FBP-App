@@ -410,6 +410,23 @@
       ]
     },
     {
+      "name": "Python: Attach to AdvancedMessagingService AdHoc SMS",
+      "type": "debugpy",
+      "request": "attach",
+      "connect": {
+        "host": "localhost",
+        "port": 5678
+      },
+          "preLaunchTask": "Attach to AdvancedMessagingService AdHoc SMS",
+          "postDebugTask": "Cleanup",
+      "pathMappings": [
+        {
+          "localRoot": "${workspaceFolder}/src/AdvancedMessagingService/src",
+          "remoteRoot": "/var/task"
+        }
+      ]
+    },
+    {
       "name": "Python: Attach to AdvancedMessagingService Welcome",
       "type": "debugpy",
       "request": "attach",
