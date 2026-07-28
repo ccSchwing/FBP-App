@@ -258,7 +258,7 @@ def addFBPUserData(request_body):
         existing_user = table.get_item(Key={'email': request_body.get('email')})
         if 'Item' in existing_user:
             return Response(
-                status_code=400,
+                status_code=200,
                 body=json.dumps({'error': f'User with email {request_body.get("email")} already exists'})
             )
     except ClientError as e:

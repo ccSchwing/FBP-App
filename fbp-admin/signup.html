@@ -161,6 +161,10 @@
           }),
         });
         const data = await response.text();
+        if (data.includes("already exists")) {
+          alert("User already exists.");
+          return;
+        }
         const userAdded = await GetNewUser(formData.get("email"));
         const email = formData.get("email");
         const firstName = formData.get("firstName");
@@ -182,13 +186,7 @@
       }
     }
     window.AddNewUser = AddNewUser;
-
-
-
-
-
-
-
+    
     async function GetNewUser(emailAddr) {
       if (!emailAddr || emailAddr === "undefined") {
         alert("Please enter a valid email address.");
