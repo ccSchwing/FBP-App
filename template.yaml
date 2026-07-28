@@ -1706,7 +1706,7 @@ Resources:
       Layers:
         - !Ref FBPLibLayer
 
-  AddFBPUserPython:
+  AddFBPUser:
     Type: AWS::Serverless::Function
     Properties:
       CodeUri: src/AddOrUpdateFBPUser/src/
@@ -1728,7 +1728,7 @@ Resources:
           FBPLogsTableName: !Ref FBPLogsTableName
           FBPConfigTableName: !Ref FBPConfigTableName
       Events:
-        AddFBPUserPython:
+        AddFBPUser:
           Type: HttpApi
           Properties:
             ApiId: !Ref MyHttpApi
@@ -2064,8 +2064,8 @@ Outputs:
     Value: !Sub https://${MyHttpApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/updateFBPUser
     Export:
       Name: !Sub ${AWS::StackName}-AddOrUpdateFBPUserPythonHttpApi
-  AddFBPUserPythonEndpoint:
-    Description: AddFBPUserPython API Endpoint
+  AddFBPUserEndpoint:
+    Description: AddFBPUser API Endpoint
     Value: !Sub https://${MyHttpApi}.execute-api.${AWS::Region}.amazonaws.com/prod/addFBPUser
     Export:
-      Name: !Sub ${AWS::StackName}-AddFBPUserPythonHttpApi
+      Name: !Sub ${AWS::StackName}-AddFBPUserHttpApi

@@ -251,6 +251,23 @@ def updateFBPUserData(request_body):
 def addFBPUserData(request_body):
     dynamodb = boto3.resource('dynamodb')
     table = dynamodb.Table(USERS_TABLE_NAME)
+    ##
+    # Check to see ifi the user already exists in the FBP_USERS_TABLE_NAME.  If so, return an error.
+    ##
+    try:
+        existing_user = table.get_item(Key={'email': request_body.get('email')})
+        if 'Item' in existing_user:
+            return Response(
+                status_code=400,
+                body=json.dumps({'error': f'User with email {request_body.get("email")} already exists'})
+            )
+    except ClientError as e:
+        logger.exception(f"DynamoDB Error: {e}")
+        fbpLog("fbpadmin@my-fbp.com", "AddFBPUser", f"DynamoDB Error: {e}", "ERROR")
+        return Response(
+            status_code=500,
+            body=json.dumps({'error': f'Failed to check existing user for email {request_body.get("email")}'})
+        )
     try:
         response = table.put_item(
             Item={

@@ -580,14 +580,14 @@
       ]
     },
     {
-      "name": "Python: Attach to AddOrUpdateFBPUser",
+      "name": "Python: Attach to AddFBPUser",
       "type": "debugpy",
       "request": "attach",
       "connect": {
         "host": "localhost",
         "port": 5678
       },
-      "preLaunchTask": "Attach to AddOrUpdateFBPUser",
+      "preLaunchTask": "Attach to AddFBPUser",
       "postDebugTask": "Cleanup",
       "pathMappings": [
         {
