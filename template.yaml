@@ -443,6 +443,8 @@ Resources:
       CodeUri: src/OpenPool/src/
       Handler: OpenPool.openPool
       Runtime: python3.12
+      Timeout: 240
+      MemorySize: 512
       Layers:
         - !Ref FBPLibLayer
       Environment:

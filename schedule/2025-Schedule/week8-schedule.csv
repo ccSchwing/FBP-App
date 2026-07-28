@@ -1,14 +1,14 @@
 GameId,Week,Date,Away,Home,AwayScore,HomeScore,Spread,Winner,Underdog
-08-001,8,Thu October 23,Vikings,Chargers,0,0,3.5,H or A,A
-08-002,8,Sun October 26,Bills,Panthers,0,0,7.5,H or A,H
-08-003,8,Sun October 26,Bears,Ravens,0,0,7.5,H or A,A
-08-004,8,Sun October 26,Browns,Patriots,0,0,5.5,H or A,A
-08-005,8,Sun October 26,Dolphins,Falcons,0,0,3.5,H or A,A
-08-006,8,Sun October 26,Giants,Eagles,0,0,1.5,H or A,H
-08-007,8,Sun October 26,Jets,Bengals,0,0,8.5,H or A,H
-08-008,8,Sun October 26,49ers,Texans,0,0,10.5,H or A,A
-08-009,8,Sun October 26,Buccaneers,Saints,0,0,3.5,H or A,H
-08-010,8,Sun October 26,Cowboys,Broncos,0,0,2.5,H or A,A
-08-011,8,Sun October 26,Titans,Colts,0,0,0.5,H or A,H
-08-012,8,Sun October 26,Packers,Steelers,0,0,4.5,H or A,A
-08-013,8,Mon October 27,Commanders,Chiefs,0,0,6.5,H or A,A
+08-001,8,Thu October 23,Vikings,Chargers,21,28,3.5,H or A,A
+08-002,8,Sun October 26,Bills,Panthers,42,21,7.5,H or A,H
+08-003,8,Sun October 26,Bears,Ravens,17,42,7.5,H or A,A
+08-004,8,Sun October 26,Browns,Patriots,10,13,5.5,H or A,A
+08-005,8,Sun October 26,Dolphins,Falcons,3,16,3.5,H or A,A
+08-006,8,Sun October 26,Giants,Eagles,41,42,1.5,H or A,H
+08-007,8,Sun October 26,Jets,Bengals,31,41,8.5,H or A,H
+08-008,8,Sun October 26,49ers,Texans,42,31,10.5,H or A,A
+08-009,8,Sun October 26,Buccaneers,Saints,21,28,3.5,H or A,H
+08-010,8,Sun October 26,Cowboys,Broncos,10,13,2.5,H or A,A
+08-011,8,Sun October 26,Titans,Colts,13,27,0.5,H or A,H
+08-012,8,Sun October 26,Packers,Steelers,24,31,4.5,H or A,A
+08-013,8,Mon October 27,Commanders,Chiefs,42,41,6.5,H or A,A
