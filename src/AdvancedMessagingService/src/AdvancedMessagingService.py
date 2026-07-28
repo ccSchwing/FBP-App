@@ -1,8 +1,6 @@
 import json
-from mailbox import Message
 import os
 import boto3
-from botocore import response
 from twilio.rest import Client
 from twilio.base.exceptions import TwilioRestException
 from typing import Dict, Any, Optional
@@ -26,6 +24,7 @@ class MessageType(Enum):
     PICKSHEET = "picksheet"
     GRIDSHEET = "gridsheet"
     WEEKLYWINNER = "weeklywinner"
+    ADHOC = "adhoc"
 
 
 @dataclass
@@ -439,6 +438,15 @@ class SMSService:
                         self._send_one(user["mobile_number"], content_generator, user_data, message_type)
                     return MessagingResponse(success=True, channel="sms", message_type=message_type,
                                             recipient=recipient, message_id=f"bulk:{len(users)}")
+                case MessageType.ADHOC: 
+                    users = self._get_all_sms_users(channel="sms")
+                    if not users:
+                        logger.info(f"No SMS users found for {message_type}")
+                    for user in users:
+                        user_data = {**data, "user_name": user.get("firstName") or user["mobile_number"]}
+                        self._send_one(user["mobile_number"], content_generator, user_data, message_type)
+                    return MessagingResponse(success=True, channel="sms", message_type=message_type,
+                                            recipient=recipient, message_id=f"bulk:{len(users)}")
                 case MessageType.WEEKLYWINNER:
                     winner_email = _get_winner()
                     winner_display_name = _get_user_display_name(winner_email) if winner_email else None
@@ -484,6 +492,27 @@ class SMSService:
             logger.warning("Failed to get user firstName", extra={"error": str(e), "mobile_number": mobile_number})
             return None
 
+    ##
+    # this function is used to send ad hoc sms messages to all users opted in to the given channel
+    ##
+    def _get_all_sms_users(self, channel: str) -> list:
+        """Scan DynamoDB for all users opted in to the given channel."""
+        users_table_name = os.environ.get('FBPUSERS_TABLE_NAME')
+        if not users_table_name:
+            logger.info("FBPUSERS_TABLE_NAME not set; no users found")
+            return []
+        try:
+            table = boto3.resource('dynamodb').Table(users_table_name)
+            items = table.scan(
+                ProjectionExpression='mobile_number, firstName'
+            ).get("Items", [])
+            return [u for u in items if u.get('mobile_number')]
+        except Exception as e:
+            logger.warning("DynamoDB scan failed for all users", extra={"error": str(e)})
+            return []
+    ##
+    # this function is used to get bulk users opted in to a specific message type for SMS
+    ##
     def _get_bulk_users(self, msg_type: MessageType, channel: str) -> list:
         """Scan DynamoDB for users opted in to SMS for the given message type."""
         opt_in_field_map = {
@@ -527,7 +556,9 @@ class SMSService:
         if len(digits) == 10:
             return f"+1{digits}"
         return f"+{digits}"
-
+    ##
+    # this function is used to send a single SMS message to a recipient
+    ##
     def _send_one(self, recipient: str, content_generator, data: Dict[str, Any], message_type: str) -> str:
         normalized = self._normalize_phone(recipient)
         if self._is_opted_out(normalized):
@@ -553,6 +584,7 @@ class SMSService:
             MessageType.PICKSHEET: self._picksheet_content,
             MessageType.GRIDSHEET: self._gridsheet_content,
             MessageType.WEEKLYWINNER: self._weekly_winner_content,
+            MessageType.ADHOC: self._adhoc_content,
         }
         generator = generators.get(msg_type)
         if not generator:
@@ -594,6 +626,23 @@ class SMSService:
                 f"{display_name} is this week's {self.company_name} winner for week {week}. Great job!\n"
                 f"Visit {self.base_url} to view results.\n"
                 f"FAQ: {self.base_url}/faq.html")
+    ##
+    # this function is used to generate the content for ad hoc SMS messages
+    # Read the message content from file called 'adhoc_message.txt'
+    ##
+    def _adhoc_content(self, data: Dict[str, Any]) -> str:
+        user_name = data.get('user_name', 'User')
+        try:
+            bucket = os.environ.get('ADHOC_MESSAGE_BUCKET', 'my-fbp.com')
+            key = os.environ.get('ADHOC_MESSAGE_KEY', 'adhoc_message.txt')
+            response = boto3.client('s3').get_object(Bucket=bucket, Key=key)
+            message_content = response['Body'].read().decode('utf-8')
+        except Exception as e:
+            logger.warning("Could not read adhoc_message.txt from S3", extra={"error": str(e)})
+            message_content = "You have a new message."
+
+        return (f"Hi {user_name},\n{message_content}\nBest regards,\n{self.company_name}\n")
+
 
 # ---------------------------------------------------------------------------
 # Lambda Handler
