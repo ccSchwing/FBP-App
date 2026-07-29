@@ -33,8 +33,8 @@ def _as_bool(value: str) -> bool:
 
 
 @tracer.capture_method
-@app.get(r"/getTeamRecord")
-def getTeamRecord() -> Response:
+@app.get(r"/updateTeamRecords")
+def updateTeamRecords() -> Response:
     logger.info("Fetching team records")
     try:
         dynamodb = boto3.resource("dynamodb")
