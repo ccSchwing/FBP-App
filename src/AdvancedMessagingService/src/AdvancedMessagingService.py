@@ -621,7 +621,9 @@ class SMSService:
 
     def _weekly_winner_content(self, data: Dict[str, Any]) -> str:
         display_name = data.get('display_name', 'the winner')
-        week=getCurrentWeek()
+        week=getCurrentWeek() 
+        if week is not None:
+            week=decimal.Decimal(week-1)
         return (f"Congratulations to {display_name}!\n"
                 f"{display_name} is this week's {self.company_name} winner for week {week}. Great job!\n"
                 f"Visit {self.base_url} to view results.\n"
