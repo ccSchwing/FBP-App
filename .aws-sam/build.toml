@@ -18,15 +18,6 @@ manifest_hash = ""
 packagetype = "Zip"
 functions = ["ChatBot"]
 
-[function_build_definitions.4e1eda8f-f03b-40b6-b801-a4c5da814202]
-codeuri = "/Users/ccs/projects/FBP/src/TeamRecord/src"
-runtime = "python3.12"
-architecture = "x86_64"
-handler = "TeamRecord.lambda_handler"
-manifest_hash = ""
-packagetype = "Zip"
-functions = ["TeamRecord"]
-
 [function_build_definitions.ee574275-80df-4a40-8c3d-6d17b187ea90]
 codeuri = "/Users/ccs/projects/FBP/src/GetTeamRecords/src"
 runtime = "python3.12"
@@ -296,6 +287,15 @@ handler = "ChatBotSync.export_dynamodb_to_kb"
 manifest_hash = ""
 packagetype = "Zip"
 functions = ["ChatBotSync"]
+
+[function_build_definitions.640ae548-5f45-44ed-bd86-63d55b976fa3]
+codeuri = "/Users/ccs/projects/FBP/src/UpdateTeamRecords/src"
+runtime = "python3.12"
+architecture = "x86_64"
+handler = "UpdateTeamRecords.lambda_handler"
+manifest_hash = ""
+packagetype = "Zip"
+functions = ["UpdateTeamRecords"]
 
 [layer_build_definitions.6ab25c37-c42c-4a0e-97e3-70cd5b9a311c]
 layer_name = "FBPLibLayer"
