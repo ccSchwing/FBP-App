@@ -27,18 +27,29 @@
   <style>
     table th,
     table td {
-      border: 1px solid black;
+      border: none;
+      border-bottom: 1px solid #e0e0e0;
+      padding: 5px 10px;
     }
 
     table {
       width: auto;
-      border: 2px solid black;
-      padding: 5px;
-      margin-top: 5px;
-      margin-bottom: 5px;
-      background-origin: padding-box;
       border-collapse: collapse;
-      border-color: black;
+      margin-top: 8px;
+      margin-bottom: 8px;
+      border-radius: 10px;
+      overflow: hidden;
+      box-shadow: 0 4px 18px rgba(0,0,0,0.13), 0 1.5px 4px rgba(76,175,80,0.08);
+      border: 1.5px solid #c8e6c9;
+    }
+
+    #picksheet tbody tr {
+      transition: background 0.15s, box-shadow 0.15s;
+    }
+
+    #picksheet tbody tr:hover {
+      background: rgba(76, 175, 80, 0.07) !important;
+      box-shadow: inset 3px 0 0 #4caf50;
     }
 
     @keyframes shimmer {
@@ -681,7 +692,7 @@ Press Cancel to go back and work on your picks before submitting.",
 
     async function loadPickSheetPage() {
       setLoadingSpinnerVisible(true);
-      await sleep(3000); // Add a slight delay to ensure the spinner is visible before loading data
+      await sleep(200); // Add a slight delay to ensure the spinner is visible before loading data
       try {
         setDiagnostics("");
         const picksBody = document.getElementById("picksBody");
