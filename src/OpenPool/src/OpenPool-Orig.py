@@ -12,7 +12,6 @@ logger.info("Initializing OpenPool Lambda function")  # Log initialization messa
 logger.setLevel(logging.INFO)
 logger.info("OpenPool Lambda function initialized successfully")
 
-lambda_client = boto3.client("lambda")
 
 # This lamdda function is responsible for all of the work needed to figure out who
 # won for the week.
@@ -20,20 +19,12 @@ lambda_client = boto3.client("lambda")
 # If it is still open, log an error and bail.  We don't want to calculate results while the pool is still open.
 # (This should have already been done by the SetPoolStatusClose Lambda, but we can be extra sure here.)
 # Calculate the weekly NFL results
+#
 # Update the weekly results in the database, including wins/losses for each user and determining the weekly winner.
-# Open the pool for the next week.
 # Send out the weekly results email to all users.
+# Open the pool for the next week.
 # That should do it.  : -)
 def openPool(event, context):
-    open_pool_status_check(event, context)
-    invoke_import_spreads_and_final_scores(event, context)
-    invoke_calc_weekly_results(event, context)
-    invoke_update_weekly_results(event, context)
-    invoke_advanced_messaging_service()
-    import_spreads_and_final_scores_for_new_week()
-    set_pool_open()
-
-def open_pool_status_check(event, context):
     # Make user that the pool is closed.
     # If not, bail and log an error.
     FBPConfigTableName = os.environ.get("FBPConfigTableName", "FBP-Config")
@@ -122,7 +113,6 @@ def open_pool_status_check(event, context):
     # This will allow the spreads and final scores to be in place by the time the users
     # start making their picks for the new week.
     ##
-def invoke_import_spreads_and_final_scores(event, context):
     powertools_event = {
         "version": "2.0",
         "routeKey": "GET /importSpreadsAndFinalScores",
@@ -145,6 +135,8 @@ def invoke_import_spreads_and_final_scores(event, context):
         },
         "isBase64Encoded": False,
     }
+
+    lambda_client = boto3.client("lambda")
 
     importSpreadsAndFinalScoresFunction = os.environ.get(
         "ImportSpreadsAndFinalScores", "ImportSpreadsAndFinalScores"
@@ -188,7 +180,7 @@ def invoke_import_spreads_and_final_scores(event, context):
                 }
             ),
         }
-def invoke_calc_weekly_results(event, context):
+
     powertools_event = {
         "version": "2.0",
         "routeKey": "GET /calcWeeklyResults",
@@ -276,10 +268,9 @@ def invoke_calc_weekly_results(event, context):
             ),
         }
 
-
     # Next, UpdateWeeklyResults -- this one will update the user's wins/losses and determine the
     # weekly winner.
-def invoke_update_weekly_results(event, context):
+
     powertools_event = {
         "version": "2.0",
         "routeKey": "GET /updateWeeklyResults",
@@ -386,128 +377,127 @@ def invoke_update_weekly_results(event, context):
 
     ## Call AdvancedMessagingService Lambda to send out the picksheet notification to
     # subscribed users.
-def invoke_advanced_messaging_service():
     def create_message_event(messaging_data):
 
-            return {
-                "version": "2.0",
-                "routeKey": "POST /advanced-messaging",
-                "rawPath": "/advanced-messaging",
-                "rawQueryString": "",
-                "headers": {"content-type": "application/json"},
-                "body": json.dumps(messaging_data),
-                "requestContext": {
-                    "http": {
-                        "method": "POST",
-                        "path": "/advanced-messaging",
-                        "protocol": "HTTP/1.1",
-                        "sourceIp": "127.0.0.1",
-                        "userAgent": "sam-local",
-                    },
-                    "routeKey": "POST /advanced-messaging",
-                    "stage": "$default",
+        return {
+            "version": "2.0",
+            "routeKey": "POST /advanced-messaging",
+            "rawPath": "/advanced-messaging",
+            "rawQueryString": "",
+            "headers": {"content-type": "application/json"},
+            "body": json.dumps(messaging_data),
+            "requestContext": {
+                "http": {
+                    "method": "POST",
+                    "path": "/advanced-messaging",
+                    "protocol": "HTTP/1.1",
+                    "sourceIp": "127.0.0.1",
+                    "userAgent": "sam-local",
                 },
-                "isBase64Encoded": False,
-            }
+                "routeKey": "POST /advanced-messaging",
+                "stage": "$default",
+            },
+            "isBase64Encoded": False,
+        }
 
     sendMessageFunction = os.environ.get(
-            "AdvancedMessagingService", "AdvancedMessagingService"
-        )
+        "AdvancedMessagingService", "AdvancedMessagingService"
+    )
 
-        ##
-        # First, send the picksheet notification to all subscribed users via SMS.
-        ##
+    ##
+    # First, send the picksheet notification to all subscribed users via SMS.
+    ##
     message_data = {"channel": "sms", "message_type": "picksheet"}
     sendMessageEvent = create_message_event(message_data)
 
     response = lambda_client.invoke(
-            FunctionName=sendMessageFunction,
-            InvocationType="RequestResponse",
-            Payload=json.dumps(sendMessageEvent),
-        )
+        FunctionName=sendMessageFunction,
+        InvocationType="RequestResponse",
+        Payload=json.dumps(sendMessageEvent),
+    )
     result = json.loads(response["Payload"].read())
     if not result.get("success"):
         logging.error(f"SendMessage failed: {result.get('error')}")
         fbpLog(
-                "fbpadmin@my-fbp.com",
-                "openPool",
-                f"SendMessage failed: {result.get('error')}",
-                "ERROR",
-            )
+            "fbpadmin@my-fbp.com",
+            "openPool",
+            f"SendMessage failed: {result.get('error')}",
+            "ERROR",
+        )
 
     logging.info(f"SendMessage Response: {response}")
     fbpLog(
         "fbpadmin@my-fbp.com", "openPool", f"SendMessage Response: {response}", "INFO"
-        )
-        ##
-        # Next, send the picksheet notification to all subscribed users via Email.
-        ##
+    )
+    ##
+    # Next, send the picksheet notification to all subscribed users via Email.
+    ##
     message_data = {"channel": "email", "message_type": "picksheet"}
     sendMessageEvent = create_message_event(message_data)
     response = lambda_client.invoke(
-            FunctionName=sendMessageFunction,
-            InvocationType="RequestResponse",
-            Payload=json.dumps(sendMessageEvent),
-        )
+        FunctionName=sendMessageFunction,
+        InvocationType="RequestResponse",
+        Payload=json.dumps(sendMessageEvent),
+    )
     logging.info(f"SendMessage Response: {response}")
     fbpLog(
         "fbpadmin@my-fbp.com", "openPool", f"SendMessage Response: {response}", "INFO"
     )
 
-        ##
-        # Send out weekly winner announcement to all SMS subscribers.
-        ##
+    ##
+    # Send out weekly winner announcement to all SMS subscribers.
+    ##
     message_data = {"channel": "sms", "message_type": "weeklywinner"}
     sendMessageEvent = create_message_event(message_data)
     response = lambda_client.invoke(
-            FunctionName=sendMessageFunction,
-            InvocationType="RequestResponse",
-            Payload=json.dumps(sendMessageEvent),
+        FunctionName=sendMessageFunction,
+        InvocationType="RequestResponse",
+        Payload=json.dumps(sendMessageEvent),
     )
-    result = json.loads(response["Payload"].read())
-    if not result.get("success"):
-            logging.error(f"SendMessage failed: {result.get('error')}")
-            fbpLog(
-                "fbpadmin@my-fbp.com",
-                "openPool",
-                f"SendMessage failed: {result.get('error')}",
-                "ERROR",
-            )
-
-    logging.info(f"SendMessage Response: {response}")
-    fbpLog(
-        "fbpadmin@my-fbp.com", "openPool", f"SendMessage Response: {response}", "INFO"
-    )
-        ##
-        # Send out weekly winner announcement to all Email subscribers.
-        ##
-    message_data = {"channel": "email", "message_type": "weeklywinner"}
-    sendMessageEvent = create_message_event(message_data)
-    response = lambda_client.invoke(
-            FunctionName=sendMessageFunction,
-            InvocationType="RequestResponse",
-            Payload=json.dumps(sendMessageEvent),
-        )
     result = json.loads(response["Payload"].read())
     if not result.get("success"):
         logging.error(f"SendMessage failed: {result.get('error')}")
         fbpLog(
-                "fbpadmin@my-fbp.com",
-                "openPool",
-                f"SendMessage failed: {result.get('error')}",
-                "ERROR",
-            )
+            "fbpadmin@my-fbp.com",
+            "openPool",
+            f"SendMessage failed: {result.get('error')}",
+            "ERROR",
+        )
 
     logging.info(f"SendMessage Response: {response}")
     fbpLog(
         "fbpadmin@my-fbp.com", "openPool", f"SendMessage Response: {response}", "INFO"
+    )
+    ##
+    # Send out weekly winner announcement to all Email subscribers.
+    ##
+    message_data = {"channel": "email", "message_type": "weeklywinner"}
+    sendMessageEvent = create_message_event(message_data)
+    response = lambda_client.invoke(
+        FunctionName=sendMessageFunction,
+        InvocationType="RequestResponse",
+        Payload=json.dumps(sendMessageEvent),
+    )
+    result = json.loads(response["Payload"].read())
+    if not result.get("success"):
+        logging.error(f"SendMessage failed: {result.get('error')}")
+        fbpLog(
+            "fbpadmin@my-fbp.com",
+            "openPool",
+            f"SendMessage failed: {result.get('error')}",
+            "ERROR",
         )
+
+    logging.info(f"SendMessage Response: {response}")
+    fbpLog(
+        "fbpadmin@my-fbp.com", "openPool", f"SendMessage Response: {response}", "INFO"
+    )
     ##
     # Call the ImportSpreadsAndFinalScores Lambda to import the spreads and final scores for the new week.
     # This will allow the spreads and final scores to be in place by the time the users
     # start making their picks for the new week.
     ##
-def set_pool_open():
+
     setPoolOpenFunction = os.environ.get("SetPoolStatusOpen", "SetPoolStatusOpen")
     powertools_event = {
         "version": "2.0",
@@ -570,7 +560,6 @@ def set_pool_open():
     # This will allow the spreads to be in place by the time the users
     # start making their picks for the new week.
     ##
-def import_spreads_and_final_scores_for_new_week():
     powertools_event = {
         "version": "2.0",
         "routeKey": "GET /importSpreadsAndFinalScores",
