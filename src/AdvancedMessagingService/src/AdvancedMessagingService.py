@@ -2,7 +2,6 @@ import json
 import os
 import boto3
 from twilio.rest import Client
-from twilio.base.exceptions import TwilioRestException
 from typing import Dict, Any, Optional
 from enum import Enum
 from dataclasses import dataclass, asdict
@@ -131,8 +130,7 @@ class EmailService:
 
     @tracer.capture_method
     def send(self, message_type: str, channel: str, recipient: Optional[str],
-             data: Dict[str, Any], reply_to: Optional[str] = None,
-             tags: Optional[Dict[str, str]] = None) -> MessagingResponse:
+             data: Dict[str, Any], reply_to: Optional[str] = None, tags: Optional[Dict[str, str]] = None) -> MessagingResponse:
 
         try:
             msg_enum = MessageType(message_type)
@@ -143,7 +141,7 @@ class EmailService:
                     if not recipient or '@' not in recipient:
                         raise ValueError("Valid recipient email is required for welcome emails")
                     data['user_name'] = self._get_user_first_name(recipient) or recipient
-                    msg_id = self._send_one(recipient, content_generator, data, reply_to, tags, message_type)
+                    msg_id = self._send_one(recipient, content_generator, data, message_type)
                     return MessagingResponse(success=True, channel="email", message_type=message_type,
                                             recipient=recipient, message_id=msg_id)
 
@@ -153,7 +151,7 @@ class EmailService:
                         logger.info("No reminder users found")
                     for user in users:
                         user_data = {**data, "user_name": user.get("firstName") or user["email"]}
-                        self._send_one(user["email"], content_generator, user_data, reply_to, tags, message_type)
+                        self._send_one(user["email"], content_generator, user_data, message_type)
                     return MessagingResponse(success=True, channel="email", message_type=message_type,
                                             recipient=recipient, message_id=f"bulk:{len(users)}")
 
@@ -163,7 +161,7 @@ class EmailService:
                         logger.info("No picksheet users found")
                     for user in users:
                         user_data = {**data, "user_name": user.get("firstName") or user["email"]}
-                        self._send_one(user["email"], content_generator, user_data, reply_to, tags, message_type)
+                        self._send_one(user["email"], content_generator, user_data, message_type)
                     return MessagingResponse(success=True, channel="email", message_type=message_type,
                                             recipient=recipient, message_id=f"bulk:{len(users)}")
 
@@ -173,7 +171,7 @@ class EmailService:
                         logger.info("No gridsheet users found")
                     for user in users:
                         user_data = {**data, "user_name": user.get("firstName") or user["email"]}
-                        self._send_one(user["email"], content_generator, user_data, reply_to, tags, message_type)
+                        self._send_one(user["email"], content_generator, user_data, message_type)
                     return MessagingResponse(success=True, channel="email", message_type=message_type,
                                             recipient=recipient, message_id=f"bulk:{len(users)}")
 
@@ -189,7 +187,17 @@ class EmailService:
                     if not users:
                         logger.info("No users found for weekly winner announcement")
                     for user in users:
-                        self._send_one(user["email"], content_generator, data, reply_to, tags, message_type)
+                        self._send_one(user["email"], content_generator, data, message_type)
+                    return MessagingResponse(success=True, channel="email", message_type=message_type,
+                                            recipient=recipient, message_id=f"bulk:{len(users)}")
+                case MessageType.ADHOC:
+                    users = _get_all_users(channel="email") or []
+                    if not users:
+                        logger.info(f"No email users found for {message_type}")
+                    else:
+                        for user in users:
+                            user_data = {**data, "user_name": user.get("firstName")}
+                            self._send_one(user["email"], content_generator, data, message_type)
                     return MessagingResponse(success=True, channel="email", message_type=message_type,
                                             recipient=recipient, message_id=f"bulk:{len(users)}")
                 case _:
@@ -243,8 +251,7 @@ class EmailService:
         logger.info("Unsupported channel; no bulk recipients")
         return []
 
-    def _send_one(self, recipient: str, content_generator, data: Dict[str, Any],
-                  reply_to: Optional[str], tags: Optional[Dict[str, str]], message_type: str) -> str:
+    def _send_one(self, recipient: str, content_generator, data: Dict[str, Any], message_type: str) -> str:
         subject, html_content, text_content = content_generator(data)
         send_args = {
             'Source': self.default_sender,
@@ -257,11 +264,6 @@ class EmailService:
                 }
             }
         }
-        if reply_to:
-            send_args['ReplyToAddresses'] = [reply_to]
-        if tags:
-            send_args['Tags'] = [{'Name': k, 'Value': v} for k, v in tags.items()]
-
         response = self.ses_client.send_email(**send_args)
         message_id = response['MessageId']
         logger.info("Email sent", extra={"message_id": message_id, "recipient": recipient, "message_type": message_type})
@@ -276,6 +278,7 @@ class EmailService:
             MessageType.PICKSHEET: self._picksheet_content,
             MessageType.GRIDSHEET: self._gridsheet_content,
             MessageType.WEEKLYWINNER: self._weeklywinner_content,
+            MessageType.ADHOC: self._adhoc_content,
         }
         generator = generators.get(msg_type)
         if not generator:
@@ -381,6 +384,25 @@ class EmailService:
                 f"Visit: {self.base_url}\nFAQ: {self.base_url}/faq.html\n\n"
                 f"Questions? {self.support_email}\n\nBest regards,\nThe {self.company_name} Team")
         return subject, html, text
+    ##
+    # this function is used to generate the content for ad hoc email messages
+    # Read the message content from file called 'adhoc_email_message.txt'
+    ##
+    def _adhoc_content(self, data: Dict[str, Any]) -> tuple:
+        user_name = data.get('user_name', 'User')
+        try:
+            bucket = os.environ.get('S3BucketName', 'my-fbp.com')
+            key = os.environ.get('ADHOC_EMAIL_MESSAGE_KEY', 'adhoc_email_message.html')
+            response = boto3.client('s3').get_object(Bucket=bucket, Key=key)
+            html_content = response['Body'].read().decode('utf-8')
+        except Exception as e:
+            logger.warning("Could not read adhoc_email_message.html from S3", extra={"error": str(e)})
+            html_content = f"<p>Hi {user_name}, you have a new message.</p>"
+        subject = f"A message from {self.company_name}"
+        text = f"Hi {user_name},\nBest regards,\n{self.company_name}"
+        return subject, html_content, text
+
+ 
 
 
 # ---------------------------------------------------------------------------
@@ -633,7 +655,7 @@ class SMSService:
     def _adhoc_content(self, data: Dict[str, Any]) -> str:
         user_name = data.get('user_name', 'User')
         try:
-            bucket = os.environ.get('ADHOC_MESSAGE_BUCKET', 'my-fbp.com')
+            bucket = os.environ.get('S3BucketName', 'my-fbp.com')
             key = os.environ.get('ADHOC_MESSAGE_KEY', 'adhoc_message.txt')
             response = boto3.client('s3').get_object(Bucket=bucket, Key=key)
             message_content = response['Body'].read().decode('utf-8')
@@ -676,9 +698,8 @@ def lambda_handler(event: Dict[str, Any], context) -> Dict[str, Any]:
                 recipient=recipient,
                 data=payload,
                 reply_to=payload.get('reply_to'),
-                channel=channel,
-                tags=payload.get('tags')
-            
+                tags=payload.get('tags'),
+                channel=channel
             )
         else:
             result = sms_service.send(
