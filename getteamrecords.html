@@ -5,8 +5,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <script src="/js-lib/oidc-client-ts.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
     <link rel="stylesheet" type="text/css" href="/css/styles.css" />
     <link rel="icon" type="image/png" href="/icon-blue-32.png" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery.tablesorter/2.31.3/js/jquery.tablesorter.min.js">
+    </script>
+
     <script type="module">
         import { auth } from "/js/auth.js";
         await auth.ensureAuthenticated();
@@ -25,63 +29,89 @@
     <script type="module">
         import { getServiceUrl } from "/js-lib/urlConfig.js";
         async function fetchTeamRecords() {
-            const urlKey = "getTeamRecords";
-            const serviceUrl = await getServiceUrl(urlKey);
-            const response = await fetch(serviceUrl, {
-                method: "GET",
-                headers: {
-                    "Content-Type": "application/json",
-                },
-            });
-            if (!response.ok) {
-                throw new Error(`Failed to fetch team records data with status ${response.status}`);
+            try {
+                const urlKey = "getTeamRecords";
+                const serviceUrl = await getServiceUrl(urlKey);
+                const response = await fetch(serviceUrl, {
+                    method: "GET",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                });
+                if (!response.ok) {
+                    throw new Error(`Failed to fetch team records data with status ${response.status}`);
+                }
+                const data = await response.json();
+                if (!data) {
+                    throw new Error("Received empty data for team records.");
+                }
+                console.log("Fetched team records data:", data);
+                const parsed = JSON.parse(data.body);
+                const list = parsed.items ?? parsed;
+                console.log("Parsed team records data:", parsed);
+                console.log("Parsed list of records data:", list);
+                return list.sort((a, b) => a.TeamName.localeCompare(b.TeamName)); // Sort by team name
+            } catch (error) {
+                const logsOutput = document.getElementById('logsOutput');
+                logsOutput.textContent = `Error fetching team records`;
             }
-            const data = await response.json();
-            if (!data) {
-                throw new Error("Received empty data for team records.");
-            }
-            console.log("Fetched team records data:", data);
-            const parsed = JSON.parse(data.body);
-            const list = parsed.items ?? parsed;
-            console.log("Parsed team records data:", parsed);
-            console.log("Parsed list of records data:", list);
-            return list.sort((a, b) => a.TeamName.localeCompare(b.TeamName)); // Sort by team name
         }
 
-        function createTeamRecordsTable(teamRecordsData) {
-            if (!teamRecordsData || teamRecordsData.length === 0) {
-                return "<p>No team records data available.</p>";
+        function displayLogsInTable(data) {
+            const logData = data;
+            if (!logData) {
+                alert("No log data available to display.");
+                return;
             }
-            let tableHTML = `<table id="teamRecordsTable">
-                <thead>
-                    <tr>
-                        <th>Team</th>
-                        <th>Games Played</th>
-                        <th>Wins As Favorite</th>
-                        <th>Losses As Favorite</th>
-                        <th>Wins As Underdog</th>
-                        <th>Losses As Underdog</th>
-                    </tr>
-                </thead>
-                <tbody>`;
-            teamRecordsData.forEach((record) => {
-                tableHTML += `<tr>
-                    <td>${record.TeamName}</td>
-                    <td>${record.GamesPlayed}</td>
-                    <td>${record.FavoriteWins}</td>
-                    <td>${record.FavoriteLosses}</td>
-                    <td>${record.UnderdogWins}</td>
-                    <td>${record.UnderdogLosses}</td>
-                </tr>`;
+
+            // Clear existing content
+            const logsOutput = document.getElementById('logsOutput');
+            logsOutput.innerHTML = '';
+
+            // Create table
+            const table = document.createElement("table");
+            table.id = "teamRecordsTable";
+            table.className = "tablesorter";
+            table.style.marginLeft = "20px";
+            const thead = document.createElement('thead');
+            const tbody = document.createElement('tbody');
+
+            // Define table headers based on log properties
+            const headers = ['Team', 'Games Played', 'Wins As Favorite', 'Losses As Favorite',
+                'Wins As Underdog', 'Losses As Underdog'];
+            const headerRow = document.createElement('tr');
+            headers.forEach(header => {
+                const th = document.createElement('th');
+                th.textContent = header;
+                headerRow.appendChild(th);
             });
-            tableHTML += "</tbody></table>";
-            return tableHTML;
+            thead.appendChild(headerRow);
+            table.appendChild(thead);
+
+            // Populate table rows with log data
+            const dataHeaders=['TeamName', 'GamesPlayed', 'FavoriteWins', 'FavoriteLosses', 'UnderdogWins', 'UnderdogLosses'];
+            logData.forEach(log => {
+                const row = document.createElement('tr');
+                dataHeaders.forEach(header => {
+                    const td = document.createElement('td');
+                    td.textContent = log[header] || '';
+                    row.appendChild(td);
+                });
+                tbody.appendChild(row);
+            });
+            table.appendChild(tbody);
+            logsOutput.appendChild(table);
+
+            // Enable click-to-sort behavior on each column header.
+            if ($.fn.tablesorter) {
+                $("#teamRecordsTable").tablesorter();
+            }
         }
 
         document.addEventListener("DOMContentLoaded", async () => {
             try {
                 const teamRecordsData = await fetchTeamRecords();
-                document.getElementById("team-records-table-container").innerHTML = createTeamRecordsTable(teamRecordsData);
+                await displayLogsInTable(teamRecordsData);
             } catch (error) {
                 console.error("Error fetching team records:", error);
                 alert("Failed to load team records data. Please try again later.");
@@ -89,6 +119,29 @@
         });
     </script>
     <style>
+        #logsOutput table th,
+        #logsOutput table td {
+            border: 1px solid black;
+        }
+
+        #logsOutput table {
+            width: auto;
+            border: 2px solid black;
+            padding: 5px;
+            margin-top: 5px;
+            margin-bottom: 5px;
+            background-origin: padding-box;
+            border-collapse: collapse;
+            border-color: black;
+        }
+
+        #logsOutput table th {
+            background-color: #4caf50;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
         #teamRecordsTable {
             border-collapse: collapse;
             border: 2px solid black;
@@ -136,7 +189,11 @@
             <!-- populated by nav.js -->
         </aside>
         <main class="results-main">
+            <div class="callout">Click any column header to sort the table.</div>
             <div id="team-records-table-container"></div>
+            <div id="logsResult">
+                <pre id="logsOutput" style="margin-left: 20px;">No logs loaded yet.</pre>
+            </div>
         </main>
     </div>
     <div id="chat-widget">
