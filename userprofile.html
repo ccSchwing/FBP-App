@@ -473,6 +473,7 @@
                 <span>Email Gridsheet</span>
               </span>
             </label>
+            <div class="callout">Enter your mobile number below - Enter only numbers.  Formatting is automatic.</div>
           </div>
         </div>
         <section id="smsOptin" class="phone-verification-card" aria-labelledby="mobileVerificationTitle">
@@ -484,8 +485,9 @@
           <p id="mobileVerificationMessage" class="phone-verification-message">Add a mobile number to enable SMS
             notifications.</p>
           <div class="phone-verification-row">
-            <input type="text" name="MobileNumber" id="MobileNumber" maxlength="15" size="15"
-              placeholder="(999) 999-9999" pattern="\(\d{3}\) \d{3}-\d{4}" />
+            <input type="text" name="MobileNumber" id="MobileNumber" maxlength="14" size="15"
+              placeholder="(999) 999-9999" pattern="\(\d{3}\) \d{3}-\d{4}"
+              oninput="this.value = window.formatPhoneNumber(this.value)" />
           </div>
           <div class="phone-verification-row">
             <label for="sendSMSVerificationCodeBtn">Send Verification Code:</label>
