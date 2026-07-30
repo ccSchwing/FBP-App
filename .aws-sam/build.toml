@@ -18,25 +18,7 @@ manifest_hash = ""
 packagetype = "Zip"
 functions = ["ChatBot"]
 
-[function_build_definitions.f3a7d69a-b998-4117-84e6-2ed85ba10bc8]
-codeuri = "/Users/ccs/projects/FBP/src/ChatBotSync/src"
-runtime = "python3.12"
-architecture = "x86_64"
-handler = "ChatBotSync.export_dynamodb_to_kb"
-manifest_hash = ""
-packagetype = "Zip"
-functions = ["ChatBotSync"]
-
-[function_build_definitions.987f8450-c298-44ac-a573-7cedd5104f62]
-codeuri = "/Users/ccs/projects/FBP/src/TeamRecord/src"
-runtime = "python3.12"
-architecture = "x86_64"
-handler = "TeamRecord.lambda_handler"
-manifest_hash = ""
-packagetype = "Zip"
-functions = ["TeamRecord"]
-
-[function_build_definitions.f146fd70-8033-44c7-a0d6-96b5b65b5a7c]
+[function_build_definitions.ee574275-80df-4a40-8c3d-6d17b187ea90]
 codeuri = "/Users/ccs/projects/FBP/src/GetTeamRecords/src"
 runtime = "python3.12"
 architecture = "x86_64"
@@ -297,7 +279,25 @@ manifest_hash = ""
 packagetype = "Zip"
 functions = ["GetAllFBPPicks"]
 
-[layer_build_definitions.120bf39d-4dfe-47c6-9e31-f8eb6fcfb44e]
+[function_build_definitions.2e94b8fb-f1eb-453a-b3a6-a84a84a1faa1]
+codeuri = "/Users/ccs/projects/FBP/src/ChatBotSync/src"
+runtime = "python3.12"
+architecture = "x86_64"
+handler = "ChatBotSync.export_dynamodb_to_kb"
+manifest_hash = ""
+packagetype = "Zip"
+functions = ["ChatBotSync"]
+
+[function_build_definitions.640ae548-5f45-44ed-bd86-63d55b976fa3]
+codeuri = "/Users/ccs/projects/FBP/src/UpdateTeamRecords/src"
+runtime = "python3.12"
+architecture = "x86_64"
+handler = "UpdateTeamRecords.lambda_handler"
+manifest_hash = ""
+packagetype = "Zip"
+functions = ["UpdateTeamRecords"]
+
+[layer_build_definitions.6ab25c37-c42c-4a0e-97e3-70cd5b9a311c]
 layer_name = "FBPLibLayer"
 codeuri = "/Users/ccs/projects/FBP/src/FBPLib-Layer"
 build_method = "python3.12"

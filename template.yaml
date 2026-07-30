@@ -272,12 +272,12 @@ Resources:
             Method: OPTIONS
             PayloadFormatVersion: '2.0'
 
-  TeamRecord:
+  UpdateTeamRecords:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: !Sub ${AWS::StackName}-team-record
-      CodeUri: src/TeamRecord/src/
-      Handler: TeamRecord.lambda_handler
+      FunctionName: !Sub ${AWS::StackName}-update-team-records
+      CodeUri: src/UpdateTeamRecords/src/
+      Handler: UpdateTeamRecords.lambda_handler
       Runtime: python3.12
       Layers:
         - !Ref FBPLibLayer
@@ -301,14 +301,14 @@ Resources:
           Type: HttpApi
           Properties:
             ApiId: !Ref MyHttpApi
-            Path: /getTeamRecord
+            Path: /updateTeamRecords
             Method: get
             PayloadFormatVersion: '2.0'
         TeamRecordOptionsApi:
           Type: HttpApi
           Properties:
             ApiId: !Ref MyHttpApi
-            Path: /getTeamRecord
+            Path: /updateTeamRecords
             Method: OPTIONS
             PayloadFormatVersion: '2.0'
   GetTeamRecords:
