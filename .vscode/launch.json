@@ -410,14 +410,14 @@
       ]
     },
     {
-      "name": "Python: Attach to AdvancedMessagingService AdHoc SMS",
+      "name": "Python: Attach to AdvancedMessagingService AdHoc SMS or Email",
       "type": "debugpy",
       "request": "attach",
       "connect": {
         "host": "localhost",
         "port": 5678
       },
-          "preLaunchTask": "Attach to AdvancedMessagingService AdHoc SMS",
+          "preLaunchTask": "Attach to AdvancedMessagingService AdHoc SMS or Email",
           "postDebugTask": "Cleanup",
       "pathMappings": [
         {
