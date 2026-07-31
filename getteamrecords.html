@@ -27,6 +27,21 @@
         await getUserStatus();
     </script>
     <script type="module">
+        import { getCurrentWeek } from "/js-lib/fbpUtils.js";
+        // Removed local getCurrentWeek function since it's now imported from fbpUtils.js
+
+        document.addEventListener("DOMContentLoaded", async () => {
+            try {
+                const currentWeek = await getCurrentWeek();
+                document.getElementById("current-week").textContent = currentWeek;
+                console.log("Current week data:", currentWeek);
+            } catch (error) {
+                console.error("Error fetching current week data:", error);
+                alert("Failed to load current week data. Please try again later.");
+            }
+        });
+    </script>
+    <script type="module">
         import { getServiceUrl } from "/js-lib/urlConfig.js";
         async function fetchTeamRecords() {
             try {
@@ -89,7 +104,7 @@
             table.appendChild(thead);
 
             // Populate table rows with log data
-            const dataHeaders=['TeamName', 'GamesPlayed', 'FavoriteWins', 'FavoriteLosses', 'UnderdogWins', 'UnderdogLosses'];
+            const dataHeaders = ['TeamName', 'GamesPlayed', 'FavoriteWins', 'FavoriteLosses', 'UnderdogWins', 'UnderdogLosses'];
             logData.forEach(log => {
                 const row = document.createElement('tr');
                 dataHeaders.forEach(header => {
@@ -189,6 +204,7 @@
             <!-- populated by nav.js -->
         </aside>
         <main class="results-main">
+            <div class="callout">Current Week: <span id="current-week"></span></div>
             <div class="callout">Click any column header to sort the table.</div>
             <div id="team-records-table-container"></div>
             <div id="logsResult">

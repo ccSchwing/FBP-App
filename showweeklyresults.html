@@ -35,6 +35,20 @@
     await getUserStatus();
   </script>
   <script type="module">
+    import { getCurrentWeek } from "/js-lib/fbpUtils.js";
+
+    document.addEventListener("DOMContentLoaded", async () => {
+      try {
+        const currentWeek = await getCurrentWeek();
+        document.getElementById("current-week").textContent = currentWeek;
+        console.log("Current week data:", currentWeek);
+      } catch (error) {
+        console.error("Error fetching current week data:", error);
+        alert("Failed to load current week data. Please try again later.");
+      }
+    });
+  </script>
+  <script type="module">
     import { export2txt } from "/js-lib/picksheetUtils.js";
     async function setGridStatus(message, type = "success") {
       const statusDiv = document.getElementById("gridStatus");
@@ -156,6 +170,7 @@
       <!-- populated by nav.js -->
     </aside>
     <main class="results-main">
+      <div class="callout">Current Week: <span id="current-week"></span></div>
       <table id="resultsTable">
         <thead>
           <tr>

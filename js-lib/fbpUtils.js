@@ -1,3 +1,26 @@
+import { getServiceUrl } from "/js-lib/urlConfig.js";
+export async function getCurrentWeek() {
+    const { getServiceUrl } = await import("/js-lib/urlConfig.js");
+    const urlKey = "getCurrentWeek";
+    const serviceUrl = await getServiceUrl(urlKey);
+    const response = await fetch(serviceUrl, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify({}),
+    });
+    if (!response.ok) {
+        throw new Error(`Failed to fetch current week data with status ${response.status}`);
+    }
+    const data = await response.json();
+    if (!data) {
+        throw new Error("Received empty data for current week.");
+    }
+    console.log("Fetched current week data:", data);
+    return data;
+}
+
  async function getPoolStatus() {
         try {
           const { getServiceUrl } = await import("/js-lib/urlConfig.js");

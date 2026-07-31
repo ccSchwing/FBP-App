@@ -272,6 +272,39 @@ Resources:
             Method: OPTIONS
             PayloadFormatVersion: '2.0'
 
+  GetCurrentWeek:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-get-current-week
+      CodeUri: src/GetCurrentWeek/src/
+      Handler: GetCurrentWeek.lambda_handler
+      Runtime: python3.12
+      Layers:
+        - !Ref FBPLibLayer
+      Environment:
+        Variables:
+          FBPConfigTableName: !Ref FBPConfigTableName
+          FBPLogsTableName: !Ref FBPLogsTableName
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref FBPConfigTableName
+        - DynamoDBCrudPolicy:
+            TableName: !Ref FBPLogsTableName
+      Events:
+        GetCurrentWeekPostApi:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref MyHttpApi
+            Path: /getCurrentWeek
+            Method: post
+            PayloadFormatVersion: '2.0'
+        GetCurrentWeekOptionsApi:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref MyHttpApi
+            Path: /getCurrentWeek
+            Method: OPTIONS
+            PayloadFormatVersion: '2.0'
   UpdateTeamRecords:
     Type: AWS::Serverless::Function
     Properties:

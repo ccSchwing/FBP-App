@@ -15,6 +15,20 @@
     import { auth } from "/js/auth.js";
     await auth.ensureAuthenticated();
   </script>
+  <script type="module">
+    import { getCurrentWeek } from "/js-lib/fbpUtils.js";
+
+    document.addEventListener("DOMContentLoaded", async () => {
+      try {
+        const currentWeek = await getCurrentWeek();
+        document.getElementById("current-week").textContent = currentWeek;
+        console.log("Current week data:", currentWeek);
+      } catch (error) {
+        console.error("Error fetching current week data:", error);
+        alert("Failed to load current week data. Please try again later.");
+      }
+    });
+  </script>
 </head>
 
 <body class="fbp-admin">
@@ -31,6 +45,7 @@
     </aside>
     <main class="results-main">
       <p>Welcome to the FBP Admin Dashboard</p>
+      <div class="callout">Current Week: <span id="current-week"></span></div>
     </main>
   </div>
   <div id="chat-widget">
