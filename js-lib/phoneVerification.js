@@ -1,7 +1,7 @@
 import { getServiceUrl } from "/js-lib/urlConfig.js";
 
 const DEFAULT_MESSAGES = {
-  "not-set": "Add a mobile number to enable SMS notifications.",
+  "not-set": "Add a mobile number to enable SMS notifications. Digits only.  Formatting is automatic.",
   pending: "Verify this number to enable SMS notifications.",
   verified: "This mobile number is verified.",
 };
