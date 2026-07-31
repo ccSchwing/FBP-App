@@ -34,3 +34,4 @@ updateSMSVerification:https://75ocw0wrsd.execute-api.us-east-1.amazonaws.com/pro
 advancedEmail:https://75ocw0wrsd.execute-api.us-east-1.amazonaws.com/prod/advanced-email
 getTeamRecords:https://75ocw0wrsd.execute-api.us-east-1.amazonaws.com/prod/getTeamRecords
 chatbot:https://75ocw0wrsd.execute-api.us-east-1.amazonaws.com/prod/chatbot
+getCurrentWeek:https://75ocw0wrsd.execute-api.us-east-1.amazonaws.com/prod/getCurrentWeek
