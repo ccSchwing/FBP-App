@@ -6,6 +6,7 @@ from weasyprint import HTML
 
 s3_client = boto3.client('s3')
 BUCKET_NAME = os.environ.get('S3BucketName', 'my-fbp.com')
+CLOUDFRONT_DOMAIN = os.environ.get('CloudFrontDomain')
 
 def lambda_handler(event, context):
     # Get HTML content from the event body
@@ -27,18 +28,13 @@ def lambda_handler(event, context):
         ExtraArgs={'ContentType': 'application/pdf'}
     )
 
-    # Generate a pre-signed URL for download (valid for 1 hour)
-    presigned_url = s3_client.generate_presigned_url(
-        'get_object',
-        Params={'Bucket': BUCKET_NAME, 'Key': output_key},
-        ExpiresIn=3600
-    )
+    download_url = f'https://{CLOUDFRONT_DOMAIN}/{output_key}'
 
     return {
         'statusCode': 200,
         'body': json.dumps({
             'message': 'PDF generated successfully!',
-            'download_url': presigned_url,
+            'download_url': download_url,
             's3_key': output_key
         })
     }

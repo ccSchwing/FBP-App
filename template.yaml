@@ -46,6 +46,9 @@ Parameters:
   FBPPayoutLedgerTableName:
     Type: String
     Default: FBP-Payout-Ledger
+  CloudFrontDomain:
+    Type: String
+    Default: my-fbp.com
   PdfLoggingBucketName:
     Type: String
     Default: fbp-pdf-logging
@@ -184,6 +187,7 @@ Resources:
           FONTCONFIG_PATH: /opt/fonts
           FONTCONFIG_FILE: /opt/fonts/fonts.conf
           LD_LIBRARY_PATH: /opt/lib
+          CloudFrontDomain: !Ref CloudFrontDomain
       Policies:
         - Version: '2012-10-17'
           Statement:
