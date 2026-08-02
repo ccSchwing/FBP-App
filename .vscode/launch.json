@@ -461,6 +461,23 @@
       ]
     },
     {
+      "name": "Python: Attach to HTMLtoPDF",
+      "type": "debugpy",
+      "request": "attach",
+      "connect": {
+        "host": "localhost",
+        "port": 5678
+      },
+      "preLaunchTask": "Attach to HTMLtoPDF",
+      "postDebugTask": "Cleanup",
+      "pathMappings": [
+        {
+          "localRoot": "${workspaceFolder}/src/HTMLtoPDF/src",
+          "remoteRoot": "/var/task"
+        }
+      ]
+    },
+    {
       "name": "Python: Attach to ChatBotSync",
       "type": "debugpy",
       "request": "attach",
