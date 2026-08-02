@@ -2,6 +2,8 @@ AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
 Globals:
   Function:
+    Architectures:
+      - arm64
     Timeout: 30
     MemorySize: 512
     Environment:
@@ -44,6 +46,9 @@ Parameters:
   FBPPayoutLedgerTableName:
     Type: String
     Default: FBP-Payout-Ledger
+  PdfLoggingBucketName:
+    Type: String
+    Default: fbp-pdf-logging
   FBPWeeklyResultsWeekIndexName:
     Type: String
     Default: WeekIndex
@@ -150,6 +155,55 @@ Resources:
           Properties:
             ApiId: !Ref MyHttpApi
             Path: /twilio-webhook
+            Method: OPTIONS
+            PayloadFormatVersion: '2.0'
+  WeasyprintLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      LayerName: weasyprint-layer
+      Description: WeasyPrint HTML to PDF
+      ContentUri: weasyprint-layer/weasyprint-layer.zip
+      CompatibleRuntimes:
+        - python3.12
+      CompatibleArchitectures:
+        - arm64
+  HTMLtoPDF:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-html-to-pdf
+      CodeUri: src/HTMLtoPDF/src/
+      Handler: HTMLtoPDF.lambda_handler
+      Runtime: python3.12
+      Layers:
+        - !Ref FBPLibLayer
+        - !Ref WeasyprintLayer
+      Environment:
+        Variables:
+          S3BucketName: !Ref S3BucketName
+          PDFLoggingBucket: !Ref PdfLoggingBucketName
+      Policies:
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - s3:PutObject
+                - s3:GetObject
+              Resource:
+                - !Sub arn:aws:s3:::${S3BucketName}/*
+                - !Sub arn:aws:s3:::${PdfLoggingBucketName}/*
+      Events:
+        HTMLtoPDFPostApi:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref MyHttpApi
+            Path: /html-to-pdf
+            Method: post
+            PayloadFormatVersion: '2.0'
+        HTMLtoPDFOptionsApi:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref MyHttpApi
+            Path: /html-to-pdf
             Method: OPTIONS
             PayloadFormatVersion: '2.0'
   ChatBot:
@@ -1810,8 +1864,6 @@ Resources:
       CodeUri: src/GetAllFBPPicks/src/
       Handler: GetAllFBPPicks.lambda_handler
       Runtime: python3.12
-      Architectures:
-        - x86_64
       Layers:
         - !Ref FBPLibLayer
       Policies:
@@ -1865,6 +1917,16 @@ Outputs:
     Value: !Ref MyHttpApi
     Export:
       Name: !Sub ${AWS::StackName}-HttpApiId
+  HtmlToPdfFunctionName:
+    Description: Name of the HtmlToPdf Lambda function
+    Value: !Ref HTMLtoPDF
+    Export:
+      Name: !Sub ${AWS::StackName}-HtmlToPdf
+  HtmlToPdfEndpoint:
+    Description: Endpoint for the HtmlToPdf API
+    Value: !Sub https://${MyHttpApi}.execute-api.${AWS::Region}.amazonaws.com/htmlToPdf
+    Export:
+      Name: !Sub ${AWS::StackName}-HtmlToPdfEndpoint
   ChatBotFunctionName:
     Description: Name of the ChatBot Lambda function
     Value: !Ref ChatBot
