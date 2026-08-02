@@ -181,6 +181,9 @@ Resources:
         Variables:
           S3BucketName: !Ref S3BucketName
           PDFLoggingBucket: !Ref PdfLoggingBucketName
+          FONTCONFIG_PATH: /opt/fonts
+          FONTCONFIG_FILE: /opt/fonts/fonts.conf
+          LD_LIBRARY_PATH: /opt/lib
       Policies:
         - Version: '2012-10-17'
           Statement:

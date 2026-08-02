@@ -5,7 +5,7 @@ import tempfile
 from weasyprint import HTML
 
 s3_client = boto3.client('s3')
-BUCKET_NAME = os.environ.get('OUTPUT_BUCKET', 'your-pdf-output-bucket')
+BUCKET_NAME = os.environ.get('S3BucketName', 'my-fbp.com')
 
 def lambda_handler(event, context):
     # Get HTML content from the event body
