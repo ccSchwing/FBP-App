@@ -203,14 +203,14 @@ Resources:
           Type: HttpApi
           Properties:
             ApiId: !Ref MyHttpApi
-            Path: /html-to-pdf
+            Path: /htmlToPdf
             Method: post
             PayloadFormatVersion: '2.0'
         HTMLtoPDFOptionsApi:
           Type: HttpApi
           Properties:
             ApiId: !Ref MyHttpApi
-            Path: /html-to-pdf
+            Path: /htmlToPdf
             Method: OPTIONS
             PayloadFormatVersion: '2.0'
   ChatBot:
