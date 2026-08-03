@@ -48,7 +48,7 @@
 
     @media (max-width: 768px) {
       .pick-img {
-        width: 25p;
+        width: 25px;
         height: 25px;
       }
     }
@@ -126,6 +126,7 @@
     document.addEventListener("DOMContentLoaded", async () => {
       try {
         const currentWeek = await getCurrentWeek();
+        window.currentWeek = currentWeek; 
         document.getElementById("current-week").textContent = currentWeek;
         console.log("Current week data:", currentWeek);
       } catch (error) {
@@ -343,11 +344,11 @@
       const body = JSON.parse(data.body);
       console.log("Response from HTML to PDF API:", response.status, body);
       alert(`PDF generated successfully. Download URL: ${body.download_url}`);
-      window.open(body.download_url, '_blank');
     }
     document.addEventListener("DOMContentLoaded", async () => {
       await loadGridSheet();
-      await generatePDF(document.documentElement.outerHTML, "gridsheet.pdf");
+      const fileName = `gridsheet_week_${window.currentWeek}.pdf`;
+      await generatePDF(document.documentElement.outerHTML, fileName);
     });
 
   </script>
