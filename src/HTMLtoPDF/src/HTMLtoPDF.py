@@ -10,18 +10,19 @@ CLOUDFRONT_DOMAIN = os.environ.get('CloudFrontDomain')
 PDF_DIR="pdfs"
 
 def lambda_handler(event, context):
-    # Get HTML content from the event body
     body = json.loads(event.get('body', '{}'))
-    html_content = body.get('html', '<h1>Sorry, Dave, I\'m afraid I can\'t do that.</h1>')
-    output_key = body.get('filename', f'output.pdf')
-    destination= f'{PDF_DIR}/{output_key}' 
-
-    # Write PDF to /tmp (Lambda's writable directory)
+    url = body.get('url')
+    html_content = body.get('html')
+    output_key = body.get('filename', 'output.pdf')
+    destination = f'{PDF_DIR}/{output_key}'
     tmp_pdf_path = f'/tmp/{output_key}'
 
-
-    # Convert HTML to PDF using WeasyPrint
-    HTML(string=html_content).write_pdf(tmp_pdf_path)
+    if url:
+        HTML(url=url).write_pdf(tmp_pdf_path)
+    elif html_content:
+        HTML(string=html_content).write_pdf(tmp_pdf_path)
+    else:
+        return {'statusCode': 400, 'body': json.dumps({'error': 'Provide either url or html'})}
 
     # Upload PDF to S3
     s3_client.upload_file(
