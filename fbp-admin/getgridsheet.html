@@ -155,23 +155,6 @@
   </div>
   <script type="module">
     import { getServiceUrl } from "/js-lib/urlConfig.js";
-
-    /* function setInfoBanner(message = "") {
-      const bannerEl = document.getElementById("infoBanner");
-      if (!bannerEl) {
-        return;
-      }
-
-      if (!message) {
-        bannerEl.textContent = "";
-        bannerEl.style.display = "none";
-        return;
-      }
-
-      bannerEl.textContent = message;
-      bannerEl.style.display = "block";
-    }
-    */
     function setDiagnostics(message = "") {
       const bannerEl = document.getElementById("diagnosticsBanner");
       if (!bannerEl) {
@@ -276,7 +259,7 @@
       if (!tableBody) {
         return;
       }
-
+      const domain = "https://my-fbp.com";
       tableBody.innerHTML = "";
       rows.forEach((userPick) => {    // userPick.picks is a string of team names separated by spaces, in the same order as the games in the schedule data.
         const row = document.createElement("tr");
@@ -289,7 +272,7 @@
 
         pickList.forEach((teamName, i) => {
           const img = document.createElement("img");
-          img.src = `/images/${teamName}.gif`;
+          img.src = `${domain}/images/${teamName}.gif`;
           img.alt = teamName;
           img.className = "pick-img";
 
@@ -320,10 +303,6 @@
         row.appendChild(tieBreakerCell);
         tableBody.appendChild(row);
       });
-      /* setInfoBanner(
-        "Hover over each pick to see the team name and spread for the game.",
-      );
-      */
     }
 
     async function loadGridSheet() {
@@ -351,7 +330,27 @@
       }
     }
 
-    document.addEventListener("DOMContentLoaded", loadGridSheet);
+
+    async function generatePDF(html, filename) {
+
+      const apiEndpoint = await getServiceUrl("htmlToPdf");
+      const response = await fetch(`${apiEndpoint}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ html, filename })
+      });
+      const data = await response.json();
+      const body = JSON.parse(data.body);
+      console.log("Response from HTML to PDF API:", response.status, body);
+      alert(`PDF generated successfully. Download URL: ${body.download_url}`);
+      window.open(body.download_url, '_blank');
+    }
+    document.addEventListener("DOMContentLoaded", async () => {
+      await loadGridSheet();
+      await generatePDF(document.documentElement.outerHTML, "gridsheet.pdf");
+    });
+
   </script>
 </body>
+
 </html>

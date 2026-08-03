@@ -3,17 +3,30 @@ import boto3
 import os
 import tempfile
 from weasyprint import HTML
+from botocore.client import Config as CORSConfig
+from aws_lambda_powertools.event_handler import APIGatewayHttpResolver, Response
+from aws_lambda_powertools.event_handler.api_gateway import CORSConfig
+
+cors_config = CORSConfig(
+    allow_origin="*",  # Or specify your domain like "https://yourdomain.com"
+    allow_headers=["Content-Type", "X-Amz-Date", "Authorization", "X-Api-Key", "X-Amz-Security-Token"],
+    max_age=86400,  # Cache preflight for 24 hours
+    allow_credentials=False
+)
+
+app=APIGatewayHttpResolver(cors=cors_config)
 
 s3_client = boto3.client('s3')
 BUCKET_NAME = os.environ.get('S3BucketName', 'my-fbp.com')
 CLOUDFRONT_DOMAIN = os.environ.get('CloudFrontDomain')
 PDF_DIR="pdfs"
 
-def lambda_handler(event, context):
-    body = json.loads(event.get('body', '{}'))
-    url = body.get('url')
-    html_content = body.get('html')
-    output_key = body.get('filename', 'output.pdf')
+@app.post("/htmlToPdf")
+def htmlToPdf():
+    request_body = app.current_event.json_body
+    url = request_body.get('url')
+    html_content = request_body.get('html')
+    output_key = request_body.get('filename', 'output.pdf')
     destination = f'{PDF_DIR}/{output_key}'
     tmp_pdf_path = f'/tmp/{output_key}'
 
@@ -42,3 +55,6 @@ def lambda_handler(event, context):
             's3_key': destination
         })
     }
+
+def lambda_handler(event, context):
+    return app.resolve(event, context)
