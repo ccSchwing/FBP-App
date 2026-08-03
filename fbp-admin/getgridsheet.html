@@ -347,7 +347,8 @@
     }
     document.addEventListener("DOMContentLoaded", async () => {
       await loadGridSheet();
-      const fileName = `gridsheet_week_${window.currentWeek}.pdf`;
+      const yearStr = String(new Date().getFullYear());
+      const fileName = `gridsheet_week_${window.currentWeek}_${yearStr}.pdf`;
       await generatePDF(document.documentElement.outerHTML, fileName);
     });
 
